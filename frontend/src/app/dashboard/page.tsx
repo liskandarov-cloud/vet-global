@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Download, FileText, RotateCcw } from 'lucide-react';
+import { Download, FileText, RotateCcw, CreditCard } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth, useCart } from '@/lib/store';
@@ -53,6 +53,22 @@ function BuyerContent() {
     downloadBlob(data, `invoice-${id.slice(0, 8)}.pdf`, 'application/pdf');
   };
 
+  const pay = async (orderId: string, provider: string) => {
+    try {
+      const { data } = await api.post('/payments', { orderId, provider });
+      if (data.mock) {
+        await api.post(`/payments/${data.id}/mock-confirm`);
+        toast.success('Оплата прошла (демо)');
+        load();
+      } else {
+        window.open(data.paymentUrl, '_blank');
+        toast.info('Открыта страница оплаты');
+      }
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Ошибка оплаты');
+    }
+  };
+
   const exportExcel = async () => {
     const { data } = await api.get('/orders/export', { responseType: 'blob' });
     downloadBlob(data, 'orders.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
@@ -86,7 +102,10 @@ function BuyerContent() {
                 <td>{new Date(o.createdAt).toLocaleDateString('ru-RU')}</td>
                 <td><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs">{STATUS_LABELS[o.status]}</span></td>
                 <td className="font-semibold">{formatMoney(o.total)}</td>
-                <td className="flex gap-2 py-2">
+                <td className="flex items-center gap-2 py-2">
+                  {o.status === 'PENDING' && (
+                    <PayControl onPay={(provider) => pay(o.id, provider)} />
+                  )}
                   <button className="btn-ghost !px-2 !py-1" onClick={() => repeat(o)} title="Повторить"><RotateCcw size={15} /></button>
                   <button className="btn-ghost !px-2 !py-1" onClick={() => invoice(o.id)} title="Счёт PDF"><FileText size={15} /></button>
                 </td>
@@ -110,6 +129,22 @@ function BuyerContent() {
         {txs.length === 0 && <div className="py-6 text-center text-ink-subtle">Пока нет операций</div>}
       </div>
     </div>
+  );
+}
+
+function PayControl({ onPay }: { onPay: (provider: string) => void }) {
+  const [provider, setProvider] = useState('CLICK');
+  return (
+    <span className="inline-flex items-center gap-1">
+      <select className="input !h-8 !w-auto !px-1 text-xs" value={provider} onChange={(e) => setProvider(e.target.value)}>
+        <option value="CLICK">Click</option>
+        <option value="PAYME">Payme</option>
+        <option value="UZUM">UZUM</option>
+      </select>
+      <button className="btn-primary !px-2 !py-1 text-xs" onClick={() => onPay(provider)} title="Оплатить">
+        <CreditCard size={14} /> Оплатить
+      </button>
+    </span>
   );
 }
 

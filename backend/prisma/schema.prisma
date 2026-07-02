@@ -65,6 +65,20 @@ enum ConsultStatus {
   CLOSED
 }
 
+enum PaymentProvider {
+  CLICK
+  PAYME
+  UZUM
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
 // Animal species a product targets (ТЗ 6.1 фильтр «Животное»).
 enum AnimalType {
   POULTRY // птица
@@ -225,6 +239,7 @@ model Order {
   items        OrderItem[]
   invoice      Invoice?
   shipment     Shipment?
+  payments     Payment[]
 
   @@index([buyerId])
   @@index([status])
@@ -284,6 +299,25 @@ model Shipment {
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
+  @@index([status])
+}
+
+// ─────────────────────────────── Payments ───────────────────────────────
+
+model Payment {
+  id             String          @id @default(uuid())
+  orderId        String
+  provider       PaymentProvider
+  amount         Decimal         @db.Decimal(12, 2)
+  status         PaymentStatus   @default(PENDING)
+  providerTransId String? // id транзакции у провайдера
+  paymentUrl     String? // ссылка на оплату (checkout)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId])
   @@index([status])
 }
 
