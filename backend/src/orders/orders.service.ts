@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PdfService } from '../documents/pdf.service';
+import { NotificationsService } from '../mail/notifications.service';
 
 @Injectable()
 export class OrdersService {
@@ -16,6 +17,7 @@ export class OrdersService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly pdf: PdfService,
+    private readonly notifications: NotificationsService,
   ) {
     this.commissionPct = Number(config.get('PLATFORM_COMMISSION_PERCENT') ?? 12);
     this.earnPct = Number(config.get('VETPOINTS_EARN_PERCENT') ?? 1);
@@ -107,7 +109,9 @@ export class OrdersService {
       return created;
     });
 
-    // TODO(phase-2): notify seller + admin via Telegram/Email (SRS 4.2).
+    // Notify buyer + sellers + admin (fire-and-forget; email failures must not break checkout).
+    void this.notifications.onOrderCreated(order.id).catch(() => undefined);
+    // TODO(phase-2): Telegram routing to seller/admin (SRS 4.2).
     return this.serialize(order);
   }
 
@@ -175,6 +179,7 @@ export class OrdersService {
       }
     }
 
+    void this.notifications.onOrderStatusChanged(id, status).catch(() => undefined);
     return this.getOne(id, user);
   }
 
