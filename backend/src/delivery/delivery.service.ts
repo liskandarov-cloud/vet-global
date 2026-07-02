@@ -2,6 +2,15 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { DeliveryMethod, ShipmentStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { SmsService } from '../sms/sms.service';
+
+const SHIP_RU: Record<ShipmentStatus, string> = {
+  PENDING: 'ожидает отгрузки',
+  ASSIGNED: 'назначен перевозчик',
+  IN_TRANSIT: 'в пути',
+  DELIVERED: 'доставлено',
+  RETURNED: 'возврат',
+};
 
 export interface ShipmentDto {
   method?: DeliveryMethod;
@@ -18,7 +27,10 @@ export interface ShipmentDto {
 
 @Injectable()
 export class DeliveryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly sms: SmsService,
+  ) {}
 
   async upsert(orderId: string, dto: ShipmentDto, user: AuthUser) {
     await this.assertOrderAccess(orderId, user, true);
@@ -53,6 +65,14 @@ export class DeliveryService {
     const existing = await this.prisma.shipment.findUnique({ where: { orderId } });
     if (!existing) throw new NotFoundException('Shipment not found');
     const shipment = await this.prisma.shipment.update({ where: { orderId }, data: { status } });
+
+    // Notify buyer of the logistics change by SMS (ТЗ 3.4).
+    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    if (order?.buyerPhone) {
+      void this.sms
+        .send(order.buyerPhone, `VetGlobal: доставка заказа #${orderId.slice(0, 8)} — ${SHIP_RU[status]}`)
+        .catch(() => undefined);
+    }
     return this.serialize(shipment);
   }
 

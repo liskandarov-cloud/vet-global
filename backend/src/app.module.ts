@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { StorageModule } from './storage/storage.module';
 import { DocumentsModule } from './documents/documents.module';
 import { MailModule } from './mail/mail.module';
+import { SmsModule } from './sms/sms.module';
 import { LeadsModule } from './leads/leads.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { DidoxModule } from './didox/didox.module';
@@ -28,6 +29,7 @@ import { AppController } from './app.controller';
     PrismaModule,
     StorageModule,
     DocumentsModule,
+    SmsModule,
     MailModule,
     LeadsModule,
     TelegramModule,

@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from './mail.service';
+import { SmsService } from '../sms/sms.service';
 
 const STATUS_RU: Record<OrderStatus, string> = {
   PENDING: 'Новый',
@@ -50,6 +51,7 @@ export class NotificationsService {
     private readonly prisma: PrismaService,
     private readonly mail: MailService,
     private readonly config: ConfigService,
+    private readonly sms: SmsService,
   ) {}
 
   // Fire-and-forget: notify buyer (if registered), each involved seller, and admin.
@@ -156,19 +158,28 @@ export class NotificationsService {
 
   async onOrderStatusChanged(orderId: string, status: OrderStatus): Promise<void> {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
-    if (!order?.buyerId) return;
-    const buyer = await this.prisma.user.findUnique({ where: { id: order.buyerId } });
-    if (!buyer?.email) return;
-
+    if (!order) return;
     const shortId = order.id.slice(0, 8);
-    await this.mail.send({
-      to: buyer.email,
-      subject: `Заказ #${shortId}: ${STATUS_RU[status]} — VetGlobal`,
-      html: layout(
-        `Статус заказа обновлён`,
-        `<p style="color:#475569">Заказ <b>#${shortId}</b> теперь в статусе:</p>
-         <p style="font-size:16px;color:#0d9488"><b>${STATUS_RU[status]}</b></p>`,
-      ),
-    });
+
+    // SMS to the buyer's phone (transactional — ТЗ 3.4 / SRS).
+    if (order.buyerPhone) {
+      await this.sms.send(order.buyerPhone, `VetGlobal: заказ #${shortId} — ${STATUS_RU[status]}`);
+    }
+
+    // Email (only for registered buyers with an email).
+    if (order.buyerId) {
+      const buyer = await this.prisma.user.findUnique({ where: { id: order.buyerId } });
+      if (buyer?.email) {
+        await this.mail.send({
+          to: buyer.email,
+          subject: `Заказ #${shortId}: ${STATUS_RU[status]} — VetGlobal`,
+          html: layout(
+            `Статус заказа обновлён`,
+            `<p style="color:#475569">Заказ <b>#${shortId}</b> теперь в статусе:</p>
+             <p style="font-size:16px;color:#0d9488"><b>${STATUS_RU[status]}</b></p>`,
+          ),
+        });
+      }
+    }
   }
 }
