@@ -7,22 +7,29 @@ import { api } from '@/lib/api';
 import { RoleGuard, StatCard } from '@/components/RoleGuard';
 import { formatMoney } from '@/lib/utils';
 
+const LEAD_STATUS: Record<string, string> = { NEW: 'Новая', CONTACTED: 'В работе', CLOSED: 'Закрыта' };
+
 function AdminContent() {
-  const [tab, setTab] = useState<'overview' | 'users' | 'reviews'>('overview');
+  const [tab, setTab] = useState<'overview' | 'users' | 'reviews' | 'leads'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
+  const [leads, setLeads] = useState<any[]>([]);
 
   const load = () => {
     api.get('/admin/stats').then((r) => setStats(r.data)).catch(() => {});
     api.get('/admin/users').then((r) => setUsers(r.data.users));
     api.get('/reviews/pending').then((r) => setReviews(r.data)).catch(() => {});
+    api.get('/leads').then((r) => setLeads(r.data)).catch(() => {});
   };
   useEffect(load, []);
+
+  const newLeads = leads.filter((l) => l.status === 'NEW').length;
 
   const verify = async (id: string) => { await api.patch(`/admin/users/${id}/verify`, { isVerified: true }); toast.success('Подтверждён'); load(); };
   const ban = async (id: string, isBanned: boolean) => { await api.patch(`/admin/users/${id}/ban`, { isBanned }); toast.success(isBanned ? 'Заблокирован' : 'Разблокирован'); load(); };
   const approve = async (id: string) => { await api.patch(`/reviews/${id}/approve`, { isApproved: true }); toast.success('Опубликован'); load(); };
+  const setLeadStatus = async (id: string, status: string) => { await api.patch(`/leads/${id}`, { status }); load(); };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -36,7 +43,7 @@ function AdminContent() {
       </div>
 
       <div className="mt-8 flex gap-2 border-b border-slate-200">
-        {[['overview', 'Обзор'], ['users', `Пользователи${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `Отзывы${reviews.length ? ` (${reviews.length})` : ''}`]].map(([k, l]) => (
+        {[['overview', 'Обзор'], ['leads', `Заявки${newLeads ? ` (${newLeads})` : ''}`], ['users', `Пользователи${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `Отзывы${reviews.length ? ` (${reviews.length})` : ''}`]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>{l}</button>
         ))}
@@ -108,6 +115,32 @@ function AdminContent() {
             </div>
           ))}
           {reviews.length === 0 && <div className="py-10 text-center text-ink-subtle">Нет отзывов на модерации</div>}
+        </div>
+      )}
+
+      {tab === 'leads' && (
+        <div className="mt-6 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-ink-subtle">
+              <tr className="border-b border-slate-100"><th className="py-2">Дата</th><th>Источник</th><th>Клиент</th><th>Товар</th><th>Статус</th></tr>
+            </thead>
+            <tbody>
+              {leads.map((l) => (
+                <tr key={l.id} className="border-b border-slate-50">
+                  <td className="py-2">{new Date(l.createdAt).toLocaleDateString('ru-RU')}</td>
+                  <td><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs">{l.source === 'TELEGRAM' ? 'Telegram' : 'Сайт'}</span></td>
+                  <td>{l.fullName}<div className="text-xs text-ink-subtle">{l.phone}</div></td>
+                  <td>{l.productName ?? '—'}{l.quantity ? ` × ${l.quantity}` : ''}</td>
+                  <td>
+                    <select className="input !h-9 !w-auto" value={l.status} onChange={(e) => setLeadStatus(l.id, e.target.value)}>
+                      {Object.entries(LEAD_STATUS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                    </select>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {leads.length === 0 && <div className="py-10 text-center text-ink-subtle">Заявок пока нет</div>}
         </div>
       )}
     </div>

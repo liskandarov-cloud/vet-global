@@ -33,6 +33,17 @@ enum VetPointsType {
   ADJUSTMENT
 }
 
+enum LeadSource {
+  WEB
+  TELEGRAM
+}
+
+enum LeadStatus {
+  NEW
+  CONTACTED
+  CLOSED
+}
+
 // Animal species a product targets (ТЗ 6.1 фильтр «Животное»).
 enum AnimalType {
   POULTRY // птица
@@ -282,6 +293,29 @@ model Promotion {
 
   @@index([sellerId])
   @@index([isActive])
+}
+
+// ─────────────────────────────── Leads / CRM ───────────────────────────────
+
+// Sales lead — from the Telegram bot ("оставить заявку") or a web request.
+// Lands in the admin CRM (ТЗ 6.11 / SRS 4.5). Kept FK-free on purpose (snapshots).
+model Lead {
+  id          String     @id @default(uuid())
+  source      LeadSource @default(WEB)
+  fullName    String
+  phone       String
+  message     String?
+  productId   String?
+  productName String?
+  sellerId    String? // routed seller, if the lead came from a product
+  quantity    Int?
+  status      LeadStatus @default(NEW)
+  note        String? // admin's internal note
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
 }
 
 // ─────────────────────────────── Blog ───────────────────────────────

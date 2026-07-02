@@ -99,6 +99,41 @@ export class NotificationsService {
     }
   }
 
+  // New CRM lead (from Telegram bot or web form) → admin + routed seller.
+  async onLeadCreated(leadId: string): Promise<void> {
+    const lead = await this.prisma.lead.findUnique({ where: { id: leadId } });
+    if (!lead) return;
+
+    const body = `
+      <p style="color:#475569">Источник: <b>${lead.source}</b></p>
+      <table style="width:100%;border-collapse:collapse;font-size:14px;margin:12px 0">
+        <tr><td style="padding:4px 0;color:#94a3b8">Имя</td><td style="padding:4px 0;color:#0f172a">${lead.fullName}</td></tr>
+        <tr><td style="padding:4px 0;color:#94a3b8">Телефон</td><td style="padding:4px 0;color:#0f172a">${lead.phone}</td></tr>
+        ${lead.productName ? `<tr><td style="padding:4px 0;color:#94a3b8">Товар</td><td style="padding:4px 0;color:#0f172a">${lead.productName}${lead.quantity ? ` × ${lead.quantity}` : ''}</td></tr>` : ''}
+        ${lead.message ? `<tr><td style="padding:4px 0;color:#94a3b8">Сообщение</td><td style="padding:4px 0;color:#0f172a">${lead.message}</td></tr>` : ''}
+      </table>`;
+
+    const adminEmail = this.config.get<string>('ADMIN_EMAIL');
+    if (adminEmail) {
+      await this.mail.send({
+        to: adminEmail,
+        subject: `Новая заявка от ${lead.fullName} — VetGlobal`,
+        html: layout('Новая заявка (CRM)', body),
+      });
+    }
+
+    if (lead.sellerId) {
+      const seller = await this.prisma.user.findUnique({ where: { id: lead.sellerId } });
+      if (seller?.email) {
+        await this.mail.send({
+          to: seller.email,
+          subject: `Заявка на ваш товар — VetGlobal`,
+          html: layout('Заявка на ваш товар', body),
+        });
+      }
+    }
+  }
+
   async onOrderStatusChanged(orderId: string, status: OrderStatus): Promise<void> {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order?.buyerId) return;
