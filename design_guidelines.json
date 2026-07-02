@@ -1,0 +1,140 @@
+{
+  "identity": {
+    "name": "VetGlobal",
+    "persona": "E1: The Anti-AI Designer",
+    "archetype": "Bio-Tech Precision",
+    "vibe": "Clinical Trust meets Organic Vitality"
+  },
+  "typography": {
+    "headings": {
+      "family": "Manrope, sans-serif",
+      "weights": ["600", "800"],
+      "usage": "Use for all section titles, hero text, and card headers. Tight tracking (-0.02em).",
+      "cdn_import": "@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap');"
+    },
+    "body": {
+      "family": "Public Sans, sans-serif",
+      "weights": ["400", "500", "600"],
+      "usage": "Use for all paragraphs, UI labels, and data tables. Excellent legibility for small text.",
+      "cdn_import": "@import url('https://fonts.googleapis.com/css2?family=Public+Sans:wght@400;500;600&display=swap');"
+    }
+  },
+  "colors": {
+    "palette": {
+      "primary": {
+        "DEFAULT": "#0D9488",
+        "foreground": "#FFFFFF",
+        "description": "Teal-600. Use for primary actions, active states, and brand identity."
+      },
+      "secondary": {
+        "DEFAULT": "#F97316",
+        "foreground": "#FFFFFF",
+        "description": "Orange-500. Use for 'Urgent' actions, promotions, and high-contrast CTAs."
+      },
+      "background": {
+        "DEFAULT": "#F8FAFC",
+        "paper": "#FFFFFF",
+        "dark": "#0F172A"
+      },
+      "text": {
+        "primary": "#0F172A",
+        "secondary": "#475569",
+        "muted": "#94A3B8"
+      },
+      "border": {
+        "DEFAULT": "#E2E8F0",
+        "subtle": "#F1F5F9"
+      }
+    },
+    "gradients": {
+      "brand": "bg-gradient-to-r from-teal-600 to-emerald-500",
+      "surface": "bg-gradient-to-br from-slate-50 to-teal-50/30",
+      "glow": "bg-gradient-to-tr from-teal-500/20 via-emerald-500/10 to-transparent"
+    }
+  },
+  "layout_strategies": {
+    "marketing": {
+      "grid": "Mode A: The Tetris Grid",
+      "spacing": "Generous (p-12 to p-24)",
+      "container": "max-w-7xl mx-auto",
+      "rules": [
+        "Never center text by default on landing pages.",
+        "Use asymmetry to create tension.",
+        "Overlap elements using negative margins (-mt-12) to break the grid."
+      ]
+    },
+    "dashboard": {
+      "grid": "Mode B: The Control Room",
+      "spacing": "Compact (p-4 to p-6)",
+      "container": "w-full px-4",
+      "rules": [
+        "Use white cards with subtle borders (border-slate-200).",
+        "Dense data tables with Public Sans font.",
+        "No gradients on data surfaces, only on summary widgets."
+      ]
+    }
+  },
+  "components": {
+    "buttons": {
+      "primary": "bg-gradient-to-r from-teal-600 to-emerald-500 text-white shadow-lg shadow-teal-900/20 hover:shadow-teal-900/30 hover:-translate-y-0.5 transition-all duration-300 rounded-lg font-semibold tracking-wide",
+      "secondary": "bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 hover:border-slate-300 transition-all duration-200 rounded-lg font-medium",
+      "ghost": "text-slate-600 hover:text-teal-700 hover:bg-teal-50 rounded-lg transition-colors"
+    },
+    "cards": {
+      "feature": "bg-white border border-slate-100 shadow-xl shadow-slate-200/50 rounded-2xl p-8 hover:border-teal-100 transition-colors group relative overflow-hidden",
+      "product": "bg-white border border-slate-200 rounded-xl overflow-hidden hover:shadow-lg hover:shadow-slate-200/50 transition-all duration-300 group",
+      "stat": "bg-white border border-slate-100 rounded-xl p-6 shadow-sm relative overflow-hidden"
+    },
+    "inputs": {
+      "default": "bg-white border-slate-200 focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 rounded-lg h-11 transition-all"
+    }
+  },
+  "visual_enhancers": {
+    "glassmorphism": "backdrop-blur-xl bg-white/80 border-b border-white/20 shadow-sm",
+    "noise": "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)' opacity='0.05'/%3E%3C/svg%3E\")",
+    "shadows": {
+      "soft": "0 4px 20px -2px rgba(15, 23, 42, 0.05)",
+      "glow": "0 0 40px -10px rgba(13, 148, 136, 0.3)"
+    }
+  },
+  "assets": {
+    "images": {
+      "hero_main": "https://images.unsplash.com/photo-1559056749-afb9dc6647ba?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "category_poultry": "https://images.unsplash.com/photo-1697545698404-46828377ae9d?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "product_generic": "https://images.unsplash.com/photo-1547908068-35ea7b47a21d?crop=entropy&cs=srgb&fm=jpg&q=85",
+      "clinic_interior": "https://images.pexels.com/photos/19921278/pexels-photo-19921278.jpeg",
+      "logo_placeholder": "https://via.placeholder.com/150x50?text=VetGlobal"
+    },
+    "icons": "Use lucide-react. Preferred icons: Activity, ShieldCheck, Sprout, Beaker, Truck, Users."
+  },
+  "motion": {
+    "library": "framer-motion (Recommended) or tailwindcss-animate",
+    "principles": [
+      "Stagger children animations for lists (0.05s delay).",
+      "Use spring physics for interactions (stiffness: 300, damping: 30).",
+      "Page transitions: Opacity fade + slight Y-axis slide (10px)."
+    ]
+  },
+  "accessibility": {
+    "contrast": "Ensure text-slate-600+ on slate-50 backgrounds.",
+    "focus": "Visible focus rings using focus:ring-teal-500.",
+    "aria": "All interactive elements must have aria-labels if no text is present."
+  },
+  "instructions_to_main_agent": [
+    "1. INSTALLATION: Run 'npm install framer-motion clsx tailwind-merge' if not present.",
+    "2. FONTS: Add the Google Fonts imports to index.css immediately.",
+    "3. THEME: Update tailwind.config.js with the colors defined in this JSON.",
+    "4. LAYOUT: Implement the 'Tetris Grid' for the Landing Page using CSS Grid.",
+    "5. COMPONENTS: Build a reusable 'ProductCard' and 'StatCard' first.",
+    "6. DATA-TESTID: Add data-testid attributes to all buttons, inputs, and links (e.g., data-testid='login-btn').",
+    "7. DO NOT use default HTML select/date inputs. Use Shadcn/Radix primitives.",
+    "8. BILINGUAL: Prepare all text strings to be wrapped in a translation function (mock it for now)."
+  ],
+  "universal_guidelines": [
+    "Avoid generic centered layouts.",
+    "Use 2-3x more spacing than typical (p-12 instead of p-4).",
+    "Every interaction needs a micro-animation.",
+    "Never use pure black (#000000). Use Slate-900 (#0F172A).",
+    "Glassmorphism requires backdrop-blur-xl, not just opacity."
+  ]
+}

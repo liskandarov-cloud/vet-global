@@ -1,0 +1,310 @@
+// VetGlobal — B2B veterinary marketplace data model.
+// PostgreSQL + Prisma. Derived from the legacy FastAPI models + «Первичное ТЗ» + SRS.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─────────────────────────────── Enums ───────────────────────────────
+
+enum UserRole {
+  BUYER
+  SELLER
+  ADMIN
+}
+
+enum OrderStatus {
+  PENDING
+  CONFIRMED
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+}
+
+enum VetPointsType {
+  EARNED
+  SPENT
+  ADJUSTMENT
+}
+
+// Animal species a product targets (ТЗ 6.1 фильтр «Животное»).
+enum AnimalType {
+  POULTRY // птица
+  CATTLE // КРС
+  SMALL_RUMINANTS // МРС
+  HORSES // лошади
+  PETS // кошки/собаки
+  OTHER
+}
+
+// ─────────────────────────────── Users ───────────────────────────────
+
+model User {
+  id              String   @id @default(uuid())
+  email           String   @unique
+  passwordHash    String
+  fullName        String
+  phone           String
+  company         String?
+  inn             String? // ИНН основного юрлица (быстрый доступ)
+  role            UserRole @default(BUYER)
+  isVerified      Boolean  @default(false) // продавец подтверждён админом
+  isBanned        Boolean  @default(false)
+  vetPointsBalance Decimal @default(0) @db.Decimal(12, 2)
+
+  // Seller-facing aggregates
+  rating       Decimal @default(0) @db.Decimal(3, 2)
+  reviewsCount Int     @default(0)
+  description  String? // о компании-поставщике
+  logoUrl      String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  counterparties     Counterparty[]
+  products           Product[]           @relation("SellerProducts")
+  orders             Order[]             @relation("BuyerOrders")
+  reviews            Review[]
+  vetPointsLedger    VetPointsTransaction[]
+  promotions         Promotion[]
+  blogPosts          BlogPost[]
+  sellerLicenses     SellerDocument[]
+
+  @@index([role])
+  @@index([role, isVerified])
+}
+
+// Multiple legal entities a buyer can order on behalf of (SRS 4.4 / Checkout 4.2).
+model Counterparty {
+  id          String  @id @default(uuid())
+  userId      String
+  name        String // название юрлица
+  inn         String
+  mfo         String? // МФО банка
+  bankAccount String? // расчётный счёт
+  address     String?
+  isDefault   Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  orders Order[]
+
+  @@index([userId])
+}
+
+// Verification documents (licenses / certificates) uploaded by a seller (admin moderation).
+model SellerDocument {
+  id         String   @id @default(uuid())
+  sellerId   String
+  title      String
+  fileUrl    String
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  seller User @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@index([sellerId])
+}
+
+// ─────────────────────────────── Catalog ───────────────────────────────
+
+model Category {
+  id     String  @id @default(uuid())
+  name   String
+  nameUz String
+  slug   String  @unique
+  icon   String?
+
+  products Product[]
+
+  @@index([slug])
+}
+
+model Product {
+  id             String      @id @default(uuid())
+  name           String
+  nameUz         String?
+  description    String
+  descriptionUz  String?
+  categoryId     String
+  price          Decimal     @db.Decimal(12, 2)
+  activeSubstance String?
+  manufacturer   String?
+  form           String? // форма выпуска
+  animalType     AnimalType?
+  inStock        Boolean     @default(true)
+  minOrder       Int         @default(1) // минимальный объём / квант отгрузки
+  images         String[]    @default([])
+  certificates   String[]    @default([]) // URLs PDF-сертификатов
+  isPromotion    Boolean     @default(false)
+  promotionText  String?
+  isNew          Boolean     @default(false)
+  rating         Decimal     @default(0) @db.Decimal(3, 2)
+  reviewsCount   Int         @default(0)
+
+  sellerId String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  category   Category    @relation(fields: [categoryId], references: [id])
+  seller     User        @relation("SellerProducts", fields: [sellerId], references: [id], onDelete: Cascade)
+  reviews    Review[]
+  orderItems OrderItem[]
+  promotions Promotion[]
+
+  @@index([categoryId])
+  @@index([sellerId])
+  @@index([manufacturer])
+  @@index([animalType])
+  @@index([isPromotion])
+}
+
+// ─────────────────────────────── Orders ───────────────────────────────
+
+model Order {
+  id             String      @id @default(uuid())
+  buyerId        String? // null = гостевой заказ
+  counterpartyId String?
+  buyerName      String
+  buyerPhone     String
+  buyerCompany   String?
+  status         OrderStatus @default(PENDING)
+
+  subtotal        Decimal @db.Decimal(12, 2) // сумма позиций
+  vetPointsUsed   Decimal @default(0) @db.Decimal(12, 2)
+  total           Decimal @db.Decimal(12, 2) // к оплате = subtotal - vetPointsUsed
+  vetPointsEarned Decimal @default(0) @db.Decimal(12, 2)
+  commission      Decimal @default(0) @db.Decimal(12, 2) // комиссия платформы
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  buyer        User?         @relation("BuyerOrders", fields: [buyerId], references: [id])
+  counterparty Counterparty? @relation(fields: [counterpartyId], references: [id])
+  items        OrderItem[]
+  invoice      Invoice?
+
+  @@index([buyerId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id          String  @id @default(uuid())
+  orderId     String
+  productId   String
+  productName String // снимок названия на момент заказа
+  sellerId    String // для маршрутизации заказа продавцу
+  quantity    Int
+  price       Decimal @db.Decimal(12, 2)
+
+  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id])
+
+  @@index([orderId])
+  @@index([sellerId])
+  @@index([productId])
+}
+
+// PDF-счёт, сформированный после подтверждения заказа (ТЗ 6.3).
+model Invoice {
+  id        String   @id @default(uuid())
+  orderId   String   @unique
+  number    String   @unique // человекочитаемый номер счёта
+  fileUrl   String? // ссылка на PDF в S3
+  amount    Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────── Loyalty ───────────────────────────────
+
+model VetPointsTransaction {
+  id          String        @id @default(uuid())
+  userId      String
+  amount      Decimal       @db.Decimal(12, 2) // + начислено / - списано
+  type        VetPointsType
+  description String
+  orderId     String?
+  createdAt   DateTime      @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+// ─────────────────────────────── Reviews ───────────────────────────────
+
+model Review {
+  id         String   @id @default(uuid())
+  productId  String
+  buyerId    String
+  buyerName  String
+  rating     Int // 1..5 (валидируется в DTO/сервисе)
+  comment    String
+  isApproved Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  buyer   User    @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, buyerId]) // один отзыв на товар от покупателя
+  @@index([productId])
+  @@index([isApproved])
+}
+
+// ─────────────────────────────── Promotions ───────────────────────────────
+
+model Promotion {
+  id              String   @id @default(uuid())
+  sellerId        String
+  productId       String?
+  title           String
+  description     String?
+  discountPercent Int      @default(0)
+  startsAt        DateTime @default(now())
+  endsAt          DateTime?
+  isActive        Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  seller  User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([sellerId])
+  @@index([isActive])
+}
+
+// ─────────────────────────────── Blog ───────────────────────────────
+
+model BlogPost {
+  id         String   @id @default(uuid())
+  title      String
+  titleUz    String?
+  content    String
+  contentUz  String?
+  slug       String   @unique
+  excerpt    String?
+  metaTitle  String?
+  metaDesc   String?
+  image      String?
+  authorId   String
+  authorName String
+  published  Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([slug])
+  @@index([published])
+}

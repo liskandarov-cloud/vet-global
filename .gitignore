@@ -1,0 +1,39 @@
+# dependencies
+node_modules/
+.pnp
+.pnp.js
+
+# builds
+dist/
+build/
+.next/
+out/
+
+# env
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# prisma
+backend/prisma/*.db
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# os / editor
+.DS_Store
+.idea/
+.vscode/
+*.swp
+
+# docker volumes (if bind-mounted locally)
+.data/
+
+# legacy reference (kept in repo but ignore its build artifacts)
+legacy/**/node_modules/
+legacy/**/__pycache__/
+legacy/**/*.pyc
