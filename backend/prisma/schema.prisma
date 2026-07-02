@@ -276,6 +276,9 @@ model Invoice {
   // Didox ЭДО (SRS 3.1): id документа в Didox и его статус (DRAFT/SENT/SIGNED/REJECTED)
   didoxId     String?
   didoxStatus String?
+  // E-imzo (ЭЦП): PKCS#7-подпись документа и время подписания
+  signature String?
+  signedAt  DateTime?
   createdAt DateTime @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)

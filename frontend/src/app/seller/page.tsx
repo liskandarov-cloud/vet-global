@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { RoleGuard, StatCard, STATUS_LABELS } from '@/components/RoleGuard';
 import { Category, Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
+import { signWithEimzo } from '@/lib/eimzo';
 
 const EMPTY = {
   name: '', description: '', categoryId: '', price: 0, activeSubstance: '', manufacturer: '',
@@ -67,6 +68,17 @@ function SellerContent() {
     const { data } = await api.get(`/didox/status/${id}`);
     toast.success(`Статус Didox: ${DIDOX_LABELS[data.didoxStatus] ?? data.didoxStatus ?? '—'}`);
     load();
+  };
+  const signEimzo = async (id: string) => {
+    try {
+      const { data } = await api.get(`/eimzo/prepare/${id}`);
+      const pkcs7 = await signWithEimzo(data.documentBase64);
+      await api.post(`/eimzo/sign/${id}`, { pkcs7 });
+      toast.success('Документ подписан ЭЦП (E-imzo)');
+      load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Ошибка подписания');
+    }
   };
 
   return (
@@ -138,6 +150,9 @@ function SellerContent() {
                         <span className={`rounded-md px-2 py-0.5 text-xs ${o.invoice.didoxStatus === 'SIGNED' ? 'bg-teal-100 text-teal-700' : o.invoice.didoxStatus === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
                           {DIDOX_LABELS[o.invoice.didoxStatus] ?? o.invoice.didoxStatus}
                         </span>
+                        {o.invoice.didoxStatus === 'SENT' && (
+                          <button className="btn-ghost !px-2 !py-1 text-xs text-teal-700" onClick={() => signEimzo(o.id)}>Подписать ЭЦП</button>
+                        )}
                         <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => syncDidox(o.id)}>Обновить</button>
                       </span>
                     ) : (

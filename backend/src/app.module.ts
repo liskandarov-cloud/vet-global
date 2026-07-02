@@ -12,6 +12,7 @@ import { DeliveryModule } from './delivery/delivery.module';
 import { ConsultingModule } from './consulting/consulting.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SyncModule } from './sync/sync.module';
+import { EimzoModule } from './eimzo/eimzo.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -39,6 +40,7 @@ import { AppController } from './app.controller';
     ConsultingModule,
     PaymentsModule,
     SyncModule,
+    EimzoModule,
     AuthModule,
     UsersModule,
     CategoriesModule,
