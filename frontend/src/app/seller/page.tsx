@@ -11,7 +11,7 @@ import { formatMoney } from '@/lib/utils';
 const EMPTY = {
   name: '', description: '', categoryId: '', price: 0, activeSubstance: '', manufacturer: '',
   form: '', animalType: '', inStock: true, minOrder: 1, images: [] as string[], certificates: [] as string[],
-  isPromotion: false, promotionText: '',
+  isPromotion: false, promotionText: '', externalId: '',
 };
 
 const DIDOX_LABELS: Record<string, string> = {
@@ -90,6 +90,7 @@ function SellerContent() {
 
       {tab === 'products' && (
         <div className="mt-6">
+          <SyncPanel />
           <button className="btn-primary mb-4" onClick={() => setEditing({ ...EMPTY })}><Plus size={16} /> Добавить товар</button>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
@@ -178,6 +179,34 @@ function SellerContent() {
           onSaved={() => { setDeliveryOrder(null); load(); }}
         />
       )}
+    </div>
+  );
+}
+
+function SyncPanel() {
+  const [key, setKey] = useState<string | null>(null);
+  const [loaded, setLoaded] = useState(false);
+  useEffect(() => { api.get('/sync/key').then((r) => setKey(r.data.syncApiKey)).finally(() => setLoaded(true)); }, []);
+  const gen = async () => {
+    const { data } = await api.post('/sync/key');
+    setKey(data.syncApiKey);
+    toast.success('Ключ сгенерирован');
+  };
+  if (!loaded) return null;
+  const apiBase = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000/api';
+  return (
+    <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm">
+      <div className="mb-1 font-semibold">Синхронизация 1С / ERP</div>
+      <p className="text-ink-muted">Обновляйте цены и остатки автоматически. Укажите «Код в 1С» у товаров и отправляйте прайс на:</p>
+      <code className="mt-1 block break-all rounded bg-white px-2 py-1 text-xs">POST {apiBase}/sync/price · заголовок X-Sync-Key</code>
+      <div className="mt-2 flex items-center gap-2">
+        {key ? (
+          <input className="input !h-9 flex-1 font-mono text-xs" readOnly value={key} onFocus={(e) => e.target.select()} />
+        ) : (
+          <span className="text-ink-subtle">Ключ ещё не создан</span>
+        )}
+        <button className="btn-secondary !py-1.5 text-xs" onClick={gen}>{key ? 'Обновить ключ' : 'Создать ключ'}</button>
+      </div>
     </div>
   );
 }
@@ -272,6 +301,7 @@ function ProductForm({ initial, categories, onClose, onSaved }: any) {
       manufacturer: form.manufacturer || undefined, form: form.form || undefined,
       animalType: form.animalType || undefined, inStock: form.inStock, minOrder: Number(form.minOrder) || 1,
       images: form.images, certificates: form.certificates, isPromotion: form.isPromotion, promotionText: form.promotionText || undefined,
+      externalId: form.externalId || undefined,
     };
     try {
       if (form.id) await api.put(`/products/${form.id}`, payload);
@@ -308,6 +338,7 @@ function ProductForm({ initial, categories, onClose, onSaved }: any) {
             {['POULTRY', 'CATTLE', 'SMALL_RUMINANTS', 'HORSES', 'PETS', 'OTHER'].map((a) => <option key={a} value={a}>{a}</option>)}
           </select>
           <input className="input" type="number" placeholder="Мин. заказ" value={form.minOrder} onChange={(e) => upd('minOrder', e.target.value)} />
+          <input className="input" placeholder="Код в 1С (externalId)" value={form.externalId} onChange={(e) => upd('externalId', e.target.value)} />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.inStock} onChange={(e) => upd('inStock', e.target.checked)} className="h-4 w-4 accent-teal-600" /> В наличии</label>
         </div>
 

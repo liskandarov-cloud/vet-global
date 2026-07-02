@@ -1,10 +1,14 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { text } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
+
+  // Accept raw CommerceML/XML bodies (1C sync endpoint) as text.
+  app.use(text({ type: ['application/xml', 'text/xml'], limit: '10mb' }));
 
   app.setGlobalPrefix('api');
 

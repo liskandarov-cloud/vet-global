@@ -33,6 +33,7 @@ export class CreateProductDto {
   @IsOptional() @IsBoolean() isPromotion?: boolean;
   @IsOptional() @IsString() promotionText?: string;
   @IsOptional() @IsBoolean() isNew?: boolean;
+  @IsOptional() @IsString() externalId?: string; // код в 1С/ERP для синхронизации
 }
 
 export class UpdateProductDto extends CreateProductDto {}

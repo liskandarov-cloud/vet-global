@@ -20,4 +20,4 @@ EXPOSE 8000
 
 # On container start: regenerate client (picks up schema changes into the
 # node_modules volume), sync schema to the DB, seed idempotently, then watch.
-CMD ["bash", "-c", "npx prisma generate && npx prisma db push && npm run prisma:seed && npm run start:dev"]
+CMD ["bash", "-c", "npx prisma generate && npx prisma db push --accept-data-loss && npm run prisma:seed && npm run start:dev"]

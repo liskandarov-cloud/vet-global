@@ -109,6 +109,7 @@ model User {
   reviewsCount Int     @default(0)
   description  String? // о компании-поставщике
   logoUrl      String?
+  syncApiKey   String? @unique // ключ интеграции 1С/ERP (по нему сопоставляется поставщик)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -193,6 +194,7 @@ model Product {
   isPromotion    Boolean     @default(false)
   promotionText  String?
   isNew          Boolean     @default(false)
+  externalId     String? // код товара в 1С/ERP поставщика (ключ синхронизации)
   rating         Decimal     @default(0) @db.Decimal(3, 2)
   reviewsCount   Int         @default(0)
 
@@ -209,6 +211,7 @@ model Product {
 
   @@index([categoryId])
   @@index([sellerId])
+  @@index([sellerId, externalId])
   @@index([manufacturer])
   @@index([animalType])
   @@index([isPromotion])
