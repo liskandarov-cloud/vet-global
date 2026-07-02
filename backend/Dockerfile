@@ -18,5 +18,6 @@ COPY . .
 
 EXPOSE 8000
 
-# On container start: sync schema to the DB, seed idempotently, then run in watch mode.
-CMD ["bash", "-c", "npx prisma db push --skip-generate && npm run prisma:seed && npm run start:dev"]
+# On container start: regenerate client (picks up schema changes into the
+# node_modules volume), sync schema to the DB, seed idempotently, then watch.
+CMD ["bash", "-c", "npx prisma generate && npx prisma db push && npm run prisma:seed && npm run start:dev"]

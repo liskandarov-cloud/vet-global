@@ -14,6 +14,10 @@ const EMPTY = {
   isPromotion: false, promotionText: '',
 };
 
+const DIDOX_LABELS: Record<string, string> = {
+  DRAFT: 'Черновик', SENT: 'Отправлен', SIGNED: 'Подписан', REJECTED: 'Отклонён',
+};
+
 function SellerContent() {
   const [tab, setTab] = useState<'products' | 'orders'>('products');
   const [stats, setStats] = useState<any>(null);
@@ -42,6 +46,21 @@ function SellerContent() {
   const setStatus = async (id: string, status: string) => {
     await api.patch(`/orders/${id}/status`, { status });
     toast.success('Статус обновлён');
+    load();
+  };
+
+  const sendDidox = async (id: string) => {
+    try {
+      const { data } = await api.post(`/didox/send/${id}`);
+      toast.success(`Отправлено в Didox (${data.mode}): ${DIDOX_LABELS[data.didoxStatus] ?? data.didoxStatus}`);
+      load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Ошибка ЭДО');
+    }
+  };
+  const syncDidox = async (id: string) => {
+    const { data } = await api.get(`/didox/status/${id}`);
+    toast.success(`Статус Didox: ${DIDOX_LABELS[data.didoxStatus] ?? data.didoxStatus ?? '—'}`);
     load();
   };
 
@@ -94,7 +113,7 @@ function SellerContent() {
         <div className="mt-6 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-ink-subtle">
-              <tr className="border-b border-slate-100"><th className="py-2">№</th><th>Покупатель</th><th>Сумма</th><th>Статус</th></tr>
+              <tr className="border-b border-slate-100"><th className="py-2">№</th><th>Покупатель</th><th>Сумма</th><th>Статус</th><th>ЭДО (Didox)</th></tr>
             </thead>
             <tbody>
               {orders.map((o) => (
@@ -106,6 +125,18 @@ function SellerContent() {
                     <select className="input !h-9 !w-auto" value={o.status} onChange={(e) => setStatus(o.id, e.target.value)}>
                       {Object.entries(STATUS_LABELS).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                     </select>
+                  </td>
+                  <td>
+                    {o.invoice?.didoxStatus ? (
+                      <span className="inline-flex items-center gap-2">
+                        <span className={`rounded-md px-2 py-0.5 text-xs ${o.invoice.didoxStatus === 'SIGNED' ? 'bg-teal-100 text-teal-700' : o.invoice.didoxStatus === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                          {DIDOX_LABELS[o.invoice.didoxStatus] ?? o.invoice.didoxStatus}
+                        </span>
+                        <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => syncDidox(o.id)}>Обновить</button>
+                      </span>
+                    ) : (
+                      <button className="btn-secondary !px-3 !py-1.5 text-xs" onClick={() => sendDidox(o.id)}>Отправить в ЭДО</button>
+                    )}
                   </td>
                 </tr>
               ))}

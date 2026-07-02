@@ -6,6 +6,7 @@ import { DocumentsModule } from './documents/documents.module';
 import { MailModule } from './mail/mail.module';
 import { LeadsModule } from './leads/leads.module';
 import { TelegramModule } from './telegram/telegram.module';
+import { DidoxModule } from './didox/didox.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -27,6 +28,7 @@ import { AppController } from './app.controller';
     MailModule,
     LeadsModule,
     TelegramModule,
+    DidoxModule,
     AuthModule,
     UsersModule,
     CategoriesModule,

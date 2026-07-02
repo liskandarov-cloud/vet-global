@@ -233,6 +233,9 @@ model Invoice {
   number    String   @unique // человекочитаемый номер счёта
   fileUrl   String? // ссылка на PDF в S3
   amount    Decimal  @db.Decimal(12, 2)
+  // Didox ЭДО (SRS 3.1): id документа в Didox и его статус (DRAFT/SENT/SIGNED/REJECTED)
+  didoxId     String?
+  didoxStatus String?
   createdAt DateTime @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
