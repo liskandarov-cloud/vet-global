@@ -24,6 +24,7 @@ export function Footer() {
           <div className="mb-3 font-semibold">Информация</div>
           <ul className="space-y-2 text-sm text-ink-muted">
             <li><Link href="/blog" className="hover:text-teal-700">Блог</Link></li>
+            <li><Link href="/consult" className="hover:text-teal-700">Ветконсультация</Link></li>
           </ul>
         </div>
         <div>

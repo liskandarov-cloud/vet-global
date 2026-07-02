@@ -8,23 +8,35 @@ import { RoleGuard, StatCard } from '@/components/RoleGuard';
 import { formatMoney } from '@/lib/utils';
 
 const LEAD_STATUS: Record<string, string> = { NEW: 'Новая', CONTACTED: 'В работе', CLOSED: 'Закрыта' };
+const CONSULT_STATUS: Record<string, string> = { NEW: 'Новая', IN_PROGRESS: 'В работе', ANSWERED: 'Отвечено', CLOSED: 'Закрыта' };
 
 function AdminContent() {
-  const [tab, setTab] = useState<'overview' | 'users' | 'reviews' | 'leads'>('overview');
+  const [tab, setTab] = useState<'overview' | 'users' | 'reviews' | 'leads' | 'consults'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
+  const [consults, setConsults] = useState<any[]>([]);
 
   const load = () => {
     api.get('/admin/stats').then((r) => setStats(r.data)).catch(() => {});
     api.get('/admin/users').then((r) => setUsers(r.data.users));
     api.get('/reviews/pending').then((r) => setReviews(r.data)).catch(() => {});
     api.get('/leads').then((r) => setLeads(r.data)).catch(() => {});
+    api.get('/consultations').then((r) => setConsults(r.data)).catch(() => {});
   };
   useEffect(load, []);
 
   const newLeads = leads.filter((l) => l.status === 'NEW').length;
+  const newConsults = consults.filter((c) => c.status === 'NEW').length;
+
+  const answerConsult = async (id: string) => {
+    const answer = window.prompt('Ответ клиенту:');
+    if (answer == null) return;
+    await api.patch(`/consultations/${id}`, { answer, status: 'ANSWERED' });
+    toast.success('Ответ сохранён');
+    load();
+  };
 
   const verify = async (id: string) => { await api.patch(`/admin/users/${id}/verify`, { isVerified: true }); toast.success('Подтверждён'); load(); };
   const ban = async (id: string, isBanned: boolean) => { await api.patch(`/admin/users/${id}/ban`, { isBanned }); toast.success(isBanned ? 'Заблокирован' : 'Разблокирован'); load(); };
@@ -43,7 +55,7 @@ function AdminContent() {
       </div>
 
       <div className="mt-8 flex gap-2 border-b border-slate-200">
-        {[['overview', 'Обзор'], ['leads', `Заявки${newLeads ? ` (${newLeads})` : ''}`], ['users', `Пользователи${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `Отзывы${reviews.length ? ` (${reviews.length})` : ''}`]].map(([k, l]) => (
+        {[['overview', 'Обзор'], ['leads', `Заявки${newLeads ? ` (${newLeads})` : ''}`], ['consults', `Консультации${newConsults ? ` (${newConsults})` : ''}`], ['users', `Пользователи${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `Отзывы${reviews.length ? ` (${reviews.length})` : ''}`]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>{l}</button>
         ))}
@@ -141,6 +153,29 @@ function AdminContent() {
             </tbody>
           </table>
           {leads.length === 0 && <div className="py-10 text-center text-ink-subtle">Заявок пока нет</div>}
+        </div>
+      )}
+
+      {tab === 'consults' && (
+        <div className="mt-6 space-y-3">
+          {consults.map((c) => (
+            <div key={c.id} className="card p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="font-medium">{c.topic} <span className="text-xs text-ink-subtle">· {c.fullName} ({c.phone})</span></div>
+                  <p className="mt-1 text-sm text-ink-muted">{c.message}</p>
+                  {c.answer && <p className="mt-2 rounded-lg bg-teal-50 p-2 text-sm text-teal-800"><b>Ответ:</b> {c.answer}</p>}
+                </div>
+                <div className="flex flex-col items-end gap-2">
+                  <span className={`rounded-md px-2 py-0.5 text-xs ${c.status === 'ANSWERED' ? 'bg-teal-100 text-teal-700' : c.status === 'NEW' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100'}`}>
+                    {CONSULT_STATUS[c.status]}
+                  </span>
+                  <button className="btn-secondary !px-3 !py-1.5 text-xs" onClick={() => answerConsult(c.id)}>Ответить</button>
+                </div>
+              </div>
+            </div>
+          ))}
+          {consults.length === 0 && <div className="py-10 text-center text-ink-subtle">Консультаций пока нет</div>}
         </div>
       )}
     </div>

@@ -17,6 +17,10 @@ const EMPTY = {
 const DIDOX_LABELS: Record<string, string> = {
   DRAFT: 'Черновик', SENT: 'Отправлен', SIGNED: 'Подписан', REJECTED: 'Отклонён',
 };
+const SHIP_LABELS: Record<string, string> = {
+  PENDING: 'Ожидает', ASSIGNED: 'Назначен', IN_TRANSIT: 'В пути', DELIVERED: 'Доставлено', RETURNED: 'Возврат',
+};
+const SHIP_METHODS: Record<string, string> = { COURIER: 'Курьер', PICKUP: 'Самовывоз', TRANSPORT: 'Транспортная компания' };
 
 function SellerContent() {
   const [tab, setTab] = useState<'products' | 'orders'>('products');
@@ -25,6 +29,7 @@ function SellerContent() {
   const [orders, setOrders] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
+  const [deliveryOrder, setDeliveryOrder] = useState<any | null>(null);
 
   const load = () => {
     api.get('/seller/stats').then((r) => setStats(r.data)).catch(() => {});
@@ -113,7 +118,7 @@ function SellerContent() {
         <div className="mt-6 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-ink-subtle">
-              <tr className="border-b border-slate-100"><th className="py-2">№</th><th>Покупатель</th><th>Сумма</th><th>Статус</th><th>ЭДО (Didox)</th></tr>
+              <tr className="border-b border-slate-100"><th className="py-2">№</th><th>Покупатель</th><th>Сумма</th><th>Статус</th><th>ЭДО (Didox)</th><th>Доставка</th></tr>
             </thead>
             <tbody>
               {orders.map((o) => (
@@ -138,6 +143,17 @@ function SellerContent() {
                       <button className="btn-secondary !px-3 !py-1.5 text-xs" onClick={() => sendDidox(o.id)}>Отправить в ЭДО</button>
                     )}
                   </td>
+                  <td>
+                    {o.shipment ? (
+                      <button className="inline-flex items-center gap-1" onClick={() => setDeliveryOrder(o)}>
+                        <span className={`rounded-md px-2 py-0.5 text-xs ${o.shipment.status === 'DELIVERED' ? 'bg-teal-100 text-teal-700' : o.shipment.status === 'RETURNED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                          {SHIP_LABELS[o.shipment.status] ?? o.shipment.status}
+                        </span>
+                      </button>
+                    ) : (
+                      <button className="btn-secondary !px-3 !py-1.5 text-xs" onClick={() => setDeliveryOrder(o)}>Оформить</button>
+                    )}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -154,6 +170,74 @@ function SellerContent() {
           onSaved={() => { setEditing(null); load(); }}
         />
       )}
+
+      {deliveryOrder && (
+        <DeliveryForm
+          order={deliveryOrder}
+          onClose={() => setDeliveryOrder(null)}
+          onSaved={() => { setDeliveryOrder(null); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function DeliveryForm({ order, onClose, onSaved }: any) {
+  const s = order.shipment ?? {};
+  const [form, setForm] = useState<any>({
+    method: s.method ?? 'COURIER', status: s.status ?? 'PENDING',
+    city: s.city ?? '', address: s.address ?? '',
+    recipientName: s.recipientName ?? order.buyerName ?? '', recipientPhone: s.recipientPhone ?? order.buyerPhone ?? '',
+    cost: s.cost ?? 0, carrier: s.carrier ?? '', trackingNumber: s.trackingNumber ?? '',
+    estimatedDate: s.estimatedDate ? String(s.estimatedDate).slice(0, 10) : '',
+  });
+  const [saving, setSaving] = useState(false);
+  const upd = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    setSaving(true);
+    try {
+      await api.post(`/orders/${order.id}/shipment`, {
+        ...form, cost: Number(form.cost) || 0,
+        estimatedDate: form.estimatedDate || undefined,
+      });
+      toast.success('Доставка сохранена');
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Ошибка');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+      <div className="my-8 w-full max-w-lg rounded-2xl bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-heading text-xl font-bold">Доставка заказа #{order.id.slice(0, 8)}</h3>
+          <button onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <select className="input" value={form.method} onChange={(e) => upd('method', e.target.value)}>
+            {Object.entries(SHIP_METHODS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <select className="input" value={form.status} onChange={(e) => upd('status', e.target.value)}>
+            {Object.entries(SHIP_LABELS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+          </select>
+          <input className="input" placeholder="Город" value={form.city} onChange={(e) => upd('city', e.target.value)} />
+          <input className="input" placeholder="Адрес" value={form.address} onChange={(e) => upd('address', e.target.value)} />
+          <input className="input" placeholder="Получатель" value={form.recipientName} onChange={(e) => upd('recipientName', e.target.value)} />
+          <input className="input" placeholder="Телефон получателя" value={form.recipientPhone} onChange={(e) => upd('recipientPhone', e.target.value)} />
+          <input className="input" placeholder="Перевозчик / ТК" value={form.carrier} onChange={(e) => upd('carrier', e.target.value)} />
+          <input className="input" placeholder="Трек-номер" value={form.trackingNumber} onChange={(e) => upd('trackingNumber', e.target.value)} />
+          <input className="input" type="number" placeholder="Стоимость доставки" value={form.cost} onChange={(e) => upd('cost', e.target.value)} />
+          <input className="input" type="date" value={form.estimatedDate} onChange={(e) => upd('estimatedDate', e.target.value)} />
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button className="btn-secondary" onClick={onClose}>Отмена</button>
+          <button className="btn-primary" disabled={saving} onClick={save}>{saving ? '…' : 'Сохранить'}</button>
+        </div>
+      </div>
     </div>
   );
 }

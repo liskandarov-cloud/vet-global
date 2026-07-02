@@ -7,6 +7,8 @@ import { MailModule } from './mail/mail.module';
 import { LeadsModule } from './leads/leads.module';
 import { TelegramModule } from './telegram/telegram.module';
 import { DidoxModule } from './didox/didox.module';
+import { DeliveryModule } from './delivery/delivery.module';
+import { ConsultingModule } from './consulting/consulting.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -29,6 +31,8 @@ import { AppController } from './app.controller';
     LeadsModule,
     TelegramModule,
     DidoxModule,
+    DeliveryModule,
+    ConsultingModule,
     AuthModule,
     UsersModule,
     CategoriesModule,

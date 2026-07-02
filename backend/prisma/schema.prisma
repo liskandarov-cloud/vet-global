@@ -44,6 +44,27 @@ enum LeadStatus {
   CLOSED
 }
 
+enum DeliveryMethod {
+  COURIER // курьер
+  PICKUP // самовывоз
+  TRANSPORT // транспортная компания
+}
+
+enum ShipmentStatus {
+  PENDING // ожидает отгрузки
+  ASSIGNED // назначен перевозчик
+  IN_TRANSIT // в пути
+  DELIVERED // доставлено
+  RETURNED // возврат
+}
+
+enum ConsultStatus {
+  NEW
+  IN_PROGRESS
+  ANSWERED
+  CLOSED
+}
+
 // Animal species a product targets (ТЗ 6.1 фильтр «Животное»).
 enum AnimalType {
   POULTRY // птица
@@ -203,6 +224,7 @@ model Order {
   counterparty Counterparty? @relation(fields: [counterpartyId], references: [id])
   items        OrderItem[]
   invoice      Invoice?
+  shipment     Shipment?
 
   @@index([buyerId])
   @@index([status])
@@ -239,6 +261,51 @@ model Invoice {
   createdAt DateTime @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+}
+
+// ─────────────────────────────── Delivery ───────────────────────────────
+
+// Shipment for an order (питч-дек: «Доставка»). 1:1 with Order.
+model Shipment {
+  id             String         @id @default(uuid())
+  orderId        String         @unique
+  method         DeliveryMethod @default(COURIER)
+  status         ShipmentStatus @default(PENDING)
+  city           String?
+  address        String?
+  recipientName  String?
+  recipientPhone String?
+  cost           Decimal        @default(0) @db.Decimal(12, 2)
+  carrier        String? // перевозчик / ТК
+  trackingNumber String?
+  estimatedDate  DateTime?
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+}
+
+// ─────────────────────────── Vet consulting ───────────────────────────
+
+// Veterinary consultation request (питч-дек: «Ветконсалтинг»).
+model ConsultRequest {
+  id         String        @id @default(uuid())
+  userId     String? // если оформлено авторизованным пользователем
+  fullName   String
+  phone      String
+  topic      String
+  animalType AnimalType?
+  message    String
+  status     ConsultStatus @default(NEW)
+  answer     String?
+  answeredBy String?
+  createdAt  DateTime      @default(now())
+  updatedAt  DateTime      @updatedAt
+
+  @@index([status])
+  @@index([userId])
 }
 
 // ─────────────────────────────── Loyalty ───────────────────────────────

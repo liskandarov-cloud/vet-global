@@ -30,6 +30,7 @@ export function Header() {
           <Link href="/promotions" className="btn-ghost">{t('nav.promotions')}</Link>
           <Link href="/suppliers" className="btn-ghost">{t('nav.suppliers')}</Link>
           <Link href="/blog" className="btn-ghost">{t('nav.blog')}</Link>
+          <Link href="/consult" className="btn-ghost">Консультация</Link>
         </nav>
 
         <div className="flex items-center gap-2">

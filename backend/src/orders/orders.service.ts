@@ -127,7 +127,7 @@ export class OrdersService {
     const orders = await this.prisma.order.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: { items: true, invoice: true },
+      include: { items: true, invoice: true, shipment: true },
       take: 200,
     });
     return orders.map((o) => this.serialize(o));
@@ -136,7 +136,7 @@ export class OrdersService {
   async getOne(id: string, user: AuthUser) {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: true, invoice: true },
+      include: { items: true, invoice: true, shipment: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
@@ -187,7 +187,7 @@ export class OrdersService {
   async invoicePdf(id: string, user: AuthUser): Promise<{ buffer: Buffer; number: string }> {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: true, invoice: true },
+      include: { items: true, invoice: true, shipment: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);

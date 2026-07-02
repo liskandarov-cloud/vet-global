@@ -134,6 +134,26 @@ export class NotificationsService {
     }
   }
 
+  // New veterinary consultation request → admin.
+  async onConsultCreated(consultId: string): Promise<void> {
+    const c = await this.prisma.consultRequest.findUnique({ where: { id: consultId } });
+    if (!c) return;
+    const adminEmail = this.config.get<string>('ADMIN_EMAIL');
+    if (!adminEmail) return;
+    await this.mail.send({
+      to: adminEmail,
+      subject: `Новая ветконсультация: ${c.topic} — VetGlobal`,
+      html: layout(
+        'Новая ветконсультация',
+        `<table style="width:100%;border-collapse:collapse;font-size:14px;margin:12px 0">
+          <tr><td style="padding:4px 0;color:#94a3b8">Клиент</td><td style="color:#0f172a">${c.fullName} (${c.phone})</td></tr>
+          <tr><td style="padding:4px 0;color:#94a3b8">Тема</td><td style="color:#0f172a">${c.topic}</td></tr>
+          <tr><td style="padding:4px 0;color:#94a3b8">Вопрос</td><td style="color:#0f172a">${c.message}</td></tr>
+        </table>`,
+      ),
+    });
+  }
+
   async onOrderStatusChanged(orderId: string, status: OrderStatus): Promise<void> {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (!order?.buyerId) return;
