@@ -73,12 +73,12 @@ export default function HomePage() {
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={HERO} alt="VetGlobal" className="h-full w-full object-cover" />
             </div>
-            {/* floating chips */}
-            <div className="glass absolute -left-4 top-8 flex items-center gap-2 rounded-xl px-3 py-2 shadow-soft">
+            {/* floating chips (hidden on mobile to avoid horizontal overflow) */}
+            <div className="glass absolute -left-4 top-8 hidden items-center gap-2 rounded-xl px-3 py-2 shadow-soft sm:flex">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-teal-600 text-white"><ShieldCheck size={16} /></span>
               <div className="text-xs"><div className="font-semibold">Проверенный</div><div className="text-ink-subtle">поставщик</div></div>
             </div>
-            <div className="glass absolute -bottom-4 right-6 flex items-center gap-2 rounded-xl px-3 py-2 shadow-soft">
+            <div className="glass absolute -bottom-4 right-6 hidden items-center gap-2 rounded-xl px-3 py-2 shadow-soft sm:flex">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary text-white"><FileText size={16} /></span>
               <div className="text-xs"><div className="font-semibold">Сертификат</div><div className="text-ink-subtle">качества PDF</div></div>
             </div>

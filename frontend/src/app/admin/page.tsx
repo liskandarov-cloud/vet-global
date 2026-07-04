@@ -57,10 +57,10 @@ function AdminContent() {
         <StatCard label="Заказов" value={String(stats?.totalOrders ?? 0)} icon={ShoppingCart} />
       </div>
 
-      <div className="mt-8 flex gap-2 border-b border-slate-200">
+      <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
         {[['overview', 'Обзор'], ['leads', `Заявки${newLeads ? ` (${newLeads})` : ''}`], ['consults', `Консультации${newConsults ? ` (${newConsults})` : ''}`], ['users', `Пользователи${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `Отзывы${reviews.length ? ` (${reviews.length})` : ''}`]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
-            className={`px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>{l}</button>
+            className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>{l}</button>
         ))}
       </div>
 
