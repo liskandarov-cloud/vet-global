@@ -25,13 +25,15 @@ const SHIP_LABELS: Record<string, string> = {
 const SHIP_METHODS: Record<string, string> = { COURIER: 'Курьер', PICKUP: 'Самовывоз', TRANSPORT: 'Транспортная компания' };
 
 function SellerContent() {
-  const [tab, setTab] = useState<'products' | 'orders'>('products');
+  const [tab, setTab] = useState<'products' | 'orders' | 'promotions'>('products');
   const [stats, setStats] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [promotions, setPromotions] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
   const [deliveryOrder, setDeliveryOrder] = useState<any | null>(null);
+  const [editingPromo, setEditingPromo] = useState<any | null>(null);
 
   const load = () => {
     api.get('/seller/stats').then((r) => setStats(r.data)).catch(() => {});
@@ -40,6 +42,7 @@ function SellerContent() {
     );
     api.get('/orders').then((r) => setOrders(r.data));
     api.get('/categories').then((r) => setCategories(r.data));
+    api.get('/promotions/mine').then((r) => setPromotions(r.data)).catch(() => {});
   };
   useEffect(load, []);
 
@@ -82,6 +85,17 @@ function SellerContent() {
     }
   };
 
+  const delPromo = async (id: string) => {
+    if (!confirm('Удалить акцию?')) return;
+    await api.delete(`/promotions/${id}`);
+    toast.success('Удалено');
+    load();
+  };
+  const togglePromo = async (p: any) => {
+    await api.patch(`/promotions/${p.id}`, { title: p.title, isActive: !p.isActive });
+    load();
+  };
+
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6">
@@ -101,7 +115,7 @@ function SellerContent() {
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['products', 'Товары'], ['orders', 'Заказы']].map(([k, l]) => (
+        {[['products', 'Товары'], ['orders', 'Заказы'], ['promotions', `Акции${promotions.length ? ` (${promotions.length})` : ''}`]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>
             {l}
@@ -187,6 +201,33 @@ function SellerContent() {
         </div>
       )}
 
+      {tab === 'promotions' && (
+        <div className="mt-6">
+          <button className="btn-primary mb-4" onClick={() => setEditingPromo({ title: '', description: '', productId: '', discountPercent: 10, endsAt: '', isActive: true })}>
+            <Plus size={16} /> Новая акция
+          </button>
+          <div className="grid gap-3 md:grid-cols-2">
+            {promotions.map((p) => (
+              <div key={p.id} className="card p-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="font-semibold">{p.title} <span className="text-secondary">-{p.discountPercent}%</span></div>
+                    {p.description && <p className="text-sm text-ink-muted">{p.description}</p>}
+                    {p.endsAt && <div className="text-xs text-ink-subtle">до {new Date(p.endsAt).toLocaleDateString('ru-RU')}</div>}
+                  </div>
+                  <div className="flex gap-1">
+                    <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => togglePromo(p)}>{p.isActive ? 'Выкл' : 'Вкл'}</button>
+                    <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => delPromo(p.id)}><Trash2 size={14} /></button>
+                  </div>
+                </div>
+                <span className={`mt-2 inline-block rounded-md px-2 py-0.5 text-xs ${p.isActive ? 'bg-teal-100 text-teal-700' : 'bg-slate-100 text-ink-subtle'}`}>{p.isActive ? 'Активна' : 'Отключена'}</span>
+              </div>
+            ))}
+          </div>
+          {promotions.length === 0 && <div className="py-10 text-center text-ink-subtle">Акций пока нет</div>}
+        </div>
+      )}
+
       {editing && (
         <ProductForm
           initial={editing}
@@ -203,6 +244,75 @@ function SellerContent() {
           onSaved={() => { setDeliveryOrder(null); load(); }}
         />
       )}
+
+      {editingPromo && (
+        <PromotionForm
+          initial={editingPromo}
+          products={products}
+          onClose={() => setEditingPromo(null)}
+          onSaved={() => { setEditingPromo(null); load(); }}
+        />
+      )}
+    </div>
+  );
+}
+
+function PromotionForm({ initial, products, onClose, onSaved }: any) {
+  const [form, setForm] = useState<any>(initial);
+  const [saving, setSaving] = useState(false);
+  const upd = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    if (!form.title) return toast.error('Укажите название акции');
+    setSaving(true);
+    const payload = {
+      title: form.title,
+      description: form.description || undefined,
+      productId: form.productId || undefined,
+      discountPercent: Number(form.discountPercent) || 0,
+      endsAt: form.endsAt || undefined,
+      isActive: form.isActive,
+    };
+    try {
+      if (form.id) await api.patch(`/promotions/${form.id}`, payload);
+      else await api.post('/promotions', payload);
+      toast.success('Сохранено');
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Ошибка');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+      <div className="my-8 w-full max-w-md rounded-2xl bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-heading text-lg font-bold">{form.id ? 'Редактировать' : 'Новая'} акция</h3>
+          <button onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="space-y-3">
+          <input className="input" placeholder="Название акции" value={form.title} onChange={(e) => upd('title', e.target.value)} />
+          <textarea className="input !h-auto py-2" rows={2} placeholder="Описание" value={form.description} onChange={(e) => upd('description', e.target.value)} />
+          <select className="input" value={form.productId} onChange={(e) => upd('productId', e.target.value)}>
+            <option value="">Все товары (общая акция)</option>
+            {products.map((p: Product) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+          <div className="grid grid-cols-2 gap-3">
+            <input className="input" type="number" placeholder="Скидка %" value={form.discountPercent} onChange={(e) => upd('discountPercent', e.target.value)} />
+            <input className="input" type="date" value={form.endsAt ? String(form.endsAt).slice(0, 10) : ''} onChange={(e) => upd('endsAt', e.target.value)} />
+          </div>
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form.isActive} onChange={(e) => upd('isActive', e.target.checked)} className="h-4 w-4 accent-teal-600" />
+            Активна
+          </label>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button className="btn-secondary" onClick={onClose}>Отмена</button>
+          <button className="btn-primary" disabled={saving} onClick={save}>{saving ? '…' : 'Сохранить'}</button>
+        </div>
+      </div>
     </div>
   );
 }
