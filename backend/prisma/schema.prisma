@@ -335,6 +335,7 @@ model Payment {
   status         PaymentStatus   @default(PENDING)
   providerTransId String? // id транзакции у провайдера
   paymentUrl     String? // ссылка на оплату (checkout)
+  meta           Json? // состояние провайдера (Payme state/times, Click prepare id)
   createdAt      DateTime        @default(now())
   updatedAt      DateTime        @updatedAt
 
