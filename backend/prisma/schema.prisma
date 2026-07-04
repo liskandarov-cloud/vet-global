@@ -116,6 +116,7 @@ model User {
 
   // Relations
   counterparties     Counterparty[]
+  favorites          Favorite[]
   products           Product[]           @relation("SellerProducts")
   orders             Order[]             @relation("BuyerOrders")
   reviews            Review[]
@@ -208,6 +209,7 @@ model Product {
   reviews    Review[]
   orderItems OrderItem[]
   promotions Promotion[]
+  favorites  Favorite[]
 
   @@index([categoryId])
   @@index([sellerId])
@@ -306,6 +308,21 @@ model Shipment {
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([status])
+}
+
+// ─────────────────────────────── Favorites ───────────────────────────────
+
+model Favorite {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([userId])
 }
 
 // ─────────────────────────────── Payments ───────────────────────────────

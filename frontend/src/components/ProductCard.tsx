@@ -1,10 +1,10 @@
 'use client';
 
 import Link from 'next/link';
-import { ShieldCheck, FileText, Star, ShoppingCart } from 'lucide-react';
+import { ShieldCheck, FileText, Star, ShoppingCart, Heart } from 'lucide-react';
 import { toast } from 'sonner';
 import { Product } from '@/lib/types';
-import { useCart } from '@/lib/store';
+import { useCart, useFavorites, useAuth } from '@/lib/store';
 import { useI18n } from '@/lib/i18n';
 import { formatMoney } from '@/lib/utils';
 
@@ -14,11 +14,32 @@ const PLACEHOLDER =
 export function ProductCard({ product }: { product: Product }) {
   const { t } = useI18n();
   const add = useCart((s) => s.add);
+  const favIds = useFavorites((s) => s.ids);
+  const toggleFav = useFavorites((s) => s.toggle);
+  const user = useAuth((s) => s.user);
+  const isFav = favIds.includes(product.id);
 
   const image = product.images?.[0] ?? PLACEHOLDER;
 
+  const onFav = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!user) {
+      toast.error('Войдите, чтобы добавить в избранное');
+      return;
+    }
+    toggleFav(product.id);
+  };
+
   return (
-    <div className="group overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50">
+    <div className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50">
+      <button
+        onClick={onFav}
+        aria-label="В избранное"
+        className={`absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-sm transition-colors ${isFav ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}`}
+      >
+        <Heart size={16} className={isFav ? 'fill-red-500' : ''} />
+      </button>
       <Link href={`/products/${product.id}`} className="relative block aspect-square overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -38,7 +59,7 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
         {product.certificates?.length > 0 && (
-          <span className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-md bg-white/90 text-teal-700 shadow-sm" title={t('product.certificate')}>
+          <span className="absolute bottom-2 right-2 grid h-7 w-7 place-items-center rounded-md bg-white/90 text-teal-700 shadow-sm" title={t('product.certificate')}>
             <FileText size={15} />
           </span>
         )}

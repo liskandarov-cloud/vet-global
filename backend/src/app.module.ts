@@ -13,6 +13,7 @@ import { ConsultingModule } from './consulting/consulting.module';
 import { PaymentsModule } from './payments/payments.module';
 import { SyncModule } from './sync/sync.module';
 import { EimzoModule } from './eimzo/eimzo.module';
+import { FavoritesModule } from './favorites/favorites.module';
 import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
@@ -41,6 +42,7 @@ import { AppController } from './app.controller';
     PaymentsModule,
     SyncModule,
     EimzoModule,
+    FavoritesModule,
     AuthModule,
     UsersModule,
     CategoriesModule,

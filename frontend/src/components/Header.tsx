@@ -4,7 +4,7 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import { ShoppingCart, ShieldCheck, LogOut, LayoutDashboard, Sprout, Menu, X } from 'lucide-react';
-import { useAuth, useCart } from '@/lib/store';
+import { useAuth, useCart, useFavorites } from '@/lib/store';
 import { useI18n, Lang } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './ThemeToggle';
@@ -12,6 +12,7 @@ import { ThemeToggle } from './ThemeToggle';
 export function Header() {
   const { t, lang, setLang } = useI18n();
   const { user, logout } = useAuth();
+  const clearFav = useFavorites((s) => s.clear);
   const count = useCart((s) => s.count());
   const router = useRouter();
   const pathname = usePathname();
@@ -70,7 +71,7 @@ export function Header() {
           {user ? (
             <>
               <Link href={dashboardHref} className="btn-secondary hidden sm:inline-flex"><LayoutDashboard size={16} />{t('nav.dashboard')}</Link>
-              <button onClick={() => { logout(); router.push('/'); }} className="btn-ghost" aria-label={t('nav.logout')}><LogOut size={18} /></button>
+              <button onClick={() => { logout(); clearFav(); router.push('/'); }} className="btn-ghost" aria-label={t('nav.logout')}><LogOut size={18} /></button>
             </>
           ) : (
             <Link href="/login" className="btn-primary hidden sm:inline-flex"><ShieldCheck size={16} />{t('nav.login')}</Link>

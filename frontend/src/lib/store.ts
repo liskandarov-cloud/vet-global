@@ -53,6 +53,41 @@ export const useAuth = create<AuthState>((set) => ({
   },
 }));
 
+// ── Favorites ──
+interface FavState {
+  ids: string[];
+  load: () => Promise<void>;
+  has: (id: string) => boolean;
+  toggle: (id: string) => Promise<void>;
+  clear: () => void;
+}
+
+export const useFavorites = create<FavState>((set, get) => ({
+  ids: [],
+  load: async () => {
+    if (typeof window === 'undefined' || !localStorage.getItem('vg_token')) return;
+    try {
+      const { data } = await api.get('/favorites/ids');
+      set({ ids: data });
+    } catch {
+      /* ignore */
+    }
+  },
+  has: (id) => get().ids.includes(id),
+  toggle: async (id) => {
+    const have = get().ids.includes(id);
+    set({ ids: have ? get().ids.filter((x) => x !== id) : [...get().ids, id] });
+    try {
+      if (have) await api.delete(`/favorites/${id}`);
+      else await api.post('/favorites', { productId: id });
+    } catch {
+      // revert on failure
+      set({ ids: have ? [...get().ids, id] : get().ids.filter((x) => x !== id) });
+    }
+  },
+  clear: () => set({ ids: [] }),
+}));
+
 // ── Cart ──
 export interface CartItem {
   productId: string;

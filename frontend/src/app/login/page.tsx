@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import { useAuth } from '@/lib/store';
+import { useAuth, useFavorites } from '@/lib/store';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -21,6 +21,7 @@ export default function LoginPage() {
     try {
       const { data } = await api.post('/auth/login', { email, password });
       setSession(data.token, data.user);
+      useFavorites.getState().load();
       const dest = data.user.role === 'ADMIN' ? '/admin' : data.user.role === 'SELLER' ? '/seller' : '/dashboard';
       router.push(dest);
     } catch (e: any) {

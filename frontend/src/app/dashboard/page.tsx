@@ -7,6 +7,8 @@ import { api } from '@/lib/api';
 import { useAuth, useCart } from '@/lib/store';
 import { RoleGuard, StatCard, STATUS_LABELS } from '@/components/RoleGuard';
 import { SpendArea, CategoryPie } from '@/components/Charts';
+import { ProductCard } from '@/components/ProductCard';
+import { Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
 
 interface Order {
@@ -34,11 +36,13 @@ function BuyerContent() {
   const [orders, setOrders] = useState<Order[]>([]);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [stats, setStats] = useState<any>(null);
+  const [favorites, setFavorites] = useState<Product[]>([]);
 
   const load = () => {
     api.get('/orders').then((r) => setOrders(r.data));
     api.get('/vetpoints/transactions').then((r) => setTxs(r.data));
     api.get('/buyer/stats').then((r) => setStats(r.data)).catch(() => {});
+    api.get('/favorites').then((r) => setFavorites(r.data)).catch(() => {});
   };
   useEffect(load, []);
 
@@ -92,6 +96,15 @@ function BuyerContent() {
         <SpendArea data={stats?.spendByMonth ?? []} />
         <CategoryPie data={stats?.byCategory ?? []} />
       </div>
+
+      {favorites.length > 0 && (
+        <div className="mt-8">
+          <h2 className="mb-3 font-heading text-xl font-bold">Избранное</h2>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {favorites.map((p) => <ProductCard key={p.id} product={p} />)}
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="font-heading text-xl font-bold">Мои заказы</h2>

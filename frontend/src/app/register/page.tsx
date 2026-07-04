@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Sprout } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import { useAuth } from '@/lib/store';
+import { useAuth, useFavorites } from '@/lib/store';
 
 export default function RegisterPage() {
   const router = useRouter();
@@ -25,6 +25,7 @@ export default function RegisterPage() {
     try {
       const { data } = await api.post('/auth/register', form);
       setSession(data.token, data.user);
+      useFavorites.getState().load();
       const dest = data.user.role === 'SELLER' ? '/seller' : '/dashboard';
       toast.success('Аккаунт создан');
       router.push(dest);
