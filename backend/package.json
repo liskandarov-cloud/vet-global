@@ -11,11 +11,11 @@
     "lint": "eslint \"src/**/*.ts\" --fix",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
-    "prisma:seed": "ts-node prisma/seed.ts",
+    "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
     "test:e2e": "jest --config test/jest-e2e.json --runInBand"
   },
   "prisma": {
-    "seed": "ts-node prisma/seed.ts"
+    "seed": "ts-node --transpile-only prisma/seed.ts"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.658.0",
