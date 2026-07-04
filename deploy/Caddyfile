@@ -1,0 +1,22 @@
+# Caddy reverse proxy with automatic HTTPS (Let's Encrypt).
+# Two sites: the app domain (frontend + /api → backend) and a files subdomain
+# (public read of uploaded images/certificates from MinIO).
+
+{$APP_DOMAIN} {
+	encode gzip zstd
+
+	# API → NestJS backend
+	handle /api/* {
+		reverse_proxy backend:8000
+	}
+
+	# Everything else → Next.js frontend
+	handle {
+		reverse_proxy frontend:3000
+	}
+}
+
+{$FILES_DOMAIN} {
+	encode gzip
+	reverse_proxy minio:9000
+}

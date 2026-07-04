@@ -1,0 +1,138 @@
+# Public deployment — production images behind Caddy (automatic HTTPS).
+# Requires DNS: APP_DOMAIN and FILES_DOMAIN → this server's IP.
+# Usage: cp .env.example .env && edit domains/secrets, then
+#   docker compose -f docker-compose.deploy.yml up -d --build
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: always
+    depends_on:
+      - frontend
+      - backend
+    environment:
+      APP_DOMAIN: ${APP_DOMAIN}
+      FILES_DOMAIN: ${FILES_DOMAIN}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+  postgres:
+    image: postgres:16-alpine
+    restart: always
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  minio:
+    image: minio/minio:latest
+    restart: always
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+    volumes:
+      - miniodata:/data
+
+  minio-init:
+    image: minio/mc:latest
+    depends_on:
+      minio:
+        condition: service_started
+    entrypoint: >
+      /bin/sh -c "
+      until (/usr/bin/mc alias set local http://minio:9000 $${MINIO_ROOT_USER} $${MINIO_ROOT_PASSWORD}) do sleep 2; done;
+      /usr/bin/mc mb --ignore-existing local/$${MINIO_BUCKET};
+      /usr/bin/mc anonymous set download local/$${MINIO_BUCKET};
+      exit 0;
+      "
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.prod
+    image: vetglobal-backend:prod
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+    environment:
+      NODE_ENV: production
+      PORT: 8000
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}?schema=public
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_EXPIRES_IN: ${JWT_EXPIRES_IN}
+      PLATFORM_COMMISSION_PERCENT: ${PLATFORM_COMMISSION_PERCENT}
+      VETPOINTS_EARN_PERCENT: ${VETPOINTS_EARN_PERCENT}
+      VETPOINTS_MAX_SPEND_PERCENT: ${VETPOINTS_MAX_SPEND_PERCENT}
+      S3_ENDPOINT: http://minio:9000
+      S3_PUBLIC_URL: https://${FILES_DOMAIN}
+      S3_REGION: us-east-1
+      S3_ACCESS_KEY: ${MINIO_ROOT_USER}
+      S3_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      S3_BUCKET: ${MINIO_BUCKET}
+      PAYMENTS_MODE: ${PAYMENTS_MODE}
+      PAYMENT_RETURN_URL: https://${APP_DOMAIN}
+      CLICK_SERVICE_ID: ${CLICK_SERVICE_ID}
+      CLICK_MERCHANT_ID: ${CLICK_MERCHANT_ID}
+      CLICK_SECRET_KEY: ${CLICK_SECRET_KEY}
+      PAYME_MERCHANT_ID: ${PAYME_MERCHANT_ID}
+      PAYME_KEY: ${PAYME_KEY}
+      UZUM_MERCHANT_ID: ${UZUM_MERCHANT_ID}
+      DIDOX_MODE: ${DIDOX_MODE}
+      DIDOX_BASE_URL: ${DIDOX_BASE_URL}
+      DIDOX_TOKEN: ${DIDOX_TOKEN}
+      ESKIZ_BASE_URL: ${ESKIZ_BASE_URL}
+      ESKIZ_EMAIL: ${ESKIZ_EMAIL}
+      ESKIZ_PASSWORD: ${ESKIZ_PASSWORD}
+      ESKIZ_FROM: ${ESKIZ_FROM}
+      SMTP_HOST: ${SMTP_HOST}
+      SMTP_PORT: ${SMTP_PORT}
+      SMTP_SECURE: ${SMTP_SECURE}
+      SMTP_USER: ${SMTP_USER}
+      SMTP_PASS: ${SMTP_PASS}
+      MAIL_FROM: ${MAIL_FROM}
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN}
+      TELEGRAM_ADMIN_CHAT_ID: ${TELEGRAM_ADMIN_CHAT_ID}
+      FRONTEND_URL: https://${APP_DOMAIN}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      CORS_ORIGINS: https://${APP_DOMAIN}
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        NEXT_PUBLIC_API_URL: https://${APP_DOMAIN}/api
+    image: vetglobal-frontend:prod
+    restart: always
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: production
+      API_INTERNAL_URL: http://backend:8000/api
+      SITE_URL: https://${APP_DOMAIN}
+
+volumes:
+  pgdata:
+  miniodata:
+  caddy_data:
+  caddy_config:
