@@ -72,7 +72,10 @@ function CatalogInner() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
-      <h1 className="mb-6 font-heading text-3xl font-extrabold">{t('catalog.title')}</h1>
+      <div className="mb-6">
+        <span className="eyebrow">Каталог</span>
+        <h1 className="mt-3 section-title">{t('catalog.title')}</h1>
+      </div>
 
       <div className="relative mb-6">
         <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-ink-subtle" />
