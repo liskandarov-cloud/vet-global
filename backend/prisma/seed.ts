@@ -98,6 +98,7 @@ async function main() {
       minOrder: 10,
       isPromotion: true,
       promotionText: '-15% до конца месяца',
+      images: ['https://images.unsplash.com/photo-1584362917165-526a968579e8?auto=format&fit=crop&w=800&q=80'],
     },
     {
       name: 'Энрофлоксацин 10% раствор оральный',
@@ -110,6 +111,7 @@ async function main() {
       form: 'Раствор оральный',
       animalType: AnimalType.CATTLE,
       minOrder: 5,
+      images: ['https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=800&q=80'],
     },
     {
       name: 'Витаминный комплекс АД3Е',
@@ -123,6 +125,7 @@ async function main() {
       animalType: AnimalType.OTHER,
       minOrder: 1,
       isNew: true,
+      images: ['https://images.unsplash.com/photo-1550572017-edd951b55104?auto=format&fit=crop&w=800&q=80'],
     },
   ];
 
