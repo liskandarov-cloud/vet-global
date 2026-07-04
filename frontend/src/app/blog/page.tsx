@@ -1,8 +1,12 @@
-'use client';
-
-import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { api } from '@/lib/api';
+import type { Metadata } from 'next';
+import { serverFetch } from '@/lib/server-api';
+
+export const metadata: Metadata = {
+  title: 'Блог и новости — VetGlobal',
+  description:
+    'Экспертные статьи и отраслевые новости ветеринарии и животноводства: здоровье животных, биобезопасность, кормление, рынок.',
+};
 
 interface Post {
   id: string;
@@ -13,13 +17,10 @@ interface Post {
   createdAt: string;
 }
 
-export default function BlogPage() {
-  const [posts, setPosts] = useState<Post[]>([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    api.get('/blog').then((r) => setPosts(r.data.posts)).finally(() => setLoading(false));
-  }, []);
+// Server-rendered for SEO (SRS: SSR-оптимизация блога).
+export default async function BlogPage() {
+  const data = await serverFetch<{ posts: Post[] }>('/blog?limit=50');
+  const posts = data?.posts ?? [];
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -27,9 +28,8 @@ export default function BlogPage() {
         <span className="eyebrow">Экспертиза</span>
         <h1 className="mt-3 section-title">Блог и новости</h1>
       </div>
-      {loading ? (
-        <div className="py-20 text-center text-ink-subtle">Загрузка…</div>
-      ) : posts.length === 0 ? (
+
+      {posts.length === 0 ? (
         <div className="py-20 text-center text-ink-subtle">Публикаций пока нет</div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">

@@ -1,10 +1,8 @@
-'use client';
-
-import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import type { Metadata } from 'next';
 import Link from 'next/link';
+import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { api } from '@/lib/api';
+import { serverFetch } from '@/lib/server-api';
 
 interface Post {
   title: string;
@@ -12,24 +10,32 @@ interface Post {
   image?: string;
   createdAt: string;
   authorName: string;
+  excerpt?: string;
   metaTitle?: string;
   metaDesc?: string;
 }
 
-export default function BlogPostPage() {
-  const { slug } = useParams<{ slug: string }>();
-  const [post, setPost] = useState<Post | null>(null);
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const post = await serverFetch<Post>(`/blog/${params.slug}`);
+  if (!post) return { title: 'Статья — VetGlobal' };
+  const title = post.metaTitle ?? post.title;
+  const description = post.metaDesc ?? post.excerpt ?? post.content.slice(0, 160);
+  return {
+    title: `${title} — VetGlobal`,
+    description,
+    openGraph: {
+      title,
+      description,
+      type: 'article',
+      images: post.image ? [post.image] : [],
+    },
+  };
+}
 
-  useEffect(() => {
-    if (!slug) return;
-    api.get(`/blog/${slug}`).then((r) => {
-      setPost(r.data);
-      // Client-side SEO: title/description (SSR metadata is a phase-2 follow-up).
-      document.title = `${r.data.metaTitle ?? r.data.title} — VetGlobal`;
-    });
-  }, [slug]);
-
-  if (!post) return <div className="py-24 text-center text-ink-subtle">Загрузка…</div>;
+// Server-rendered article for SEO.
+export default async function BlogPostPage({ params }: { params: { slug: string } }) {
+  const post = await serverFetch<Post>(`/blog/${params.slug}`);
+  if (!post) notFound();
 
   return (
     <article className="mx-auto max-w-3xl px-4 py-10">
