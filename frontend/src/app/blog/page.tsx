@@ -23,7 +23,10 @@ export default function BlogPage() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
-      <h1 className="mb-6 font-heading text-3xl font-extrabold">Блог и новости</h1>
+      <div className="mb-8">
+        <span className="eyebrow">Экспертиза</span>
+        <h1 className="mt-3 section-title">Блог и новости</h1>
+      </div>
       {loading ? (
         <div className="py-20 text-center text-ink-subtle">Загрузка…</div>
       ) : posts.length === 0 ? (
@@ -31,7 +34,7 @@ export default function BlogPage() {
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
           {posts.map((p) => (
-            <Link key={p.id} href={`/blog/${p.slug}`} className="card overflow-hidden transition-shadow hover:shadow-lg">
+            <Link key={p.id} href={`/blog/${p.slug}`} className="card card-hover overflow-hidden">
               {p.image && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={p.image} alt={p.title} className="aspect-video w-full object-cover" />

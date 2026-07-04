@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { Sprout } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
@@ -35,9 +36,14 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="mx-auto max-w-md px-4 py-16">
-      <div className="card p-8">
-        <h1 className="mb-6 font-heading text-2xl font-extrabold">Регистрация</h1>
+    <div className="relative min-h-[80vh] bg-grid">
+      <div className="absolute inset-0 bg-glow" />
+      <div className="relative mx-auto max-w-md px-4 py-16">
+      <div className="card animate-up p-8 shadow-glow">
+        <div className="mb-6 flex items-center gap-2">
+          <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-r from-teal-600 to-emerald-500 text-white"><Sprout size={18} /></span>
+          <h1 className="font-heading text-2xl font-extrabold">Регистрация в <span className="text-gradient">VetGlobal</span></h1>
+        </div>
         <form onSubmit={submit} className="space-y-4">
           <div className="flex overflow-hidden rounded-lg border border-slate-200">
             {[
@@ -65,6 +71,7 @@ export default function RegisterPage() {
         <p className="mt-4 text-center text-sm text-ink-muted">
           Уже есть аккаунт? <Link href="/login" className="font-medium text-teal-700 hover:underline">Войти</Link>
         </p>
+      </div>
       </div>
     </div>
   );
