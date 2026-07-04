@@ -10,7 +10,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiTags, PartialType } from '@nestjs/swagger';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -30,6 +30,9 @@ class BlogPostDto {
   @IsOptional() @IsString() metaDesc?: string;
   @IsOptional() @IsBoolean() published?: boolean;
 }
+
+// All fields optional — supports partial updates (e.g. toggling `published`).
+class UpdateBlogPostDto extends PartialType(BlogPostDto) {}
 
 function slugify(s: string): string {
   const map: Record<string, string> = {
@@ -90,7 +93,7 @@ export class BlogController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.ADMIN)
-  update(@Param('id') id: string, @Body() dto: BlogPostDto) {
+  update(@Param('id') id: string, @Body() dto: UpdateBlogPostDto) {
     return this.prisma.blogPost.update({ where: { id }, data: dto });
   }
 

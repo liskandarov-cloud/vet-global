@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Ban, ShieldCheck, TrendingUp, Percent, Users, ShoppingCart, Download } from 'lucide-react';
+import { Check, Ban, ShieldCheck, TrendingUp, Percent, Users, ShoppingCart, Download, Plus, Pencil, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { RoleGuard, StatCard } from '@/components/RoleGuard';
@@ -12,13 +12,15 @@ const LEAD_STATUS: Record<string, string> = { NEW: 'Новая', CONTACTED: 'В 
 const CONSULT_STATUS: Record<string, string> = { NEW: 'Новая', IN_PROGRESS: 'В работе', ANSWERED: 'Отвечено', CLOSED: 'Закрыта' };
 
 function AdminContent() {
-  const [tab, setTab] = useState<'overview' | 'billing' | 'users' | 'reviews' | 'leads' | 'consults'>('overview');
+  const [tab, setTab] = useState<'overview' | 'billing' | 'users' | 'reviews' | 'leads' | 'consults' | 'blog'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [consults, setConsults] = useState<any[]>([]);
   const [billing, setBilling] = useState<any>(null);
+  const [posts, setPosts] = useState<any[]>([]);
+  const [editingPost, setEditingPost] = useState<any | null>(null);
 
   const load = () => {
     api.get('/admin/stats').then((r) => setStats(r.data)).catch(() => {});
@@ -27,6 +29,14 @@ function AdminContent() {
     api.get('/leads').then((r) => setLeads(r.data)).catch(() => {});
     api.get('/consultations').then((r) => setConsults(r.data)).catch(() => {});
     api.get('/admin/billing').then((r) => setBilling(r.data)).catch(() => {});
+    api.get('/blog', { params: { all: true, limit: 100 } }).then((r) => setPosts(r.data.posts)).catch(() => {});
+  };
+
+  const delPost = async (id: string) => {
+    if (!confirm('Удалить публикацию?')) return;
+    await api.delete(`/blog/${id}`);
+    toast.success('Удалено');
+    load();
   };
 
   const exportBilling = async () => {
@@ -69,7 +79,7 @@ function AdminContent() {
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['overview', 'Обзор'], ['billing', 'Биллинг'], ['leads', `Заявки${newLeads ? ` (${newLeads})` : ''}`], ['consults', `Консультации${newConsults ? ` (${newConsults})` : ''}`], ['users', `Пользователи${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `Отзывы${reviews.length ? ` (${reviews.length})` : ''}`]].map(([k, l]) => (
+        {[['overview', 'Обзор'], ['billing', 'Биллинг'], ['leads', `Заявки${newLeads ? ` (${newLeads})` : ''}`], ['consults', `Консультации${newConsults ? ` (${newConsults})` : ''}`], ['users', `Пользователи${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `Отзывы${reviews.length ? ` (${reviews.length})` : ''}`], ['blog', 'Блог']].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>{l}</button>
         ))}
@@ -234,6 +244,90 @@ function AdminContent() {
           {consults.length === 0 && <div className="py-10 text-center text-ink-subtle">Консультаций пока нет</div>}
         </div>
       )}
+
+      {tab === 'blog' && (
+        <div className="mt-6">
+          <button className="btn-primary mb-4" onClick={() => setEditingPost({ title: '', titleUz: '', content: '', contentUz: '', excerpt: '', image: '', published: true })}>
+            <Plus size={16} /> Новая публикация
+          </button>
+          <div className="space-y-2">
+            {posts.map((p) => (
+              <div key={p.id} className="card flex items-center justify-between p-4">
+                <div>
+                  <div className="font-medium">{p.title} {!p.published && <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700">черновик</span>}</div>
+                  <div className="text-xs text-ink-subtle">{new Date(p.createdAt).toLocaleDateString('ru-RU')} · /{p.slug}</div>
+                </div>
+                <div className="flex gap-1">
+                  <button className="btn-ghost !px-2 !py-1" onClick={() => setEditingPost(p)}><Pencil size={15} /></button>
+                  <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => delPost(p.id)}><Trash2 size={15} /></button>
+                </div>
+              </div>
+            ))}
+            {posts.length === 0 && <div className="py-10 text-center text-ink-subtle">Публикаций пока нет</div>}
+          </div>
+        </div>
+      )}
+
+      {editingPost && (
+        <BlogForm initial={editingPost} onClose={() => setEditingPost(null)} onSaved={() => { setEditingPost(null); load(); }} />
+      )}
+    </div>
+  );
+}
+
+function BlogForm({ initial, onClose, onSaved }: any) {
+  const [form, setForm] = useState<any>(initial);
+  const [saving, setSaving] = useState(false);
+  const upd = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
+
+  const save = async () => {
+    if (!form.title || !form.content) return toast.error('Заголовок и текст обязательны');
+    setSaving(true);
+    const payload = {
+      title: form.title,
+      titleUz: form.titleUz || undefined,
+      content: form.content,
+      contentUz: form.contentUz || undefined,
+      excerpt: form.excerpt || undefined,
+      image: form.image || undefined,
+      published: form.published,
+    };
+    try {
+      if (form.id) await api.patch(`/blog/${form.id}`, payload);
+      else await api.post('/blog', payload);
+      toast.success('Сохранено');
+      onSaved();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Ошибка');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
+      <div className="my-8 w-full max-w-2xl rounded-2xl bg-white p-6">
+        <div className="mb-4 flex items-center justify-between">
+          <h3 className="font-heading text-xl font-bold">{form.id ? 'Редактировать' : 'Новая'} публикация</h3>
+          <button onClick={onClose}><X size={20} /></button>
+        </div>
+        <div className="space-y-3">
+          <input className="input" placeholder="Заголовок (RU)" value={form.title} onChange={(e) => upd('title', e.target.value)} />
+          <input className="input" placeholder="Заголовок (UZ)" value={form.titleUz} onChange={(e) => upd('titleUz', e.target.value)} />
+          <input className="input" placeholder="Краткое описание (excerpt)" value={form.excerpt} onChange={(e) => upd('excerpt', e.target.value)} />
+          <input className="input" placeholder="URL картинки" value={form.image} onChange={(e) => upd('image', e.target.value)} />
+          <textarea className="input !h-auto py-2" rows={6} placeholder="Текст (RU)" value={form.content} onChange={(e) => upd('content', e.target.value)} />
+          <textarea className="input !h-auto py-2" rows={4} placeholder="Текст (UZ)" value={form.contentUz} onChange={(e) => upd('contentUz', e.target.value)} />
+          <label className="flex items-center gap-2 text-sm">
+            <input type="checkbox" checked={form.published} onChange={(e) => upd('published', e.target.checked)} className="h-4 w-4 accent-teal-600" />
+            Опубликовать
+          </label>
+        </div>
+        <div className="mt-6 flex justify-end gap-2">
+          <button className="btn-secondary" onClick={onClose}>Отмена</button>
+          <button className="btn-primary" disabled={saving} onClick={save}>{saving ? '…' : 'Сохранить'}</button>
+        </div>
+      </div>
     </div>
   );
 }
