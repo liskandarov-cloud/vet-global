@@ -8,6 +8,9 @@ COPY prisma ./prisma
 RUN npx prisma generate
 COPY . .
 RUN npm run build
+# Compile the seed to plain JS too (prod runtime has no ts-node).
+RUN npx tsc prisma/seed.ts --outDir dist-seed --module commonjs --target ES2021 \
+    --esModuleInterop --skipLibCheck --moduleResolution node --resolveJsonModule
 
 # ── Slim runtime: prod deps + prebuilt dist, no ts-node/watch ──
 FROM node:22-alpine AS runtime
@@ -25,8 +28,9 @@ COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
 COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
 
 COPY --from=builder /app/dist ./dist
+COPY --from=builder /app/dist-seed ./dist-seed
 COPY prisma ./prisma
 
 EXPOSE 8000
-# Sync schema (use `migrate deploy` once you add migration files), then run.
-CMD ["bash", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/main.js"]
+# Sync schema, seed idempotently (safe on every boot), then run.
+CMD ["bash", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist-seed/seed.js && node dist/main.js"]
