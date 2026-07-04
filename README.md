@@ -2,46 +2,46 @@
 
 Цифровая B2B-платформа, объединяющая производителей, дистрибьюторов и оптовых
 покупателей (птицефабрики, фермы КРС, ветклиники, ветаптеки). Прозрачные закупки
-препаратов, вакцин, кормов и добавок напрямую от проверенных поставщиков.
+препаратов, вакцин, кормов и добавок напрямую от проверенных поставщиков —
+с юридически значимым циклом сделки, лояльностью и аналитикой.
 
-## Стек (по SRS)
+Монетизация: транзакционная комиссия **10–12%**, лояльность **VetPoints**, продвижение брендов.
+
+## Стек
 
 | Слой | Технология |
-|------|------------|
-| Backend | **NestJS** (TypeScript) + Prisma |
+|------|-----------|
+| Backend | **NestJS** (TypeScript) + **Prisma** |
 | БД | **PostgreSQL 16** |
 | Хранилище файлов | **MinIO** (S3-совместимое) — фото товаров, PDF-сертификаты |
-| Frontend | **Next.js 14** (App Router) + Tailwind + i18n (RU/UZ) |
-| Документы | PDF-счета (pdfkit), Excel-отчёты (exceljs) |
-| Аутентификация | JWT (Passport) + bcrypt, роли buyer/seller/admin |
+| Frontend | **Next.js 14** (App Router) + Tailwind + i18n (RU/UZ) + recharts |
+| Документы | PDF-счета (pdfkit + кириллический шрифт), Excel (exceljs) |
+| Auth | JWT (Passport) + bcrypt, роли buyer / seller / admin |
+| Тесты | Jest e2e (13 тестов против живого API) |
 
-`legacy/` — исходный прототип (FastAPI + React CRA + MongoDB), оставлен как эталон
-поведения и модели данных. В сборке не участвует.
+`legacy/` — исходный прототип (FastAPI + React CRA + MongoDB), оставлен как эталон.
 
-## Быстрый старт
+## Быстрый старт (dev)
 
-Нужен только **Docker Desktop**. Node/Postgres ставить локально не требуется —
-всё собирается в контейнерах.
+Нужен только **Docker Desktop**.
 
 ```bash
-cp .env.example .env        # при необходимости отредактируйте секреты
+cp .env.example .env
 docker compose up --build
 ```
-
-Поднимутся сервисы:
 
 | Сервис | URL |
 |--------|-----|
 | Frontend | http://localhost:3000 |
 | Backend API | http://localhost:8000/api |
-| Swagger (документация API) | http://localhost:8000/api/docs |
+| Swagger | http://localhost:8000/api/docs |
 | MinIO Console | http://localhost:9001 |
-| PostgreSQL | localhost:5432 |
 
-При старте backend автоматически: применяет схему к БД (`prisma db push`),
-заполняет справочники и демо-данные (`prisma seed`).
+При старте backend автоматически применяет схему (`prisma db push`) и заполняет
+демо-данные (`prisma seed`): 4 поставщика, 3 покупателя, 26 товаров с картинками,
+отзывы/рейтинги, 28 исторических заказов (для графиков), 9 статей блога.
 
-### Демо-учётные записи
+### Демо-аккаунты
 
 | Роль | Email | Пароль |
 |------|-------|--------|
@@ -49,35 +49,77 @@ docker compose up --build
 | Поставщик | seller@vetglobal.com | seller123 |
 | Покупатель | buyer@vetglobal.com | buyer123 |
 
-## Реализовано (фаза 1 — ядро MVP)
+## Возможности
 
-- **Каталог**: категории, фасетные фильтры (категория, производитель, активное
-  вещество, форма, вид животного, наличие, акции), поиск, сортировка.
-- **Карточка товара**: галерея, сертификаты (PDF), аналоги, отзывы, инфо о поставщике.
-- **Корзина и checkout**: гостевой и авторизованный, списание VetPoints (до 10%).
-- **Заказы**: статусы, маршрутизация продавцу, PDF-счёт, Excel-экспорт, комиссия 10-12%.
-- **VetPoints**: начисление (0,5-1% при доставке), списание, история.
-- **Отзывы и рейтинг**: только после подтверждённой покупки, модерация, средний рейтинг.
-- **Кабинеты**: покупателя (заказы, повтор, счета, баллы), продавца (товары+загрузка,
-  заказы, статистика), админа (GMV, комиссии, модерация продавцов/отзывов, топ-поставщики).
-- **Акции**, **Проверенные поставщики**, **Блог** (SEO-slug, RU/UZ).
-- **Мультиконтрагенты** покупателя (ИНН/МФО/р.счёт) — в модели и API.
-- **Загрузка файлов** в S3/MinIO со строгой проверкой MIME (PDF только для сертификатов).
+**Публичное:** каталог (фасетные фильтры, поиск, пагинация, сортировка), карточка
+товара (галерея, PDF-сертификаты, аналоги, отзывы, избранное), корзина + checkout
+(списание VetPoints, выбор контрагента), акции, проверенные поставщики (+профиль),
+блог (RU/UZ, SEO-slug), ветконсультация, вход/регистрация, **тёмная тема**, адаптив.
 
-## Дорожная карта (фаза 2 — B2B-интеграции по SRS)
+**Кабинет покупателя:** заказы + страница заказа с таймлайном статусов, оплата,
+счета PDF, баланс/история VetPoints, избранное, мультиконтрагенты (ИНН/МФО/р.счёт),
+графики трат по месяцам и категориям, Excel-экспорт.
 
-- ЭДО **Didox.uz** (счета-фактуры, накладные) + **E-imzo** (ЭЦП).
-- Синхронизация **1С/ERP** (CommerceML) — остатки и цены.
-- Платежи: **Click / Payme / UZUM / Uzcard / Humo**, B2B-рассрочка.
-- **Eskiz** SMS, **SendGrid** email, **Telegram-бот** (RU/UZ) с заявками в CRM.
-- SSR-метаданные блога для полноценного SEO.
+**Кабинет продавца:** PIM (товары, загрузка фото/сертификатов, код 1С), заказы
+(статусы, ЭДО, доставка), акции, синхронизация 1С (ключ + endpoint), графики,
+ЭЦП-подпись документов.
+
+**Админка:** обзор + графики, **биллинг** (комиссии/выплаты по поставщикам + Excel),
+заявки CRM (из бота и веб-формы), ветконсультации, пользователи (верификация/бан),
+модерация отзывов, редактор блога.
+
+### Интеграции (переключатель mock → live через `.env`)
+
+Все внешние сервисы работают в **mock-режиме без кредов** (демо/логи в консоль) и
+включаются на реальные одной переменной. Незакрытые места помечены `TODO(*-live)`.
+
+| Интеграция | Переменные | mock → live |
+|-----------|-----------|-------------|
+| **Didox ЭДО** (счета-фактуры) | `DIDOX_MODE`, `DIDOX_BASE_URL`, `DIDOX_TOKEN` | mock подписывает симуляцией; live — /v2/documents |
+| **E-imzo** (ЭЦП) | — | подпись PKCS#7 → Didox |
+| **Платежи** Click/Payme/UZUM | `PAYMENTS_MODE`, `CLICK_*`, `PAYME_MERCHANT_ID`, `UZUM_MERCHANT_ID` | live строит реальные checkout-URL |
+| **SMS** Eskiz.uz | `ESKIZ_EMAIL`, `ESKIZ_PASSWORD`, `ESKIZ_FROM` | статусы заказа/доставки |
+| **Email** SMTP/SendGrid | `SMTP_HOST`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | заказы, заявки, консультации |
+| **Telegram-бот** (RU/UZ) | `TELEGRAM_BOT_TOKEN`, `TELEGRAM_ADMIN_CHAT_ID` | поиск + заявки в CRM |
+| **1С/ERP** | ключ продавца (в кабинете) | `POST /sync/price` (JSON) и `/sync/price/xml` (CommerceML) |
+
+## Тесты
+
+```bash
+docker compose exec backend npm run test:e2e
+```
+
+13 e2e-тестов: health, каталог + пагинация, auth всех ролей, RBAC, заказы
+(комиссия + VetPoints), мин. заказ, избранное, биллинг, акции.
+
+## Продакшн
+
+Multi-stage сборка (slim runtime, Next standalone):
+
+```bash
+cp .env.example .env   # задайте секреты, JWT_SECRET, боевые URL и креды
+docker compose -f docker-compose.prod.yml up --build -d
+```
 
 ## Структура
 
 ```
-backend/    NestJS API (модули: auth, users, categories, products, orders,
-            vetpoints, reviews, promotions, blog, analytics, storage, documents)
-frontend/   Next.js (App Router): каталог, карточка, корзина, кабинеты, блог
-docker-compose.yml
+backend/    NestJS API
+  src/      auth, users, categories, products, orders, vetpoints, reviews,
+            promotions, blog, analytics(+billing), storage, documents, mail,
+            sms, telegram, leads, didox, delivery, consulting, payments, sync,
+            eimzo, favorites
+  prisma/   schema.prisma + seed.ts
+  test/     e2e
+frontend/   Next.js (App Router): каталог, товар, корзина, кабинеты, блог, …
+docker-compose.yml          dev
+docker-compose.prod.yml     prod
 legacy/     исходный прототип (reference only)
 ```
+
+## Дорожная карта (для боевого запуска нужны внешние доступы)
+
+- Заполнить `TODO(*-live)`: реальный payload/статусы Didox, верификация вебхуков
+  Click/Payme, CAPIWS-флоу E-IMZO, схема UZUM.
+- Логистика: интеграция со службами доставки; финтех: B2B-рассрочка через банки.
+- SSR-метаданные и sitemap для полного SEO блога.
