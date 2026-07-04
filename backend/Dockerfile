@@ -1,7 +1,7 @@
 # VetGlobal backend (NestJS) — dev-oriented image.
 # Dependencies are installed at build time; source is bind-mounted in compose
 # for hot-reload. node_modules lives in a named volume (see docker-compose.yml).
-FROM node:20-alpine
+FROM node:22-alpine
 
 # openssl — Prisma query engine; font-dejavu — Cyrillic-capable TTF for PDF invoices.
 RUN apk add --no-cache openssl bash font-dejavu
