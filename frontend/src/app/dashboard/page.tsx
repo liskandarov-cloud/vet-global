@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { Download, FileText, RotateCcw, CreditCard, Gift, Wallet, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -120,7 +121,7 @@ function BuyerContent() {
           <tbody>
             {orders.map((o) => (
               <tr key={o.id} className="border-b border-slate-50">
-                <td className="py-2 font-mono text-xs">{o.id.slice(0, 8)}</td>
+                <td className="py-2 font-mono text-xs"><Link href={`/orders/${o.id}`} className="text-teal-700 hover:underline">{o.id.slice(0, 8)}</Link></td>
                 <td>{new Date(o.createdAt).toLocaleDateString('ru-RU')}</td>
                 <td><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs">{STATUS_LABELS[o.status]}</span></td>
                 <td className="font-semibold">{formatMoney(o.total)}</td>
