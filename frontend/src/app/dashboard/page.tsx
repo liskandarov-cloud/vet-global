@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Download, FileText, RotateCcw, CreditCard } from 'lucide-react';
+import { Download, FileText, RotateCcw, CreditCard, Gift, Wallet, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth, useCart } from '@/lib/store';
@@ -76,12 +76,15 @@ function BuyerContent() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="mb-6 font-heading text-3xl font-extrabold">Кабинет покупателя</h1>
+      <div className="mb-6">
+        <span className="eyebrow">Кабинет</span>
+        <h1 className="mt-3 section-title">Покупатель</h1>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Баланс VetPoints" value={formatMoney(user?.vetPointsBalance ?? 0)} accent />
-        <StatCard label="Потрачено" value={formatMoney(stats?.totalSpent ?? 0)} />
-        <StatCard label="Заказов" value={String(stats?.ordersCount ?? orders.length)} />
+        <StatCard label="Баланс VetPoints" value={formatMoney(user?.vetPointsBalance ?? 0)} accent icon={Gift} />
+        <StatCard label="Потрачено" value={formatMoney(stats?.totalSpent ?? 0)} icon={Wallet} />
+        <StatCard label="Заказов" value={String(stats?.ordersCount ?? orders.length)} icon={Package} />
       </div>
 
       <div className="mt-8 flex items-center justify-between">

@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Ban, ShieldCheck } from 'lucide-react';
+import { Check, Ban, ShieldCheck, TrendingUp, Percent, Users, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { RoleGuard, StatCard } from '@/components/RoleGuard';
@@ -45,13 +45,16 @@ function AdminContent() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="mb-6 font-heading text-3xl font-extrabold">Админ-панель</h1>
+      <div className="mb-6">
+        <span className="eyebrow">Управление</span>
+        <h1 className="mt-3 section-title">Админ-панель</h1>
+      </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="GMV (оборот)" value={formatMoney(stats?.gmv ?? 0)} accent />
-        <StatCard label="Комиссия платформы" value={formatMoney(stats?.commission ?? 0)} accent />
-        <StatCard label="Пользователей" value={String(stats?.totalUsers ?? 0)} />
-        <StatCard label="Заказов" value={String(stats?.totalOrders ?? 0)} />
+        <StatCard label="GMV (оборот)" value={formatMoney(stats?.gmv ?? 0)} accent icon={TrendingUp} />
+        <StatCard label="Комиссия платформы" value={formatMoney(stats?.commission ?? 0)} accent icon={Percent} />
+        <StatCard label="Пользователей" value={String(stats?.totalUsers ?? 0)} icon={Users} />
+        <StatCard label="Заказов" value={String(stats?.totalOrders ?? 0)} icon={ShoppingCart} />
       </div>
 
       <div className="mt-8 flex gap-2 border-b border-slate-200">

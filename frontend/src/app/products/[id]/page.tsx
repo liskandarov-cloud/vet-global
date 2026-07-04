@@ -41,10 +41,16 @@ export default function ProductPage() {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
+      <nav className="mb-5 flex items-center gap-2 text-sm text-ink-subtle">
+        <Link href="/" className="hover:text-teal-700">Главная</Link>
+        <span>/</span>
+        <Link href="/catalog" className="hover:text-teal-700">{t('nav.catalog')}</Link>
+        {product.category && (<><span>/</span><span className="text-ink-muted">{product.category.name}</span></>)}
+      </nav>
       <div className="grid gap-10 md:grid-cols-2">
         {/* Gallery */}
-        <div>
-          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+        <div className="md:sticky md:top-20 md:self-start">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={images[activeImg]} alt={product.name} className="aspect-square w-full object-cover" />
           </div>
@@ -100,9 +106,9 @@ export default function ProductPage() {
             </Link>
           )}
 
-          <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-5">
-            <div className="font-heading text-3xl font-bold">{formatMoney(product.price)}</div>
-            <div className="mt-1 text-sm text-ink-subtle">{t('product.minOrder')}: {product.minOrder}</div>
+          <div className="mt-6 rounded-2xl border border-teal-100 bg-gradient-to-br from-white to-teal-50/40 p-5 shadow-soft">
+            <div className="font-heading text-4xl font-extrabold text-gradient">{formatMoney(product.price)}</div>
+            <div className="mt-1 text-sm text-ink-subtle">{t('product.minOrder')}: {product.minOrder} · {product.inStock ? 'В наличии' : 'Под заказ'}</div>
 
             <div className="mt-4 flex items-center gap-3">
               <div className="flex items-center rounded-lg border border-slate-200">

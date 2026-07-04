@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Trash2, Minus, Plus, ShoppingBag } from 'lucide-react';
+import { Trash2, Minus, Plus, ShoppingBag, ShieldCheck, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useCart, useAuth } from '@/lib/store';
@@ -64,7 +64,10 @@ export default function CartPage() {
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
-      <h1 className="mb-6 font-heading text-3xl font-extrabold">{t('cart.title')}</h1>
+      <div className="mb-6">
+        <span className="eyebrow">Оформление</span>
+        <h1 className="mt-3 section-title">{t('cart.title')}</h1>
+      </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* Items */}
         <div className="space-y-3">
@@ -88,7 +91,7 @@ export default function CartPage() {
         </div>
 
         {/* Summary / checkout */}
-        <div className="card h-max space-y-4 p-5">
+        <div className="card h-max space-y-4 p-5 shadow-soft lg:sticky lg:top-20">
           {!user && (
             <div className="space-y-3">
               <input className="input" placeholder={t('cart.name')} value={name} onChange={(e) => setName(e.target.value)} />
@@ -109,14 +112,18 @@ export default function CartPage() {
             {pointsToUse > 0 && (
               <div className="flex justify-between text-secondary"><span>VetPoints</span><span>-{formatMoney(pointsToUse)}</span></div>
             )}
-            <div className="flex justify-between border-t border-slate-100 pt-2 font-heading text-lg font-bold">
-              <span>Итого</span><span className="text-teal-700">{formatMoney(total)}</span>
+            <div className="flex items-baseline justify-between border-t border-slate-100 pt-2 font-heading font-bold">
+              <span className="text-lg">Итого</span><span className="text-2xl text-gradient">{formatMoney(total)}</span>
             </div>
           </div>
 
           <button className="btn-primary w-full" disabled={submitting} onClick={checkout}>
             {submitting ? '…' : t('cart.checkout')}
           </button>
+          <div className="flex items-center justify-center gap-4 text-xs text-ink-subtle">
+            <span className="flex items-center gap-1"><ShieldCheck size={13} className="text-teal-700" /> Безопасно</span>
+            <span className="flex items-center gap-1"><FileText size={13} className="text-teal-700" /> Счёт PDF</span>
+          </div>
         </div>
       </div>
     </div>
