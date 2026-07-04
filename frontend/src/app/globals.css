@@ -6,12 +6,30 @@
 
 :root {
   --brand: #0d9488;
+  --bg: #f8fafc;
+  --paper: #ffffff;
+  --ink: #0f172a;
+  --ink-muted: #475569;
+  --ink-subtle: #94a3b8;
+  --line: #e2e8f0;
+  --line-subtle: #f1f5f9;
+}
+
+.dark {
+  --bg: #0b1220;
+  --paper: #0f172a;
+  --ink: #e5edf5;
+  --ink-muted: #9fb0c3;
+  --ink-subtle: #6b7c93;
+  --line: #1e293b;
+  --line-subtle: #172033;
+  color-scheme: dark;
 }
 
 html,
 body {
-  background: #f8fafc;
-  color: #0f172a;
+  background: var(--bg);
+  color: var(--ink);
   font-family: 'Public Sans', sans-serif;
 }
 
@@ -92,3 +110,49 @@ h1, h2, h3, h4, h5 {
   .animate-up { opacity: 1; animation: none; }
   .animate-float { animation: none; }
 }
+
+/* ── Dark theme overrides ──
+   Component classes use @apply (inlined), so raw `.dark .bg-white` can't reach
+   them — override the component classes explicitly. Raw utilities used directly
+   in JSX are remapped below. */
+.dark .card { background-color: var(--paper); border-color: var(--line); }
+.dark .input {
+  background-color: #0f1a2e;
+  border-color: var(--line);
+  color: var(--ink);
+}
+.dark .input::placeholder { color: var(--ink-subtle); }
+.dark .btn-secondary {
+  background-color: var(--paper);
+  border-color: var(--line);
+  color: var(--ink);
+}
+.dark .btn-secondary:hover { background-color: #1e293b; border-color: #334155; }
+.dark .btn-ghost { color: var(--ink-muted); }
+.dark .btn-ghost:hover { background-color: rgba(13, 148, 136, 0.15); color: #5eead4; }
+.dark .glass { background-color: rgba(15, 23, 42, 0.75); border-color: rgba(30, 41, 59, 0.6); }
+
+/* Raw utilities used directly in components */
+.dark .bg-white { background-color: var(--paper) !important; }
+.dark .bg-slate-50 { background-color: #0f1a2e !important; }
+.dark .bg-slate-100 { background-color: #1e293b !important; }
+.dark .bg-teal-50 { background-color: #0e2e2b !important; }
+.dark .bg-teal-100 { background-color: #0e332f !important; }
+.dark .bg-amber-100 { background-color: #3a2e12 !important; }
+.dark .bg-red-100 { background-color: #3a1720 !important; }
+.dark .border-slate-100,
+.dark .border-slate-200 { border-color: var(--line) !important; }
+.dark .border-teal-100,
+.dark .border-teal-200 { border-color: #134e4a !important; }
+.dark .text-slate-500,
+.dark .text-slate-600,
+.dark .text-slate-700 { color: var(--ink-muted) !important; }
+.dark .text-teal-700,
+.dark .text-teal-800 { color: #5eead4 !important; }
+.dark .text-amber-600,
+.dark .text-amber-700 { color: #fbbf24 !important; }
+
+/* Gradient section surfaces → flatten to dark in dark mode */
+.dark .bg-gradient-to-br.from-slate-50,
+.dark .bg-gradient-to-br.from-white { background: var(--bg) !important; }
+

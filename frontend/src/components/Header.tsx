@@ -7,6 +7,7 @@ import { ShoppingCart, ShieldCheck, LogOut, LayoutDashboard, Sprout, Menu, X } f
 import { useAuth, useCart } from '@/lib/store';
 import { useI18n, Lang } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
+import { ThemeToggle } from './ThemeToggle';
 
 export function Header() {
   const { t, lang, setLang } = useI18n();
@@ -56,6 +57,8 @@ export function Header() {
               </button>
             ))}
           </div>
+
+          <ThemeToggle />
 
           <Link href="/cart" className="relative btn-ghost" aria-label={t('nav.cart')}>
             <ShoppingCart size={20} />
