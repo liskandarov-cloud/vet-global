@@ -2,6 +2,7 @@
 
 import { useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
+import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/store';
 
 export function RoleGuard({ role, children }: { role: 'BUYER' | 'SELLER' | 'ADMIN'; children: ReactNode }) {
@@ -29,7 +30,7 @@ export function StatCard({
   label: string;
   value: string;
   accent?: boolean;
-  icon?: React.ComponentType<{ size?: number }>;
+  icon?: LucideIcon;
 }) {
   return (
     <div

@@ -1,0 +1,32 @@
+# ── VetGlobal backend — production multi-stage build ──
+FROM node:20-alpine AS builder
+RUN apk add --no-cache openssl
+WORKDIR /app
+COPY package*.json ./
+RUN npm install
+COPY prisma ./prisma
+RUN npx prisma generate
+COPY . .
+RUN npm run build
+
+# ── Slim runtime: prod deps + prebuilt dist, no ts-node/watch ──
+FROM node:20-alpine AS runtime
+RUN apk add --no-cache openssl bash font-dejavu
+WORKDIR /app
+ENV NODE_ENV=production
+
+COPY package*.json ./
+RUN npm install --omit=dev && npm cache clean --force
+
+# Prisma CLI (for migrate/db push on start), engines and generated client.
+COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
+COPY --from=builder /app/node_modules/prisma ./node_modules/prisma
+COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=builder /app/node_modules/.bin/prisma ./node_modules/.bin/prisma
+
+COPY --from=builder /app/dist ./dist
+COPY prisma ./prisma
+
+EXPOSE 8000
+# Sync schema (use `migrate deploy` once you add migration files), then run.
+CMD ["bash", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist/main.js"]
