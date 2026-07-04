@@ -41,25 +41,37 @@ async function main() {
   });
   console.log(`✓ admin: ${adminEmail} / ${adminPassword}`);
 
-  // ── Demo seller ──
-  const seller = await prisma.user.upsert({
-    where: { email: 'seller@vetglobal.com' },
-    update: {},
-    create: {
-      email: 'seller@vetglobal.com',
-      passwordHash: await bcrypt.hash('seller123', 10),
-      fullName: 'Иван Поставщиков',
-      phone: '+998901112233',
-      company: 'ООО «ВетФарм Импорт»',
-      inn: '301234567',
-      role: UserRole.SELLER,
-      isVerified: true,
-      description: 'Официальный импортёр ветеринарных препаратов и вакцин.',
-      rating: 4.7,
-      reviewsCount: 12,
-    },
-  });
-  console.log('✓ demo seller: seller@vetglobal.com / seller123');
+  // ── Demo sellers (products are distributed across them) ──
+  const SELLERS = [
+    { email: 'seller@vetglobal.com', password: 'seller123', fullName: 'Иван Поставщиков', phone: '+998901112233', company: 'ООО «ВетФарм Импорт»', inn: '301234567', description: 'Официальный импортёр ветеринарных препаратов и вакцин.', rating: 4.7, reviewsCount: 12 },
+    { email: 'agrovet@vetglobal.com', password: 'seller123', fullName: 'Дилшод Рахимов', phone: '+998901112234', company: 'ООО «AgroVet Distribution»', inn: '302345678', description: 'Дистрибуция кормовых добавок и премиксов для птицефабрик и КРС.', rating: 4.5, reviewsCount: 8 },
+    { email: 'biopharm@vetglobal.com', password: 'seller123', fullName: 'Санжар Юлдашев', phone: '+998901112235', company: 'ООО «BioPharm Central Asia»', inn: '303456789', description: 'Производитель вакцин и диагностических систем.', rating: 4.8, reviewsCount: 15 },
+    { email: 'vetsnab@vetglobal.com', password: 'seller123', fullName: 'Азиз Каримов', phone: '+998901112236', company: 'ООО «ВетСнаб»', inn: '304567890', description: 'Ветеринарный инструмент, расходники и дезинфекция.', rating: 4.3, reviewsCount: 5 },
+  ];
+  const sellers: { id: string }[] = [];
+  for (const s of SELLERS) {
+    sellers.push(
+      await prisma.user.upsert({
+        where: { email: s.email },
+        update: {},
+        create: {
+          email: s.email,
+          passwordHash: await bcrypt.hash(s.password, 10),
+          fullName: s.fullName,
+          phone: s.phone,
+          company: s.company,
+          inn: s.inn,
+          role: UserRole.SELLER,
+          isVerified: true,
+          description: s.description,
+          rating: s.rating,
+          reviewsCount: s.reviewsCount,
+        },
+      }),
+    );
+  }
+  const seller = sellers[0];
+  console.log(`✓ demo sellers: ${sellers.length} (seller@vetglobal.com / seller123)`);
 
   // ── Demo buyer ──
   await prisma.user.upsert({
@@ -129,12 +141,13 @@ async function main() {
     },
   ];
 
+  let sIdx = 0; // round-robin seller assignment across the whole catalog
   for (const p of demoProducts) {
     if (!p.categoryId) continue;
     const exists = await prisma.product.findFirst({ where: { name: p.name } });
     if (!exists) {
       await prisma.product.create({
-        data: { ...p, categoryId: p.categoryId, sellerId: seller.id },
+        data: { ...p, categoryId: p.categoryId, sellerId: sellers[sIdx++ % sellers.length].id },
       });
     }
   }
@@ -202,7 +215,7 @@ async function main() {
         isPromotion: promo,
         promotionText: promo ? 'Спец. цена' : null,
         isNew: isNewFlag,
-        sellerId: seller.id,
+        sellerId: sellers[sIdx++ % sellers.length].id,
         ...(sub ? { activeSubstance: sub } : {}),
       },
     });
