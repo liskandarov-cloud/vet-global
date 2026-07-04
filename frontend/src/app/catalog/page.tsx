@@ -33,11 +33,18 @@ function CatalogInner() {
   const [animalType, setAnimalType] = useState('');
   const [inStock, setInStock] = useState(false);
   const [sort, setSort] = useState('newest');
+  const [page, setPage] = useState(1);
+  const LIMIT = 12;
 
   useEffect(() => {
     api.get('/categories').then((r) => setCategories(r.data)).catch(() => {});
     api.get('/products/facets').then((r) => setFacets(r.data)).catch(() => {});
   }, []);
+
+  // Reset to page 1 whenever filters change.
+  useEffect(() => {
+    setPage(1);
+  }, [search, category, manufacturer, animalType, inStock, sort]);
 
   const query = useMemo(
     () => ({
@@ -47,9 +54,10 @@ function CatalogInner() {
       animalType: animalType || undefined,
       inStock: inStock ? true : undefined,
       sort,
-      limit: 24,
+      skip: (page - 1) * LIMIT,
+      limit: LIMIT,
     }),
-    [search, category, manufacturer, animalType, inStock, sort],
+    [search, category, manufacturer, animalType, inStock, sort, page],
   );
 
   useEffect(() => {
@@ -67,8 +75,10 @@ function CatalogInner() {
   }, [query]);
 
   const reset = () => {
-    setSearch(''); setCategory(''); setManufacturer(''); setAnimalType(''); setInStock(false); setSort('newest');
+    setSearch(''); setCategory(''); setManufacturer(''); setAnimalType(''); setInStock(false); setSort('newest'); setPage(1);
   };
+
+  const totalPages = Math.max(1, Math.ceil(total / LIMIT));
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
@@ -153,6 +163,34 @@ function CatalogInner() {
               {products.map((p) => (
                 <ProductCard key={p.id} product={p} />
               ))}
+            </div>
+          )}
+
+          {!loading && totalPages > 1 && (
+            <div className="mt-8 flex flex-wrap items-center justify-center gap-2">
+              <button
+                disabled={page <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+                className="btn-secondary !px-3 !py-1.5 text-sm disabled:opacity-40"
+              >
+                Назад
+              </button>
+              {Array.from({ length: totalPages }).map((_, i) => (
+                <button
+                  key={i}
+                  onClick={() => setPage(i + 1)}
+                  className={`h-9 w-9 rounded-lg text-sm ${page === i + 1 ? 'bg-teal-600 font-semibold text-white' : 'border border-slate-200 hover:bg-slate-50'}`}
+                >
+                  {i + 1}
+                </button>
+              ))}
+              <button
+                disabled={page >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                className="btn-secondary !px-3 !py-1.5 text-sm disabled:opacity-40"
+              >
+                Вперёд
+              </button>
             </div>
           )}
         </div>
