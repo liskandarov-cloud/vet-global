@@ -139,6 +139,76 @@ async function main() {
     }
   }
   console.log(`✓ demo products seeded`);
+
+  // ── Extended catalog (all categories) for a lively storefront ──
+  const catMap = Object.fromEntries(
+    (await prisma.category.findMany()).map((c) => [c.slug, c.id] as const),
+  );
+  const imgOf = (slug: string) => {
+    const m: Record<string, string> = {
+      vaccines: '1584362917165-526a968579e8',
+      antibiotics: '1471864190281-a93a3070b6de',
+      vitamins: '1550572017-edd951b55104',
+      'feed-additives': '1518977676601-b53f82aba655',
+      disinfectants: '1471864190281-a93a3070b6de',
+      diagnostics: '1550572017-edd951b55104',
+      other: '1547908068-35ea7b47a21d',
+    };
+    return [`https://images.unsplash.com/photo-${m[slug] ?? '1547908068-35ea7b47a21d'}?auto=format&fit=crop&w=800&q=80`];
+  };
+
+  type P = [string, string, number, string | null, string, string, AnimalType, number, boolean, boolean];
+  const EXTRA: P[] = [
+    ['Вакцина против болезни Гамборо', 'vaccines', 92000, 'Штамм Winterfield 2512', 'BioVet', 'Лиофилизат', AnimalType.POULTRY, 10, false, true],
+    ['Вакцина против болезни Марека', 'vaccines', 110000, 'Herpesvirus turkey', 'Biotech', 'Суспензия', AnimalType.POULTRY, 5, false, false],
+    ['Вакцина против ящура КРС', 'vaccines', 145000, 'Инактивированный антиген', 'Nita-Farm', 'Эмульсия', AnimalType.CATTLE, 5, true, false],
+    ['Вакцина антирабическая', 'vaccines', 38000, 'Штамм RV-97', 'InVet', 'Раствор для инъекций', AnimalType.PETS, 1, false, true],
+    ['Тилозин 200 инъекционный', 'antibiotics', 95000, 'Тилозина тартрат', 'VIC', 'Раствор для инъекций', AnimalType.CATTLE, 5, false, false],
+    ['Амоксициллин 15% LA', 'antibiotics', 128000, 'Амоксициллин', 'KRKA', 'Суспензия', AnimalType.CATTLE, 4, true, false],
+    ['Окситетрациклин 20%', 'antibiotics', 76000, 'Окситетрациклин', 'VetPharma', 'Раствор для инъекций', AnimalType.SMALL_RUMINANTS, 5, false, false],
+    ['Флорфеникол 30%', 'antibiotics', 158000, 'Флорфеникол', 'Invesa', 'Раствор оральный', AnimalType.POULTRY, 3, false, true],
+    ['Тетравит', 'vitamins', 42000, 'A, D3, E, F', 'AgroVit', 'Раствор для инъекций', AnimalType.OTHER, 1, false, false],
+    ['Витамин B-комплекс', 'vitamins', 35000, 'B1, B2, B6, B12', 'Nita-Farm', 'Раствор для инъекций', AnimalType.OTHER, 1, false, false],
+    ['Кальфосет (Ca+P+Mg)', 'vitamins', 68000, 'Кальций, фосфор, магний', 'VIC', 'Раствор для инъекций', AnimalType.CATTLE, 2, true, false],
+    ['Глутекс (дезинфектант)', 'disinfectants', 89000, 'Глутаровый альдегид', 'BioVet', 'Концентрат', AnimalType.OTHER, 2, false, false],
+    ['Йодовит', 'disinfectants', 54000, 'Йод, ПАВ', 'AgroVit', 'Раствор', AnimalType.OTHER, 4, false, false],
+    ['Дезосепт-форте', 'disinfectants', 120000, 'ЧАС, глутаральдегид', 'InVet', 'Концентрат', AnimalType.OTHER, 2, false, true],
+    ['Пробиотик Ветом 1.1', 'feed-additives', 64000, 'Bacillus subtilis', 'Biotech', 'Порошок', AnimalType.POULTRY, 5, false, false],
+    ['Аминокислотный комплекс', 'feed-additives', 98000, 'Лизин, метионин', 'VetPharma', 'Порошок', AnimalType.POULTRY, 5, true, false],
+    ['Ферментный премикс', 'feed-additives', 72000, 'Ксиланаза, фитаза', 'AgroVit', 'Гранулы', AnimalType.POULTRY, 10, false, false],
+    ['Мел кормовой', 'feed-additives', 18000, 'Карбонат кальция', 'VIC', 'Порошок', AnimalType.CATTLE, 20, false, false],
+    ['Экспресс-тест на мастит', 'diagnostics', 47000, 'Индикаторный реагент', 'InVet', 'Набор', AnimalType.CATTLE, 5, false, true],
+    ['Тест-полоски (кетоз)', 'diagnostics', 56000, 'BHB-реагент', 'Biotech', 'Полоски', AnimalType.CATTLE, 3, false, false],
+    ['Шприцы ветеринарные 20мл', 'other', 1200, null, 'MedSupply', 'Одноразовые', AnimalType.OTHER, 100, false, false],
+    ['Перчатки смотровые (100шт)', 'other', 42000, null, 'MedSupply', 'Нитрил', AnimalType.OTHER, 5, false, false],
+  ];
+
+  let extra = 0;
+  for (const [name, slug, price, sub, man, form, animal, mo, promo, isNewFlag] of EXTRA) {
+    if (!catMap[slug]) continue;
+    if (await prisma.product.findFirst({ where: { name } })) continue;
+    await prisma.product.create({
+      data: {
+        name,
+        description: `${name}. Производитель: ${man}. Форма: ${form}.`,
+        categoryId: catMap[slug],
+        price,
+        manufacturer: man,
+        form,
+        animalType: animal,
+        minOrder: mo,
+        inStock: true,
+        images: imgOf(slug),
+        isPromotion: promo,
+        promotionText: promo ? 'Спец. цена' : null,
+        isNew: isNewFlag,
+        sellerId: seller.id,
+        ...(sub ? { activeSubstance: sub } : {}),
+      },
+    });
+    extra++;
+  }
+  console.log(`✓ extended catalog: +${extra} products`);
 }
 
 main()
