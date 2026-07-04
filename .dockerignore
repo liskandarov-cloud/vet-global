@@ -1,0 +1,11 @@
+**/node_modules
+**/dist
+**/.next
+**/dist-seed
+legacy
+docs
+deploy
+frontend
+*.md
+.git
+.env
