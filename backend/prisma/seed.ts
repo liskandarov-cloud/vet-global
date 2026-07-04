@@ -73,23 +73,32 @@ async function main() {
   const seller = sellers[0];
   console.log(`✓ demo sellers: ${sellers.length} (seller@vetglobal.com / seller123)`);
 
-  // ── Demo buyer ──
-  await prisma.user.upsert({
-    where: { email: 'buyer@vetglobal.com' },
-    update: {},
-    create: {
-      email: 'buyer@vetglobal.com',
-      passwordHash: await bcrypt.hash('buyer123', 10),
-      fullName: 'Пётр Закупщик',
-      phone: '+998907778899',
-      company: 'Птицефабрика «Заря»',
-      inn: '305556677',
-      role: UserRole.BUYER,
-      isVerified: true,
-      vetPointsBalance: 15000,
-    },
-  });
-  console.log('✓ demo buyer: buyer@vetglobal.com / buyer123');
+  // ── Demo buyers ──
+  const BUYERS = [
+    { email: 'buyer@vetglobal.com', password: 'buyer123', fullName: 'Пётр Закупщик', phone: '+998907778899', company: 'Птицефабрика «Заря»', inn: '305556677', points: 15000 },
+    { email: 'farm2@vetglobal.com', password: 'buyer123', fullName: 'Нодира Аминова', phone: '+998907778810', company: 'Ферма КРС «Нур»', inn: '306667788', points: 3200 },
+    { email: 'clinic@vetglobal.com', password: 'buyer123', fullName: 'Ветклиника «Айболит»', phone: '+998907778820', company: 'ООО «Айболит»', inn: '307778899', points: 800 },
+  ];
+  const buyers: { id: string; name: string }[] = [];
+  for (const b of BUYERS) {
+    const u = await prisma.user.upsert({
+      where: { email: b.email },
+      update: {},
+      create: {
+        email: b.email,
+        passwordHash: await bcrypt.hash(b.password, 10),
+        fullName: b.fullName,
+        phone: b.phone,
+        company: b.company,
+        inn: b.inn,
+        role: UserRole.BUYER,
+        isVerified: true,
+        vetPointsBalance: b.points,
+      },
+    });
+    buyers.push({ id: u.id, name: b.fullName });
+  }
+  console.log(`✓ demo buyers: ${buyers.length} (buyer@vetglobal.com / buyer123)`);
 
   // ── Demo products ──
   const vaccines = await prisma.category.findUnique({ where: { slug: 'vaccines' } });
@@ -222,6 +231,61 @@ async function main() {
     extra++;
   }
   console.log(`✓ extended catalog: +${extra} products`);
+
+  // ── Demo reviews & recomputed ratings ──
+  const COMMENTS = [
+    'Отличное качество, берём регулярно.',
+    'Быстрая поставка, товар полностью соответствует.',
+    'Хорошая цена, рекомендуем коллегам.',
+    'Всё пришло в срок, упаковка целая.',
+    'Работаем с поставщиком давно, нареканий нет.',
+    'Препарат эффективный, результатом довольны.',
+  ];
+  const RATINGS = [5, 4, 5, 5, 4, 3];
+  const COUNTS = [3, 2, 1, 2, 0]; // varied per product (some without reviews)
+
+  const allProducts = await prisma.product.findMany({ orderBy: { createdAt: 'asc' } });
+  for (let i = 0; i < allProducts.length; i++) {
+    const prod = allProducts[i];
+    const count = Math.min(COUNTS[i % COUNTS.length], buyers.length);
+    for (let j = 0; j < count; j++) {
+      const buyer = buyers[j];
+      const exists = await prisma.review.findUnique({
+        where: { productId_buyerId: { productId: prod.id, buyerId: buyer.id } },
+      });
+      if (!exists) {
+        await prisma.review.create({
+          data: {
+            productId: prod.id,
+            buyerId: buyer.id,
+            buyerName: buyer.name,
+            rating: RATINGS[(i + j) % RATINGS.length],
+            comment: COMMENTS[(i + j) % COMMENTS.length],
+            isApproved: true,
+          },
+        });
+      }
+    }
+    // Recompute product aggregate from approved reviews (idempotent).
+    const approved = await prisma.review.findMany({ where: { productId: prod.id, isApproved: true } });
+    if (approved.length) {
+      const avg = approved.reduce((a, r) => a + r.rating, 0) / approved.length;
+      await prisma.product.update({
+        where: { id: prod.id },
+        data: { rating: Math.round(avg * 10) / 10, reviewsCount: approved.length },
+      });
+    }
+  }
+
+  // Recompute seller ratings from their rated products.
+  for (const s of sellers) {
+    const sp = await prisma.product.findMany({ where: { sellerId: s.id, reviewsCount: { gt: 0 } } });
+    if (sp.length) {
+      const avg = sp.reduce((a, p) => a + Number(p.rating), 0) / sp.length;
+      await prisma.user.update({ where: { id: s.id }, data: { rating: Math.round(avg * 10) / 10 } });
+    }
+  }
+  console.log('✓ demo reviews & ratings');
 }
 
 main()
