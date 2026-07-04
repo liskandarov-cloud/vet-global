@@ -1,4 +1,4 @@
-import { PrismaClient, UserRole, AnimalType } from '@prisma/client';
+import { PrismaClient, UserRole, AnimalType, OrderStatus } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -79,7 +79,7 @@ async function main() {
     { email: 'farm2@vetglobal.com', password: 'buyer123', fullName: 'Нодира Аминова', phone: '+998907778810', company: 'Ферма КРС «Нур»', inn: '306667788', points: 3200 },
     { email: 'clinic@vetglobal.com', password: 'buyer123', fullName: 'Ветклиника «Айболит»', phone: '+998907778820', company: 'ООО «Айболит»', inn: '307778899', points: 800 },
   ];
-  const buyers: { id: string; name: string }[] = [];
+  const buyers: { id: string; name: string; phone: string; company: string }[] = [];
   for (const b of BUYERS) {
     const u = await prisma.user.upsert({
       where: { email: b.email },
@@ -96,7 +96,7 @@ async function main() {
         vetPointsBalance: b.points,
       },
     });
-    buyers.push({ id: u.id, name: b.fullName });
+    buyers.push({ id: u.id, name: b.fullName, phone: b.phone, company: b.company });
   }
   console.log(`✓ demo buyers: ${buyers.length} (buyer@vetglobal.com / buyer123)`);
 
@@ -286,6 +286,60 @@ async function main() {
     }
   }
   console.log('✓ demo reviews & ratings');
+
+  // ── Historical demo orders (spread over ~6 months) to populate analytics ──
+  const MARKER = 'seed-ord-0000';
+  if (!(await prisma.order.findUnique({ where: { id: MARKER } }))) {
+    const catalog = await prisma.product.findMany();
+    const COMMISSION_PCT = 12;
+    const EARN_PCT = 1;
+    const ORDER_COUNT = 28;
+    const base = Date.now();
+
+    for (let k = 0; k < ORDER_COUNT; k++) {
+      const buyer = buyers[k % buyers.length];
+      // Spread across the last ~180 days, denser in recent weeks.
+      const daysAgo = Math.floor((k * 175) / ORDER_COUNT) + (k % 5);
+      const createdAt = new Date(base - daysAgo * 24 * 3600 * 1000);
+
+      const itemCount = (k % 3) + 1;
+      const items: { productId: string; productName: string; sellerId: string; quantity: number; price: number }[] = [];
+      let subtotal = 0;
+      for (let j = 0; j < itemCount; j++) {
+        const p = catalog[(k * 3 + j) % catalog.length];
+        const qty = (((k + j) % 3) + 1) * p.minOrder;
+        const price = Number(p.price);
+        items.push({ productId: p.id, productName: p.name, sellerId: p.sellerId, quantity: qty, price });
+        subtotal += price * qty;
+      }
+
+      const commission = Math.round((subtotal * COMMISSION_PCT) / 100);
+      const vetPointsEarned = Math.round((subtotal * EARN_PCT) / 100);
+      const status =
+        k % 7 === 0 ? OrderStatus.PENDING : k % 7 === 1 ? OrderStatus.SHIPPED : OrderStatus.DELIVERED;
+
+      await prisma.order.create({
+        data: {
+          id: k === 0 ? MARKER : undefined,
+          buyerId: buyer.id,
+          buyerName: buyer.name,
+          buyerPhone: buyer.phone,
+          buyerCompany: buyer.company,
+          status,
+          subtotal,
+          vetPointsUsed: 0,
+          total: subtotal,
+          vetPointsEarned,
+          commission,
+          createdAt,
+          items: { create: items },
+        },
+      });
+    }
+    console.log(`✓ historical demo orders: ${ORDER_COUNT}`);
+  } else {
+    console.log('✓ historical demo orders already present');
+  }
 }
 
 main()
