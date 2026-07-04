@@ -61,6 +61,48 @@ export class AnalyticsService {
     };
   }
 
+  // ── Admin billing: per-seller revenue / commission / payout ──
+  async adminBilling() {
+    const pct = Number(process.env.PLATFORM_COMMISSION_PERCENT ?? 12);
+    const items = await this.prisma.orderItem.findMany({
+      select: { sellerId: true, price: true, quantity: true, orderId: true },
+    });
+
+    const map = new Map<string, { revenue: number; orders: Set<string> }>();
+    for (const it of items) {
+      const cur = map.get(it.sellerId) ?? { revenue: 0, orders: new Set<string>() };
+      cur.revenue += Number(it.price) * it.quantity;
+      cur.orders.add(it.orderId);
+      map.set(it.sellerId, cur);
+    }
+
+    const sellers = await this.prisma.user.findMany({
+      where: { id: { in: [...map.keys()] } },
+      select: { id: true, company: true },
+    });
+
+    const rows = [...map.entries()]
+      .map(([id, v]) => {
+        const commission = Math.round((v.revenue * pct) / 100);
+        return {
+          sellerId: id,
+          company: sellers.find((s) => s.id === id)?.company ?? '—',
+          orders: v.orders.size,
+          revenue: v.revenue,
+          commission,
+          payout: v.revenue - commission,
+        };
+      })
+      .sort((a, b) => b.revenue - a.revenue);
+
+    const totals = rows.reduce(
+      (t, r) => ({ revenue: t.revenue + r.revenue, commission: t.commission + r.commission, payout: t.payout + r.payout }),
+      { revenue: 0, commission: 0, payout: 0 },
+    );
+
+    return { commissionPercent: pct, rows, totals };
+  }
+
   // ── Seller dashboard ──
   async sellerStats(sellerId: string) {
     const items = await this.prisma.orderItem.findMany({

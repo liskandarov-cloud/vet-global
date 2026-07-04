@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Check, Ban, ShieldCheck, TrendingUp, Percent, Users, ShoppingCart } from 'lucide-react';
+import { Check, Ban, ShieldCheck, TrendingUp, Percent, Users, ShoppingCart, Download } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { RoleGuard, StatCard } from '@/components/RoleGuard';
@@ -12,12 +12,13 @@ const LEAD_STATUS: Record<string, string> = { NEW: 'Новая', CONTACTED: 'В 
 const CONSULT_STATUS: Record<string, string> = { NEW: 'Новая', IN_PROGRESS: 'В работе', ANSWERED: 'Отвечено', CLOSED: 'Закрыта' };
 
 function AdminContent() {
-  const [tab, setTab] = useState<'overview' | 'users' | 'reviews' | 'leads' | 'consults'>('overview');
+  const [tab, setTab] = useState<'overview' | 'billing' | 'users' | 'reviews' | 'leads' | 'consults'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [consults, setConsults] = useState<any[]>([]);
+  const [billing, setBilling] = useState<any>(null);
 
   const load = () => {
     api.get('/admin/stats').then((r) => setStats(r.data)).catch(() => {});
@@ -25,6 +26,15 @@ function AdminContent() {
     api.get('/reviews/pending').then((r) => setReviews(r.data)).catch(() => {});
     api.get('/leads').then((r) => setLeads(r.data)).catch(() => {});
     api.get('/consultations').then((r) => setConsults(r.data)).catch(() => {});
+    api.get('/admin/billing').then((r) => setBilling(r.data)).catch(() => {});
+  };
+
+  const exportBilling = async () => {
+    const { data } = await api.get('/admin/billing/export', { responseType: 'blob' });
+    const url = URL.createObjectURL(new Blob([data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = 'billing.xlsx'; a.click();
+    URL.revokeObjectURL(url);
   };
   useEffect(load, []);
 
@@ -59,7 +69,7 @@ function AdminContent() {
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['overview', 'Обзор'], ['leads', `Заявки${newLeads ? ` (${newLeads})` : ''}`], ['consults', `Консультации${newConsults ? ` (${newConsults})` : ''}`], ['users', `Пользователи${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `Отзывы${reviews.length ? ` (${reviews.length})` : ''}`]].map(([k, l]) => (
+        {[['overview', 'Обзор'], ['billing', 'Биллинг'], ['leads', `Заявки${newLeads ? ` (${newLeads})` : ''}`], ['consults', `Консультации${newConsults ? ` (${newConsults})` : ''}`], ['users', `Пользователи${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `Отзывы${reviews.length ? ` (${reviews.length})` : ''}`]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>{l}</button>
         ))}
@@ -94,6 +104,43 @@ function AdminContent() {
           </div>
         </div>
         </>
+      )}
+
+      {tab === 'billing' && (
+        <div className="mt-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="text-sm text-ink-muted">Комиссия платформы: <b>{billing?.commissionPercent ?? 12}%</b></div>
+            <button className="btn-secondary" onClick={exportBilling}><Download size={16} /> Excel</button>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-left text-ink-subtle">
+                <tr className="border-b border-slate-100"><th className="py-2">Поставщик</th><th>Заказов</th><th>Оборот</th><th>Комиссия</th><th>К выплате</th></tr>
+              </thead>
+              <tbody>
+                {(billing?.rows ?? []).map((r: any) => (
+                  <tr key={r.sellerId} className="border-b border-slate-50">
+                    <td className="py-2">{r.company}</td>
+                    <td>{r.orders}</td>
+                    <td>{formatMoney(r.revenue)}</td>
+                    <td className="text-secondary">{formatMoney(r.commission)}</td>
+                    <td className="font-semibold">{formatMoney(r.payout)}</td>
+                  </tr>
+                ))}
+                {billing?.totals && billing.rows.length > 0 && (
+                  <tr className="border-t-2 border-slate-200 font-bold">
+                    <td className="py-2">Итого</td>
+                    <td></td>
+                    <td>{formatMoney(billing.totals.revenue)}</td>
+                    <td className="text-secondary">{formatMoney(billing.totals.commission)}</td>
+                    <td className="text-teal-700">{formatMoney(billing.totals.payout)}</td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+            {!billing?.rows?.length && <div className="py-10 text-center text-ink-subtle">Нет данных</div>}
+          </div>
+        </div>
       )}
 
       {tab === 'users' && (
