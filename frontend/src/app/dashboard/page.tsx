@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth, useCart } from '@/lib/store';
 import { RoleGuard, StatCard, STATUS_LABELS } from '@/components/RoleGuard';
+import { SpendArea, CategoryPie } from '@/components/Charts';
 import { formatMoney } from '@/lib/utils';
 
 interface Order {
@@ -32,7 +33,7 @@ function BuyerContent() {
   const addToCart = useCart((s) => s.add);
   const [orders, setOrders] = useState<Order[]>([]);
   const [txs, setTxs] = useState<Tx[]>([]);
-  const [stats, setStats] = useState<{ totalSpent: number; ordersCount: number } | null>(null);
+  const [stats, setStats] = useState<any>(null);
 
   const load = () => {
     api.get('/orders').then((r) => setOrders(r.data));
@@ -85,6 +86,11 @@ function BuyerContent() {
         <StatCard label="Баланс VetPoints" value={formatMoney(user?.vetPointsBalance ?? 0)} accent icon={Gift} />
         <StatCard label="Потрачено" value={formatMoney(stats?.totalSpent ?? 0)} icon={Wallet} />
         <StatCard label="Заказов" value={String(stats?.ordersCount ?? orders.length)} icon={Package} />
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <SpendArea data={stats?.spendByMonth ?? []} />
+        <CategoryPie data={stats?.byCategory ?? []} />
       </div>
 
       <div className="mt-8 flex items-center justify-between">

@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, Upload, X, TrendingUp, Package, ShoppingCart } fr
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { RoleGuard, StatCard, STATUS_LABELS } from '@/components/RoleGuard';
+import { TopProductsBar, WeeklyBars } from '@/components/Charts';
 import { Category, Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
 import { signWithEimzo } from '@/lib/eimzo';
@@ -92,6 +93,11 @@ function SellerContent() {
         <StatCard label="Оборот" value={formatMoney(stats?.revenue ?? 0)} accent icon={TrendingUp} />
         <StatCard label="Товаров" value={String(stats?.productsCount ?? products.length)} icon={Package} />
         <StatCard label="Заказов" value={String(stats?.ordersCount ?? 0)} icon={ShoppingCart} />
+      </div>
+
+      <div className="mt-6 grid gap-4 lg:grid-cols-2">
+        <TopProductsBar data={stats?.topProducts ?? []} />
+        <WeeklyBars data={stats?.ordersByWeek ?? []} />
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">

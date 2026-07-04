@@ -5,6 +5,7 @@ import { Check, Ban, ShieldCheck, TrendingUp, Percent, Users, ShoppingCart } fro
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { RoleGuard, StatCard } from '@/components/RoleGuard';
+import { WeeklyBars } from '@/components/Charts';
 import { formatMoney } from '@/lib/utils';
 
 const LEAD_STATUS: Record<string, string> = { NEW: 'Новая', CONTACTED: 'В работе', CLOSED: 'Закрыта' };
@@ -65,7 +66,11 @@ function AdminContent() {
       </div>
 
       {tab === 'overview' && (
-        <div className="mt-6 grid gap-6 md:grid-cols-2">
+        <>
+        <div className="mt-6">
+          <WeeklyBars data={stats?.ordersByWeek ?? []} title="Заказы по неделям (платформа)" />
+        </div>
+        <div className="mt-4 grid gap-6 md:grid-cols-2">
           <div className="card p-5">
             <h3 className="mb-3 font-semibold">Топ поставщиков</h3>
             {(stats?.topSellers ?? []).map((s: any, i: number) => (
@@ -88,6 +93,7 @@ function AdminContent() {
             </div>
           </div>
         </div>
+        </>
       )}
 
       {tab === 'users' && (

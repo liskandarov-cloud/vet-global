@@ -56,6 +56,7 @@ export class AnalyticsService {
       pendingSellers,
       gmv,
       commission,
+      topSellers,
       ordersByWeek,
     };
   }
