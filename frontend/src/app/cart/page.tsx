@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Trash2, Minus, Plus, ShoppingBag, ShieldCheck, FileText } from 'lucide-react';
@@ -21,6 +21,17 @@ export default function CartPage() {
   const [company, setCompany] = useState('');
   const [usePoints, setUsePoints] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [counterparties, setCounterparties] = useState<any[]>([]);
+  const [counterpartyId, setCounterpartyId] = useState('');
+
+  useEffect(() => {
+    if (!user) return;
+    api.get('/users/me/counterparties').then((r) => {
+      setCounterparties(r.data);
+      const def = r.data.find((c: any) => c.isDefault) ?? r.data[0];
+      if (def) setCounterpartyId(def.id);
+    }).catch(() => {});
+  }, [user]);
 
   const sum = subtotal();
   const maxPoints = Math.min(user?.vetPointsBalance ?? 0, sum * 0.1);
@@ -39,6 +50,7 @@ export default function CartPage() {
         buyerName: user ? undefined : name,
         buyerPhone: user ? undefined : phone,
         buyerCompany: user ? undefined : company,
+        counterpartyId: user && counterpartyId ? counterpartyId : undefined,
         vetPointsUsed: pointsToUse,
       });
       clear();
@@ -97,6 +109,18 @@ export default function CartPage() {
               <input className="input" placeholder={t('cart.name')} value={name} onChange={(e) => setName(e.target.value)} />
               <input className="input" placeholder={t('cart.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} />
               <input className="input" placeholder={t('cart.company')} value={company} onChange={(e) => setCompany(e.target.value)} />
+            </div>
+          )}
+
+          {user && counterparties.length > 0 && (
+            <div>
+              <label className="mb-1 block text-sm font-medium">Контрагент (юрлицо)</label>
+              <select className="input" value={counterpartyId} onChange={(e) => setCounterpartyId(e.target.value)}>
+                {counterparties.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name} · ИНН {c.inn}</option>
+                ))}
+              </select>
+              <Link href="/dashboard" className="mt-1 inline-block text-xs text-teal-700 hover:underline">Управлять реквизитами</Link>
             </div>
           )}
 

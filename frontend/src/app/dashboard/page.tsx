@@ -9,6 +9,7 @@ import { useAuth, useCart } from '@/lib/store';
 import { RoleGuard, StatCard, STATUS_LABELS } from '@/components/RoleGuard';
 import { SpendArea, CategoryPie } from '@/components/Charts';
 import { ProductCard } from '@/components/ProductCard';
+import { CounterpartiesPanel } from '@/components/CounterpartiesPanel';
 import { Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
 
@@ -97,6 +98,8 @@ function BuyerContent() {
         <SpendArea data={stats?.spendByMonth ?? []} />
         <CategoryPie data={stats?.byCategory ?? []} />
       </div>
+
+      <CounterpartiesPanel />
 
       {favorites.length > 0 && (
         <div className="mt-8">
