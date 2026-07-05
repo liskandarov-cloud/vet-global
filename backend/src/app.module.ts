@@ -18,6 +18,7 @@ import { AuthModule } from './auth/auth.module';
 import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductsModule } from './products/products.module';
+import { OffersModule } from './offers/offers.module';
 import { OrdersModule } from './orders/orders.module';
 import { VetpointsModule } from './vetpoints/vetpoints.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -47,6 +48,7 @@ import { AppController } from './app.controller';
     UsersModule,
     CategoriesModule,
     ProductsModule,
+    OffersModule,
     OrdersModule,
     VetpointsModule,
     ReviewsModule,

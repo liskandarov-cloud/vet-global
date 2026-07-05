@@ -232,6 +232,73 @@ async function main() {
   }
   console.log(`✓ extended catalog: +${extra} products`);
 
+  // ── Мульти-поставщик: офферы (сравнение цен) ──
+  // Базовый оффер продавца-владельца + конкурирующие офферы других продавцов
+  // для части товаров, чтобы на карточке было видно сравнение цен.
+  {
+    const prods = await prisma.product.findMany({ orderBy: { createdAt: 'asc' } });
+    let offerCount = 0;
+    for (let i = 0; i < prods.length; i++) {
+      const p = prods[i];
+      const base = Number(p.price);
+      // Владелец товара — первый оффер (цена = базовой).
+      const ownerId = p.sellerId;
+      // Ещё 1–2 продавца, отличных от владельца, дают свою цену (±5–15%).
+      const others = sellers.map((s) => s.id).filter((id) => id !== ownerId);
+      const competitorCount = i % 3 === 0 ? 2 : i % 3 === 1 ? 1 : 0;
+      const chosen = [ownerId, ...others.slice(0, competitorCount)];
+
+      for (let k = 0; k < chosen.length; k++) {
+        const sellerId = chosen[k];
+        // Владелец = base; конкуренты — дешевле/дороже детерминированно.
+        const delta = k === 0 ? 0 : (k === 1 ? -0.07 : 0.05) + (i % 5) * 0.01;
+        const price = Math.max(1, Math.round(base * (1 + delta)));
+        // Объёмная цена для владельца (демо price breaks).
+        const priceBreaks =
+          k === 0
+            ? [
+                { minQty: (p.minOrder || 1) * 5, price: Math.round(price * 0.95) },
+                { minQty: (p.minOrder || 1) * 20, price: Math.round(price * 0.9) },
+              ]
+            : undefined;
+        await prisma.offer.upsert({
+          where: { productId_sellerId: { productId: p.id, sellerId } },
+          create: {
+            productId: p.id,
+            sellerId,
+            price,
+            inStock: true,
+            stockQty: 50 + ((i * 7 + k * 13) % 450),
+            minOrder: p.minOrder || 1,
+            leadTimeDays: [1, 2, 3, 5, 7][(i + k) % 5],
+            netTermDays: k === 0 ? [0, 0, 30, 60][i % 4] : 0,
+            priceBreaks: priceBreaks as any,
+            regNumber: `UZ-VET-${1000 + i}-${k}`,
+            batchNumber: `L${2026}${String((i % 12) + 1).padStart(2, '0')}-${100 + k}`,
+            // срок годности 12–30 мес. от «сейчас» (детерминированно от индекса).
+            expiryDate: new Date(2027, (i % 12), 1 + (k % 27)),
+            isRx: p.name.toLowerCase().includes('антибиотик') || i % 6 === 0,
+            certVerified: k === 0,
+          },
+          update: {},
+        });
+        offerCount++;
+      }
+
+      // Пересчёт агрегатов товара.
+      const agg = await prisma.offer.aggregate({
+        where: { productId: p.id, isActive: true, inStock: true },
+        _min: { price: true },
+        _count: { _all: true },
+      });
+      await prisma.product.update({
+        where: { id: p.id },
+        data: { minPrice: agg._min.price ?? null, offersCount: agg._count._all },
+      });
+    }
+    console.log(`✓ offers seeded: ${offerCount} (сравнение цен)`);
+  }
+
   // ── Demo reviews & recomputed ratings ──
   const COMMENTS = [
     'Отличное качество, берём регулярно.',

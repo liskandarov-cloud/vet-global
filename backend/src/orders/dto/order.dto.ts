@@ -14,6 +14,7 @@ import { OrderStatus } from '@prisma/client';
 
 export class OrderItemInput {
   @IsString() productId: string;
+  @IsOptional() @IsString() offerId?: string; // выбранный оффер продавца (мульти-поставщик)
   @IsInt() @Min(1) quantity: number;
 }
 

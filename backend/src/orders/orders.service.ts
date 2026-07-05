@@ -25,26 +25,53 @@ export class OrdersService {
   }
 
   async create(dto: CreateOrderDto, user?: AuthUser) {
-    // Resolve products from DB (never trust client-supplied prices).
+    // Resolve products + offers from DB (never trust client-supplied prices).
     const productIds = dto.items.map((i) => i.productId);
     const products = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
     if (products.length !== new Set(productIds).size) {
       throw new BadRequestException('Some products were not found');
     }
 
+    const offerIds = dto.items.map((i) => i.offerId).filter(Boolean) as string[];
+    const offers = offerIds.length
+      ? await this.prisma.offer.findMany({ where: { id: { in: offerIds } } })
+      : [];
+    const offerMap = new Map(offers.map((o) => [o.id, o]));
+
     const items = dto.items.map((i) => {
       const p = products.find((x) => x.id === i.productId)!;
-      if (i.quantity < p.minOrder) {
-        throw new BadRequestException(
-          `Минимальный заказ для «${p.name}» — ${p.minOrder} шт.`,
-        );
+
+      // По умолчанию — базовый товар (легаси). Если выбран оффер — цена/продавец/квант из него.
+      let sellerId = p.sellerId;
+      let minOrder = p.minOrder;
+      let unitPrice = Number(p.price);
+      let offerId: string | null = null;
+
+      if (i.offerId) {
+        const o = offerMap.get(i.offerId);
+        if (!o || o.productId !== p.id) {
+          throw new BadRequestException(`Предложение для «${p.name}» не найдено`);
+        }
+        if (!o.isActive || !o.inStock) {
+          throw new BadRequestException(`Предложение для «${p.name}» недоступно`);
+        }
+        sellerId = o.sellerId;
+        minOrder = o.minOrder;
+        unitPrice = unitPriceForQty(o, i.quantity);
+        offerId = o.id;
       }
+
+      if (i.quantity < minOrder) {
+        throw new BadRequestException(`Минимальный заказ для «${p.name}» — ${minOrder} шт.`);
+      }
+
       return {
         productId: p.id,
+        offerId,
         productName: p.name,
-        sellerId: p.sellerId,
+        sellerId,
         quantity: i.quantity,
-        price: Number(p.price),
+        price: unitPrice,
       };
     });
 
@@ -247,4 +274,15 @@ export class OrdersService {
       items: o.items?.map((it: any) => ({ ...it, price: Number(it.price) })),
     };
   }
+}
+
+// Цена за единицу с учётом объёмных скидок оффера (price breaks).
+export function unitPriceForQty(offer: any, qty: number): number {
+  const base = Number(offer.price);
+  const breaks = Array.isArray(offer.priceBreaks) ? offer.priceBreaks : [];
+  let price = base;
+  for (const b of [...breaks].sort((a, b) => Number(a.minQty) - Number(b.minQty))) {
+    if (b && qty >= Number(b.minQty)) price = Number(b.price);
+  }
+  return price;
 }

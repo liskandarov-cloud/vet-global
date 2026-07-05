@@ -91,6 +91,8 @@ export const useFavorites = create<FavState>((set, get) => ({
 // ── Cart ──
 export interface CartItem {
   productId: string;
+  offerId?: string; // выбранный оффер продавца (мульти-поставщик)
+  sellerName?: string;
   name: string;
   price: number;
   minOrder: number;
@@ -98,11 +100,14 @@ export interface CartItem {
   quantity: number;
 }
 
+// Идентичность позиции: оффер (если выбран) либо товар.
+export const cartKey = (i: { productId: string; offerId?: string }) => i.offerId ?? i.productId;
+
 interface CartState {
   items: CartItem[];
   add: (item: Omit<CartItem, 'quantity'>, qty?: number) => void;
-  setQty: (productId: string, qty: number) => void;
-  remove: (productId: string) => void;
+  setQty: (key: string, qty: number) => void;
+  remove: (key: string) => void;
   clear: () => void;
   subtotal: () => number;
   count: () => number;
@@ -114,22 +119,23 @@ export const useCart = create<CartState>()(
       items: [],
       add: (item, qty) =>
         set((s) => {
-          const existing = s.items.find((i) => i.productId === item.productId);
+          const key = cartKey(item);
+          const existing = s.items.find((i) => cartKey(i) === key);
           const addQty = qty ?? item.minOrder ?? 1;
           if (existing) {
             return {
               items: s.items.map((i) =>
-                i.productId === item.productId ? { ...i, quantity: i.quantity + addQty } : i,
+                cartKey(i) === key ? { ...i, quantity: i.quantity + addQty } : i,
               ),
             };
           }
           return { items: [...s.items, { ...item, quantity: addQty }] };
         }),
-      setQty: (productId, qty) =>
+      setQty: (key, qty) =>
         set((s) => ({
-          items: s.items.map((i) => (i.productId === productId ? { ...i, quantity: Math.max(1, qty) } : i)),
+          items: s.items.map((i) => (cartKey(i) === key ? { ...i, quantity: Math.max(1, qty) } : i)),
         })),
-      remove: (productId) => set((s) => ({ items: s.items.filter((i) => i.productId !== productId) })),
+      remove: (key) => set((s) => ({ items: s.items.filter((i) => cartKey(i) !== key) })),
       clear: () => set({ items: [] }),
       subtotal: () => get().items.reduce((sum, i) => sum + i.price * i.quantity, 0),
       count: () => get().items.reduce((sum, i) => sum + i.quantity, 0),

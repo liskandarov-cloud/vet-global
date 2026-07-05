@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Trash2, Minus, Plus, ShoppingBag, ShieldCheck, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import { useCart, useAuth } from '@/lib/store';
+import { useCart, useAuth, cartKey } from '@/lib/store';
 import { useI18n } from '@/lib/i18n';
 import { formatMoney } from '@/lib/utils';
 
@@ -46,7 +46,7 @@ export default function CartPage() {
     setSubmitting(true);
     try {
       await api.post('/orders', {
-        items: items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+        items: items.map((i) => ({ productId: i.productId, offerId: i.offerId, quantity: i.quantity })),
         buyerName: user ? undefined : name,
         buyerPhone: user ? undefined : phone,
         buyerCompany: user ? undefined : company,
@@ -83,23 +83,27 @@ export default function CartPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         {/* Items */}
         <div className="space-y-3">
-          {items.map((i) => (
-            <div key={i.productId} className="card flex items-center gap-4 p-4">
+          {items.map((i) => {
+            const key = cartKey(i);
+            return (
+            <div key={key} className="card flex items-center gap-4 p-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}
               <img src={i.image} alt={i.name} className="h-20 w-20 rounded-lg object-cover" />
               <div className="flex-1">
                 <div className="font-medium">{i.name}</div>
+                {i.sellerName && <div className="text-xs text-teal-700">{i.sellerName}</div>}
                 <div className="text-sm text-ink-subtle">{formatMoney(i.price)}</div>
               </div>
               <div className="flex items-center rounded-lg border border-slate-200">
-                <button className="p-2" onClick={() => setQty(i.productId, i.quantity - 1)}><Minus size={14} /></button>
-                <input className="w-12 text-center outline-none" value={i.quantity} onChange={(e) => setQty(i.productId, Number(e.target.value) || 1)} />
-                <button className="p-2" onClick={() => setQty(i.productId, i.quantity + 1)}><Plus size={14} /></button>
+                <button className="p-2" onClick={() => setQty(key, i.quantity - 1)}><Minus size={14} /></button>
+                <input className="w-12 text-center outline-none" value={i.quantity} onChange={(e) => setQty(key, Number(e.target.value) || 1)} />
+                <button className="p-2" onClick={() => setQty(key, i.quantity + 1)}><Plus size={14} /></button>
               </div>
               <div className="w-28 text-right font-semibold">{formatMoney(i.price * i.quantity)}</div>
-              <button className="text-ink-subtle hover:text-red-500" onClick={() => remove(i.productId)}><Trash2 size={18} /></button>
+              <button className="text-ink-subtle hover:text-red-500" onClick={() => remove(key)}><Trash2 size={18} /></button>
             </div>
-          ))}
+            );
+          })}
         </div>
 
         {/* Summary / checkout */}

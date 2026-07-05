@@ -71,6 +71,23 @@ export class ProductsService {
         seller: {
           select: { id: true, company: true, fullName: true, isVerified: true, rating: true, createdAt: true },
         },
+        offers: {
+          where: { isActive: true },
+          orderBy: { price: 'asc' },
+          include: {
+            seller: {
+              select: {
+                id: true,
+                company: true,
+                fullName: true,
+                isVerified: true,
+                rating: true,
+                reviewsCount: true,
+                logoUrl: true,
+              },
+            },
+          },
+        },
       },
     });
     if (!product) throw new NotFoundException('Product not found');
@@ -147,8 +164,19 @@ export class ProductsService {
     return {
       ...p,
       price: Number(p.price),
+      minPrice: p.minPrice != null ? Number(p.minPrice) : null,
       rating: Number(p.rating),
       ...(p.seller ? { seller: { ...p.seller, rating: Number(p.seller.rating ?? 0) } } : {}),
+      ...(Array.isArray(p.offers) ? { offers: p.offers.map((o: any) => serializeOffer(o)) } : {}),
     };
   }
+}
+
+// Приведение Decimal-полей оффера к number для клиента.
+export function serializeOffer(o: any) {
+  return {
+    ...o,
+    price: Number(o.price),
+    ...(o.seller ? { seller: { ...o.seller, rating: Number(o.seller.rating ?? 0) } } : {}),
+  };
 }

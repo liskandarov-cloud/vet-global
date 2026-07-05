@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ShieldCheck, FileText, Star, ShoppingCart, Heart } from 'lucide-react';
+import { ShieldCheck, FileText, Star, ShoppingCart, Heart, Scale } from 'lucide-react';
 import { toast } from 'sonner';
 import { Product } from '@/lib/types';
 import { useCart, useFavorites, useAuth } from '@/lib/store';
@@ -91,28 +91,45 @@ export function ProductCard({ product }: { product: Product }) {
 
         <div className="mt-3 flex items-center justify-between">
           <div>
-            <div className="font-heading text-lg font-bold text-ink">{formatMoney(product.price)}</div>
-            <div className="text-xs text-ink-subtle">{t('product.minOrder')}: {product.minOrder}</div>
+            {product.offersCount && product.offersCount > 0 && product.minPrice != null ? (
+              <>
+                <div className="text-[11px] leading-none text-ink-subtle">от</div>
+                <div className="font-heading text-lg font-bold text-ink">{formatMoney(product.minPrice)}</div>
+              </>
+            ) : (
+              <div className="font-heading text-lg font-bold text-ink">{formatMoney(product.price)}</div>
+            )}
+            {product.offersCount && product.offersCount > 1 ? (
+              <div className="text-xs font-medium text-teal-700">{product.offersCount} предложений</div>
+            ) : (
+              <div className="text-xs text-ink-subtle">{t('product.minOrder')}: {product.minOrder}</div>
+            )}
           </div>
-          <button
-            className="btn-primary !px-3 !py-2"
-            onClick={() => {
-              add(
-                {
-                  productId: product.id,
-                  name: product.name,
-                  price: product.price,
-                  minOrder: product.minOrder,
-                  image,
-                },
-                product.minOrder,
-              );
-              toast.success('Добавлено в корзину');
-            }}
-            aria-label={t('product.addToCart')}
-          >
-            <ShoppingCart size={16} />
-          </button>
+          {product.offersCount && product.offersCount > 1 ? (
+            <Link href={`/products/${product.id}`} className="btn-primary !px-3 !py-2" aria-label="Сравнить цены">
+              <Scale size={16} />
+            </Link>
+          ) : (
+            <button
+              className="btn-primary !px-3 !py-2"
+              onClick={() => {
+                add(
+                  {
+                    productId: product.id,
+                    name: product.name,
+                    price: product.minPrice ?? product.price,
+                    minOrder: product.minOrder,
+                    image,
+                  },
+                  product.minOrder,
+                );
+                toast.success('Добавлено в корзину');
+              }}
+              aria-label={t('product.addToCart')}
+            >
+              <ShoppingCart size={16} />
+            </button>
+          )}
         </div>
       </div>
     </div>
