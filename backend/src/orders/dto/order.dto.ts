@@ -10,7 +10,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentTerm } from '@prisma/client';
 
 export class OrderItemInput {
   @IsString() productId: string;
@@ -32,6 +32,11 @@ export class CreateOrderDto {
 
   @IsOptional() @IsString() counterpartyId?: string;
   @IsOptional() @IsNumber() @Min(0) vetPointsUsed?: number;
+
+  // Финансирование (блок 2)
+  @IsOptional() @IsEnum(PaymentTerm) paymentTerm?: PaymentTerm;
+  @IsOptional() @IsInt() @Min(1) netTermDays?: number; // для NET_TERMS
+  @IsOptional() @IsInt() @Min(2) installments?: number; // для INSTALLMENT
 }
 
 export class UpdateStatusDto {

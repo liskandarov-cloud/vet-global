@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Trash2, Minus, Plus, ShoppingBag, ShieldCheck, FileText } from 'lucide-react';
+import { Trash2, Minus, Plus, ShoppingBag, ShieldCheck, FileText, CreditCard, CalendarClock } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useCart, useAuth, cartKey } from '@/lib/store';
@@ -23,6 +23,11 @@ export default function CartPage() {
   const [submitting, setSubmitting] = useState(false);
   const [counterparties, setCounterparties] = useState<any[]>([]);
   const [counterpartyId, setCounterpartyId] = useState('');
+  // Финансирование
+  const [paymentTerm, setPaymentTerm] = useState<'PREPAY' | 'NET_TERMS' | 'INSTALLMENT'>('PREPAY');
+  const [netTermDays, setNetTermDays] = useState(30);
+  const [installments, setInstallments] = useState(3);
+  const [credit, setCredit] = useState<{ available: number; creditLimit: number } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -31,12 +36,15 @@ export default function CartPage() {
       const def = r.data.find((c: any) => c.isDefault) ?? r.data[0];
       if (def) setCounterpartyId(def.id);
     }).catch(() => {});
+    api.get('/financing/me').then((r) => setCredit(r.data)).catch(() => {});
   }, [user]);
 
   const sum = subtotal();
   const maxPoints = Math.min(user?.vetPointsBalance ?? 0, sum * 0.1);
   const pointsToUse = usePoints ? Math.floor(maxPoints) : 0;
   const total = sum - pointsToUse;
+  const available = credit?.available ?? 0;
+  const creditShort = paymentTerm !== 'PREPAY' && total > available;
 
   const checkout = async () => {
     if (!user && (!name || !phone)) {
@@ -52,6 +60,9 @@ export default function CartPage() {
         buyerCompany: user ? undefined : company,
         counterpartyId: user && counterpartyId ? counterpartyId : undefined,
         vetPointsUsed: pointsToUse,
+        paymentTerm,
+        netTermDays: paymentTerm === 'NET_TERMS' ? netTermDays : undefined,
+        installments: paymentTerm === 'INSTALLMENT' ? installments : undefined,
       });
       clear();
       if (user) refresh();
@@ -133,6 +144,60 @@ export default function CartPage() {
               <input type="checkbox" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)} className="h-4 w-4 accent-teal-600" />
               {t('cart.usePoints')} (до {formatMoney(maxPoints)})
             </label>
+          )}
+
+          {user && (
+            <div className="border-t border-slate-100 pt-3">
+              <div className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+                <CreditCard size={15} className="text-teal-700" /> Условия оплаты
+              </div>
+              <div className="grid grid-cols-3 gap-1.5 text-xs">
+                {([
+                  ['PREPAY', 'Предоплата'],
+                  ['NET_TERMS', 'Отсрочка'],
+                  ['INSTALLMENT', 'Рассрочка'],
+                ] as const).map(([val, label]) => (
+                  <button
+                    key={val}
+                    onClick={() => setPaymentTerm(val)}
+                    className={`rounded-lg border px-2 py-2 font-medium transition-colors ${paymentTerm === val ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-ink-muted hover:border-teal-200'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {paymentTerm === 'NET_TERMS' && (
+                <div className="mt-2 flex gap-1.5">
+                  {[30, 60].map((d) => (
+                    <button key={d} onClick={() => setNetTermDays(d)} className={`flex-1 rounded-md border px-2 py-1 text-xs ${netTermDays === d ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-ink-muted'}`}>net-{d}</button>
+                  ))}
+                </div>
+              )}
+              {paymentTerm === 'INSTALLMENT' && (
+                <div className="mt-2 flex gap-1.5">
+                  {[3, 6, 12].map((n) => (
+                    <button key={n} onClick={() => setInstallments(n)} className={`flex-1 rounded-md border px-2 py-1 text-xs ${installments === n ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-ink-muted'}`}>{n} мес</button>
+                  ))}
+                </div>
+              )}
+
+              {paymentTerm !== 'PREPAY' && (
+                <div className="mt-2 text-xs">
+                  <div className="flex items-center gap-1 text-ink-subtle">
+                    <CalendarClock size={12} /> Доступный лимит: <b className={creditShort ? 'text-red-500' : 'text-teal-700'}>{formatMoney(available)}</b>
+                  </div>
+                  {paymentTerm === 'INSTALLMENT' && !creditShort && (
+                    <div className="mt-0.5 text-ink-subtle">≈ {formatMoney(Math.ceil(total / installments))} / мес × {installments}</div>
+                  )}
+                  {creditShort && (
+                    <div className="mt-1 rounded-md bg-red-50 px-2 py-1 text-red-600">
+                      Не хватает лимита. <Link href="/financing" className="font-medium underline">Оформить финансирование</Link>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           <div className="space-y-2 border-t border-slate-100 pt-3 text-sm">

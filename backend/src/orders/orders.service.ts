@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus, UserRole, VetPointsType } from '@prisma/client';
+import { OrderStatus, PaymentTerm, UserRole, VetPointsType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
@@ -99,6 +99,46 @@ export class OrdersService {
       throw new BadRequestException('Укажите имя и телефон для оформления заказа');
     }
 
+    // ── Условия оплаты / финансирование (блок 2) ──
+    const paymentTerm = dto.paymentTerm ?? PaymentTerm.PREPAY;
+    let netTermDays: number | null = null;
+    let dueDate: Date | null = null;
+    let installments: number | null = null;
+    let paymentSchedule: { n: number; dueDate: string; amount: number }[] | null = null;
+    let creditToReserve = 0;
+
+    if (paymentTerm !== PaymentTerm.PREPAY) {
+      if (!user) throw new BadRequestException('Отсрочка и рассрочка доступны только авторизованным покупателям');
+      const buyer = await this.prisma.user.findUnique({
+        where: { id: user.id },
+        select: { creditLimit: true, creditUsed: true },
+      });
+      const available = Number(buyer?.creditLimit ?? 0) - Number(buyer?.creditUsed ?? 0);
+      if (total > available) {
+        throw new BadRequestException(
+          `Недостаточно кредитного лимита: доступно ${Math.floor(available)}. Подайте заявку на финансирование.`,
+        );
+      }
+      creditToReserve = total;
+      const base = new Date();
+
+      if (paymentTerm === PaymentTerm.NET_TERMS) {
+        netTermDays = dto.netTermDays ?? 30;
+        dueDate = new Date(base.getTime() + netTermDays * 86400000);
+      } else {
+        const n = dto.installments ?? 3;
+        installments = n;
+        const per = Math.round((total / n) * 100) / 100;
+        paymentSchedule = Array.from({ length: n }, (_, i) => ({
+          n: i + 1,
+          dueDate: new Date(base.getFullYear(), base.getMonth() + i + 1, base.getDate()).toISOString(),
+          // последний платёж добирает остаток от округлений
+          amount: i === n - 1 ? Math.round((total - per * (n - 1)) * 100) / 100 : per,
+        }));
+        dueDate = new Date(paymentSchedule[paymentSchedule.length - 1].dueDate);
+      }
+    }
+
     // Create order + deduct spent points atomically.
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
@@ -113,10 +153,23 @@ export class OrdersService {
           total,
           vetPointsEarned,
           commission,
+          paymentTerm,
+          netTermDays,
+          dueDate,
+          installments,
+          paymentSchedule: (paymentSchedule as any) ?? undefined,
           items: { create: items },
         },
         include: { items: true },
       });
+
+      // Резервируем кредитный лимит под отсрочку/рассрочку.
+      if (user && creditToReserve > 0) {
+        await tx.user.update({
+          where: { id: user.id },
+          data: { creditUsed: { increment: creditToReserve } },
+        });
+      }
 
       if (user && vetPointsUsed > 0) {
         await tx.user.update({

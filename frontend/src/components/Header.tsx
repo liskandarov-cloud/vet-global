@@ -25,6 +25,7 @@ export function Header() {
     { href: '/catalog', label: t('nav.catalog') },
     { href: '/promotions', label: t('nav.promotions') },
     { href: '/suppliers', label: t('nav.suppliers') },
+    { href: '/financing', label: 'Финансирование' },
     { href: '/blog', label: t('nav.blog') },
     { href: '/consult', label: 'Консультация' },
   ];

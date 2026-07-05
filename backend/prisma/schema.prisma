@@ -79,6 +79,20 @@ enum PaymentStatus {
   REFUNDED
 }
 
+// Условия оплаты заказа (блок 2 — опт/финансирование).
+enum PaymentTerm {
+  PREPAY // предоплата
+  NET_TERMS // отсрочка (net-30/60)
+  INSTALLMENT // рассрочка (график платежей)
+}
+
+// Статус заявки на финансирование (кредитный лимит).
+enum CreditStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 // Animal species a product targets (ТЗ 6.1 фильтр «Животное»).
 enum AnimalType {
   POULTRY // птица
@@ -111,6 +125,10 @@ model User {
   logoUrl      String?
   syncApiKey   String? @unique // ключ интеграции 1С/ERP (по нему сопоставляется поставщик)
 
+  // Финансирование закупок (блок 2)
+  creditLimit Decimal @default(0) @db.Decimal(12, 2) // одобренный кредитный лимит покупателя
+  creditUsed  Decimal @default(0) @db.Decimal(12, 2) // занято под отсрочку/рассрочку
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -120,6 +138,7 @@ model User {
   products           Product[]           @relation("SellerProducts")
   offers             Offer[]             @relation("SellerOffers")
   orders             Order[]             @relation("BuyerOrders")
+  creditApplications CreditApplication[]
   reviews            Review[]
   vetPointsLedger    VetPointsTransaction[]
   promotions         Promotion[]
@@ -147,6 +166,26 @@ model Counterparty {
   orders Order[]
 
   @@index([userId])
+}
+
+// Заявка на финансирование закупок (кредитный лимит / рассрочка).
+model CreditApplication {
+  id             String       @id @default(uuid())
+  buyerId        String
+  counterpartyId String?
+  requestedLimit Decimal      @db.Decimal(12, 2)
+  approvedLimit  Decimal?     @db.Decimal(12, 2)
+  status         CreditStatus @default(PENDING)
+  bankName       String? // банк-партнёр
+  purpose        String? // цель/комментарий покупателя
+  decisionNote   String? // комментарий решения
+  createdAt      DateTime     @default(now())
+  decidedAt      DateTime?
+
+  buyer User @relation(fields: [buyerId], references: [id], onDelete: Cascade)
+
+  @@index([buyerId])
+  @@index([status])
 }
 
 // Verification documents (licenses / certificates) uploaded by a seller (admin moderation).
@@ -279,6 +318,13 @@ model Order {
   total           Decimal @db.Decimal(12, 2) // к оплате = subtotal - vetPointsUsed
   vetPointsEarned Decimal @default(0) @db.Decimal(12, 2)
   commission      Decimal @default(0) @db.Decimal(12, 2) // комиссия платформы
+
+  // Условия оплаты (блок 2 — финансирование)
+  paymentTerm     PaymentTerm @default(PREPAY)
+  netTermDays     Int? // дни отсрочки для NET_TERMS
+  dueDate         DateTime? // крайний срок оплаты (NET_TERMS)
+  installments    Int? // число платежей для INSTALLMENT
+  paymentSchedule Json? // график: [{ n, dueDate, amount }]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
