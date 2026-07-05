@@ -15,6 +15,8 @@ interface Post {
   metaDesc?: string;
 }
 
+export const dynamic = 'force-dynamic';
+
 export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
   const post = await serverFetch<Post>(`/blog/${params.slug}`);
   if (!post) return { title: 'Статья — VetGlobal' };
