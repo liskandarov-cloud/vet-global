@@ -50,4 +50,13 @@ export class OffersController {
   remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
     return this.offers.remove(id, user);
   }
+
+  // Верификация подлинности (админ): сертификаты/партия проверены.
+  @Post('offers/:id/verify')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  verify(@Param('id') id: string, @Body('verified') verified: boolean) {
+    return this.offers.setVerified(id, verified ?? true);
+  }
 }

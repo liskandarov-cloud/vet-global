@@ -84,6 +84,16 @@ export class OffersService {
     return { ok: true };
   }
 
+  // Верификация сертификатов/партии платформой (админ). Анти-фальсификат.
+  async setVerified(id: string, verified: boolean) {
+    const offer = await this.prisma.offer.findUnique({ where: { id } });
+    if (!offer) throw new NotFoundException('Оффер не найден');
+    return this.prisma.offer.update({
+      where: { id },
+      data: { certVerified: verified },
+    });
+  }
+
   // Пересчёт денормализованных агрегатов товара (minPrice / offersCount).
   async recalcProduct(productId: string) {
     const agg = await this.prisma.offer.aggregate({

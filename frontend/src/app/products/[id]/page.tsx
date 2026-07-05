@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, Fragment } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -14,6 +14,10 @@ import {
   BadgeCheck,
   Pill,
   Layers,
+  ChevronDown,
+  ShieldAlert,
+  CalendarClock,
+  ClipboardCheck,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -35,6 +39,7 @@ export default function ProductPage() {
   const [qty, setQty] = useState(1);
   const [activeImg, setActiveImg] = useState(0);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
+  const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!id) return;
@@ -196,10 +201,17 @@ export default function ProductPage() {
       {/* Сравнение предложений поставщиков */}
       {offers.length > 0 && (
         <section className="mt-12">
-          <div className="mb-4 flex items-center gap-2">
+          <div className="mb-3 flex items-center gap-2">
             <Layers size={20} className="text-teal-700" />
             <h2 className="font-heading text-2xl font-bold">Предложения поставщиков</h2>
             <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700">{offers.length}</span>
+          </div>
+          {/* Баннер доверия / анти-фальсификат */}
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-teal-100 bg-teal-50/50 px-4 py-2.5 text-xs text-ink-muted">
+            <span className="flex items-center gap-1.5 font-medium text-teal-700"><ShieldCheck size={14} /> Гарантия подлинности</span>
+            <span className="flex items-center gap-1"><ClipboardCheck size={13} /> рег. номер госреестра</span>
+            <span className="flex items-center gap-1"><CalendarClock size={13} /> контроль срока годности</span>
+            <span className="flex items-center gap-1"><BadgeCheck size={13} /> проверенные сертификаты партии</span>
           </div>
           <div className="overflow-x-auto rounded-2xl border border-slate-200">
             <table className="w-full min-w-[720px] text-sm">
@@ -218,9 +230,11 @@ export default function ProductPage() {
                 {offers.map((o, idx) => {
                   const isSel = o.id === selectedOffer?.id;
                   const isCheapest = idx === 0;
+                  const exp = expiryInfo(o.expiryDate);
+                  const isOpen = expandedOfferId === o.id;
                   return (
+                    <Fragment key={o.id}>
                     <tr
-                      key={o.id}
                       onClick={() => selectOffer(o)}
                       className={`cursor-pointer border-t border-slate-100 transition-colors ${isSel ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}
                     >
@@ -267,29 +281,72 @@ export default function ProductPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right">
-                        <button
-                          className="btn-outline !px-3 !py-1.5 text-xs"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            add(
-                              {
-                                productId: product.id,
-                                offerId: o.id,
-                                sellerName: o.seller?.company ?? undefined,
-                                name: product.name,
-                                price: unitPriceForQty(o, o.minOrder) ?? o.price,
-                                minOrder: o.minOrder,
-                                image: images[0],
-                              },
-                              o.minOrder,
-                            );
-                            toast.success(`Добавлено: ${o.seller?.company ?? 'поставщик'}`);
-                          }}
-                        >
-                          <ShoppingCart size={14} /> В корзину
-                        </button>
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            className="btn-outline !px-3 !py-1.5 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              add(
+                                {
+                                  productId: product.id,
+                                  offerId: o.id,
+                                  sellerName: o.seller?.company ?? undefined,
+                                  name: product.name,
+                                  price: unitPriceForQty(o, o.minOrder) ?? o.price,
+                                  minOrder: o.minOrder,
+                                  image: images[0],
+                                },
+                                o.minOrder,
+                              );
+                              toast.success(`Добавлено: ${o.seller?.company ?? 'поставщик'}`);
+                            }}
+                          >
+                            <ShoppingCart size={14} /> В корзину
+                          </button>
+                          <button
+                            aria-label="Детали партии"
+                            className="grid h-8 w-8 place-items-center rounded-lg text-ink-subtle hover:bg-slate-100"
+                            onClick={(e) => { e.stopPropagation(); setExpandedOfferId(isOpen ? null : o.id); }}
+                          >
+                            <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
                       </td>
                     </tr>
+                    {isOpen && (
+                      <tr className="border-t border-slate-100 bg-slate-50/60">
+                        <td colSpan={7} className="px-4 py-3">
+                          <div className="grid gap-3 text-xs sm:grid-cols-4">
+                            <Detail icon={<ClipboardCheck size={14} />} label="Госреестр №" value={o.regNumber ?? '—'} />
+                            <Detail icon={<Layers size={14} />} label="Партия" value={o.batchNumber ?? '—'} />
+                            <Detail
+                              icon={exp?.expired ? <ShieldAlert size={14} /> : <CalendarClock size={14} />}
+                              label="Годен до"
+                              value={exp?.label ?? '—'}
+                              tone={exp?.expired ? 'danger' : exp?.warn ? 'warn' : 'ok'}
+                              note={exp?.expired ? 'просрочено' : exp?.warn ? 'скоро истекает' : undefined}
+                            />
+                            <div>
+                              <div className="mb-1 flex items-center gap-1 text-ink-subtle"><FileText size={14} /> Сертификаты</div>
+                              {o.certificates?.length ? (
+                                o.certificates.map((c, ci) => (
+                                  <a key={ci} href={c} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="block text-teal-700 hover:underline">Сертификат {ci + 1}</a>
+                                ))
+                              ) : (
+                                <span className="text-ink-subtle">—</span>
+                              )}
+                              {o.certVerified && <div className="mt-1 inline-flex items-center gap-1 text-teal-700"><BadgeCheck size={12} /> проверено платформой</div>}
+                            </div>
+                          </div>
+                          {o.isRx && (
+                            <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
+                              <Pill size={12} /> Рецептурный препарат — отпуск по ветеринарному рецепту
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -328,6 +385,37 @@ export default function ProductPage() {
           </div>
         </section>
       )}
+    </div>
+  );
+}
+
+// Срок годности: метка + флаги «скоро истекает» / «просрочено».
+function expiryInfo(iso?: string | null): { label: string; warn: boolean; expired: boolean } | null {
+  if (!iso) return null;
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return null;
+  const months = (d.getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30);
+  return { label: d.toLocaleDateString('ru-RU'), warn: months < 6, expired: months < 0 };
+}
+
+function Detail({
+  icon,
+  label,
+  value,
+  tone,
+  note,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone?: 'ok' | 'warn' | 'danger';
+  note?: string;
+}) {
+  const toneCls = tone === 'danger' ? 'text-red-600' : tone === 'warn' ? 'text-amber-600' : 'text-ink';
+  return (
+    <div>
+      <div className="mb-1 flex items-center gap-1 text-ink-subtle">{icon} {label}</div>
+      <div className={`font-medium ${toneCls}`}>{value}{note ? <span className="ml-1 text-[10px]">({note})</span> : null}</div>
     </div>
   );
 }
