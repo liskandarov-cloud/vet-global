@@ -5,13 +5,17 @@ import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
   ArrowLeft, FileText, CheckCircle2, Clock, Truck, Package, CreditCard,
-  ShieldCheck, XCircle, MapPin,
+  ShieldCheck, XCircle, MapPin, RefreshCw, CalendarClock,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
-import { useAuth } from '@/lib/store';
+import { useAuth, useCart } from '@/lib/store';
 import { formatMoney } from '@/lib/utils';
+
+const TERM_RU: Record<string, string> = {
+  PREPAY: 'Предоплата', NET_TERMS: 'Отсрочка', INSTALLMENT: 'Рассрочка',
+};
 
 const FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] as const;
 const STATUS_RU: Record<string, string> = {
@@ -33,8 +37,28 @@ function downloadBlob(data: BlobPart, filename: string, type: string) {
 
 function OrderContent() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
+  const addToCart = useCart((s) => s.add);
   const [order, setOrder] = useState<any>(null);
   const [notFound, setNotFound] = useState(false);
+
+  // Повторить заказ — вернуть позиции в корзину (с выбранным ранее оффером).
+  const reorder = () => {
+    order.items?.forEach((it: any) => {
+      addToCart(
+        {
+          productId: it.productId,
+          offerId: it.offerId ?? undefined,
+          name: it.productName,
+          price: Number(it.price),
+          minOrder: 1,
+        },
+        it.quantity,
+      );
+    });
+    toast.success('Позиции добавлены в корзину — проверьте актуальные цены');
+    router.push('/cart');
+  };
 
   const load = () =>
     api.get(`/orders/${id}`).then((r) => setOrder(r.data)).catch(() => setNotFound(true));
@@ -69,9 +93,12 @@ function OrderContent() {
           <h1 className="mt-2 section-title">#{String(id).slice(0, 8)}</h1>
           <p className="mt-1 text-sm text-ink-subtle">от {new Date(order.createdAt).toLocaleString('ru-RU')}</p>
         </div>
-        <span className={`rounded-full px-4 py-1.5 text-sm font-semibold ${cancelled ? 'bg-red-100 text-red-600' : 'bg-teal-100 text-teal-700'}`}>
-          {STATUS_RU[order.status]}
-        </span>
+        <div className="flex items-center gap-3">
+          <button className="btn-outline !py-1.5 text-sm" onClick={reorder}><RefreshCw size={15} /> Повторить заказ</button>
+          <span className={`rounded-full px-4 py-1.5 text-sm font-semibold ${cancelled ? 'bg-red-100 text-red-600' : 'bg-teal-100 text-teal-700'}`}>
+            {STATUS_RU[order.status]}
+          </span>
+        </div>
       </div>
 
       {/* Timeline */}
@@ -136,6 +163,23 @@ function OrderContent() {
             <div className="card flex items-center justify-between p-4 text-sm">
               <span className="flex items-center gap-2 text-ink-muted"><CreditCard size={15} /> {payment.provider}</span>
               <span className={`rounded-md px-2 py-0.5 text-xs ${payment.status === 'PAID' ? 'bg-teal-100 text-teal-700' : 'bg-amber-100 text-amber-700'}`}>{PAY_RU[payment.status]}</span>
+            </div>
+          )}
+
+          {order.paymentTerm && order.paymentTerm !== 'PREPAY' && (
+            <div className="card p-4 text-sm">
+              <div className="mb-1 flex items-center gap-2 font-medium"><CalendarClock size={15} className="text-teal-700" /> {TERM_RU[order.paymentTerm]}</div>
+              {order.dueDate && <div className="text-ink-muted">Оплатить до: <span className="font-medium text-ink">{new Date(order.dueDate).toLocaleDateString('ru-RU')}</span></div>}
+              {Array.isArray(order.paymentSchedule) && order.paymentSchedule.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {order.paymentSchedule.map((p: any) => (
+                    <div key={p.n} className="flex justify-between text-xs">
+                      <span className="text-ink-subtle">Платёж {p.n} · {new Date(p.dueDate).toLocaleDateString('ru-RU')}</span>
+                      <span className="font-medium">{formatMoney(p.amount)}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
           )}
 

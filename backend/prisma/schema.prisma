@@ -93,6 +93,13 @@ enum CreditStatus {
   REJECTED
 }
 
+// Статус запроса цен (RFQ / тендер).
+enum RfqStatus {
+  OPEN // принимает котировки
+  AWARDED // выбран поставщик
+  CLOSED // закрыт без выбора
+}
+
 // Animal species a product targets (ТЗ 6.1 фильтр «Животное»).
 enum AnimalType {
   POULTRY // птица
@@ -139,6 +146,8 @@ model User {
   offers             Offer[]             @relation("SellerOffers")
   orders             Order[]             @relation("BuyerOrders")
   creditApplications CreditApplication[]
+  rfqs               Rfq[]               @relation("BuyerRfqs")
+  rfqQuotes          RfqQuote[]          @relation("SellerQuotes")
   reviews            Review[]
   vetPointsLedger    VetPointsTransaction[]
   promotions         Promotion[]
@@ -166,6 +175,72 @@ model Counterparty {
   orders Order[]
 
   @@index([userId])
+}
+
+// ─────────────────────── RFQ / тендер (блок 4) ───────────────────────
+
+// Запрос коммерческого предложения от покупателя (тендер между поставщиками).
+model Rfq {
+  id        String     @id @default(uuid())
+  buyerId   String
+  title     String
+  note      String?
+  deadline  DateTime?
+  status    RfqStatus  @default(OPEN)
+  createdAt DateTime   @default(now())
+
+  buyer  User       @relation("BuyerRfqs", fields: [buyerId], references: [id], onDelete: Cascade)
+  items  RfqItem[]
+  quotes RfqQuote[]
+
+  @@index([buyerId])
+  @@index([status])
+}
+
+// Позиция запроса.
+model RfqItem {
+  id        String  @id @default(uuid())
+  rfqId     String
+  productId String? // если позиция привязана к товару каталога
+  name      String
+  quantity  Int
+
+  rfq Rfq @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+
+  @@index([rfqId])
+}
+
+// Котировка поставщика по запросу (ставка в тендере).
+model RfqQuote {
+  id           String   @id @default(uuid())
+  rfqId        String
+  sellerId     String
+  totalPrice   Decimal  @db.Decimal(12, 2)
+  leadTimeDays Int?
+  note         String?
+  isAwarded    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+
+  rfq    Rfq  @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  seller User @relation("SellerQuotes", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([rfqId, sellerId])
+  @@index([rfqId])
+  @@index([sellerId])
+}
+
+// Бренд/производитель + платное продвижение (блок 4).
+model Brand {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  slug        String   @unique
+  logoUrl     String?
+  description String?
+  isSponsored Boolean  @default(false) // платное продвижение
+  sponsorRank Int      @default(0) // приоритет в выдаче
+  createdAt   DateTime @default(now())
+
+  @@index([isSponsored, sponsorRank])
 }
 
 // Заявка на финансирование закупок (кредитный лимит / рассрочка).

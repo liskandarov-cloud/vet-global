@@ -299,6 +299,40 @@ async function main() {
     console.log(`✓ offers seeded: ${offerCount} (сравнение цен)`);
   }
 
+  // ── Бренды (блок 4): из производителей товаров, часть — спонсируемые ──
+  {
+    const brandSlug = (s: string) =>
+      s.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'brand';
+    const mans = await prisma.product.findMany({
+      where: { manufacturer: { not: null } },
+      distinct: ['manufacturer'],
+      select: { manufacturer: true },
+    });
+    const names = mans.map((m) => m.manufacturer!).filter(Boolean);
+    const sponsored = new Set(names.slice(0, 2)); // демо: первые два бренда продвигаются
+    const usedSlugs = new Set<string>();
+    let bc = 0;
+    for (const name of names) {
+      let slug = brandSlug(name);
+      while (usedSlugs.has(slug)) slug = `${slug}-${bc}`;
+      usedSlugs.add(slug);
+      const isSp = sponsored.has(name);
+      await prisma.brand.upsert({
+        where: { name },
+        create: {
+          name,
+          slug,
+          isSponsored: isSp,
+          sponsorRank: isSp ? 10 : 0,
+          description: `${name} — производитель ветеринарных препаратов и кормовых решений.`,
+        },
+        update: {},
+      });
+      bc++;
+    }
+    console.log(`✓ brands seeded: ${bc} (спонсируемых: ${sponsored.size})`);
+  }
+
   // ── Demo reviews & recomputed ratings ──
   const COMMENTS = [
     'Отличное качество, берём регулярно.',

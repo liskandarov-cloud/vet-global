@@ -20,6 +20,8 @@ import { CategoriesModule } from './categories/categories.module';
 import { ProductsModule } from './products/products.module';
 import { OffersModule } from './offers/offers.module';
 import { FinancingModule } from './financing/financing.module';
+import { RfqModule } from './rfq/rfq.module';
+import { BrandsModule } from './brands/brands.module';
 import { OrdersModule } from './orders/orders.module';
 import { VetpointsModule } from './vetpoints/vetpoints.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -51,6 +53,8 @@ import { AppController } from './app.controller';
     ProductsModule,
     OffersModule,
     FinancingModule,
+    RfqModule,
+    BrandsModule,
     OrdersModule,
     VetpointsModule,
     ReviewsModule,
