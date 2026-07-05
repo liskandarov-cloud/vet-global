@@ -1,14 +1,8 @@
+'use client';
+
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import type { Metadata } from 'next';
-import { serverFetch } from '@/lib/server-api';
-
-export const dynamic = 'force-dynamic';
-
-export const metadata: Metadata = {
-  title: 'Блог и новости — VetGlobal',
-  description:
-    'Экспертные статьи и отраслевые новости ветеринарии и животноводства: здоровье животных, биобезопасность, кормление, рынок.',
-};
+import { api } from '@/lib/api';
 
 interface Post {
   id: string;
@@ -19,10 +13,17 @@ interface Post {
   createdAt: string;
 }
 
-// Server-rendered for SEO (SRS: SSR-оптимизация блога).
-export default async function BlogPage() {
-  const data = await serverFetch<{ posts: Post[] }>('/blog?limit=50');
-  const posts = data?.posts ?? [];
+export default function BlogPage() {
+  const [posts, setPosts] = useState<Post[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api
+      .get('/blog', { params: { limit: 50 } })
+      .then((r) => setPosts(r.data?.posts ?? r.data ?? []))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
@@ -31,7 +32,9 @@ export default async function BlogPage() {
         <h1 className="mt-3 section-title">Блог и новости</h1>
       </div>
 
-      {posts.length === 0 ? (
+      {loading ? (
+        <div className="py-20 text-center text-ink-subtle">Загрузка…</div>
+      ) : posts.length === 0 ? (
         <div className="py-20 text-center text-ink-subtle">Публикаций пока нет</div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
@@ -42,7 +45,9 @@ export default async function BlogPage() {
                 <img src={p.image} alt={p.title} className="aspect-video w-full object-cover" />
               )}
               <div className="p-5">
-                <div className="text-xs text-ink-subtle">{new Date(p.createdAt).toLocaleDateString('ru-RU')}</div>
+                <div className="text-xs text-ink-subtle">
+                  {new Date(p.createdAt).toLocaleDateString('ru-RU')}
+                </div>
                 <h2 className="mt-1 font-heading text-lg font-bold">{p.title}</h2>
                 {p.excerpt && <p className="mt-2 line-clamp-2 text-sm text-ink-muted">{p.excerpt}</p>}
               </div>

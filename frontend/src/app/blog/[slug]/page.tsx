@@ -1,8 +1,10 @@
-import type { Metadata } from 'next';
+'use client';
+
+import { useEffect, useState } from 'react';
+import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { notFound } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
-import { serverFetch } from '@/lib/server-api';
+import { api } from '@/lib/api';
 
 interface Post {
   title: string;
@@ -11,33 +13,37 @@ interface Post {
   createdAt: string;
   authorName: string;
   excerpt?: string;
-  metaTitle?: string;
-  metaDesc?: string;
 }
 
-export const dynamic = 'force-dynamic';
+export default function BlogPostPage() {
+  const params = useParams();
+  const slug = Array.isArray(params?.slug) ? params.slug[0] : (params?.slug as string);
+  const [post, setPost] = useState<Post | null>(null);
+  const [status, setStatus] = useState<'loading' | 'ready' | 'notfound'>('loading');
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const post = await serverFetch<Post>(`/blog/${params.slug}`);
-  if (!post) return { title: 'Статья — VetGlobal' };
-  const title = post.metaTitle ?? post.title;
-  const description = post.metaDesc ?? post.excerpt ?? post.content.slice(0, 160);
-  return {
-    title: `${title} — VetGlobal`,
-    description,
-    openGraph: {
-      title,
-      description,
-      type: 'article',
-      images: post.image ? [post.image] : [],
-    },
-  };
-}
+  useEffect(() => {
+    if (!slug) return;
+    api
+      .get(`/blog/${slug}`)
+      .then((r) => {
+        setPost(r.data);
+        setStatus('ready');
+        if (r.data?.title) document.title = `${r.data.title} — VetGlobal`;
+      })
+      .catch(() => setStatus('notfound'));
+  }, [slug]);
 
-// Server-rendered article for SEO.
-export default async function BlogPostPage({ params }: { params: { slug: string } }) {
-  const post = await serverFetch<Post>(`/blog/${params.slug}`);
-  if (!post) notFound();
+  if (status === 'loading') {
+    return <div className="py-20 text-center text-ink-subtle">Загрузка…</div>;
+  }
+  if (status === 'notfound' || !post) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <div className="text-ink-subtle">Статья не найдена</div>
+        <Link href="/blog" className="btn-ghost mt-4"><ArrowLeft size={16} /> Блог</Link>
+      </div>
+    );
+  }
 
   return (
     <article className="mx-auto max-w-3xl px-4 py-10">
