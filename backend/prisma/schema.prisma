@@ -168,6 +168,7 @@ model User {
   sellerContracts    ContractPrice[]     @relation("SellerContracts")
   buyerContracts     ContractPrice[]     @relation("BuyerContracts")
   pushSubscriptions  PushSubscription[]  @relation("PushSubs")
+  notifications      Notification[]      @relation("UserNotifications")
   reviews            Review[]
   vetPointsLedger    VetPointsTransaction[]
   promotions         Promotion[]
@@ -267,6 +268,22 @@ model Subscription {
 
   @@index([buyerId])
   @@index([active, nextRunAt])
+}
+
+// Уведомление в приложении (центр уведомлений).
+model Notification {
+  id        String   @id @default(uuid())
+  userId    String
+  title     String
+  body      String
+  url       String?
+  read      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation("UserNotifications", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, read])
+  @@index([userId, createdAt])
 }
 
 // Подписка браузера на web-push уведомления (PWA).

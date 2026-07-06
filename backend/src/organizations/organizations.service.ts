@@ -8,13 +8,13 @@ import { ApprovalStatus, OrderStatus, OrgRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrgDto, InviteMemberDto, UpdateMemberDto } from './dto/organization.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
-import { PushService } from '../push/push.service';
+import { AlertsService } from '../alerts/alerts.service';
 
 @Injectable()
 export class OrganizationsService {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly push: PushService,
+    private readonly alerts: AlertsService,
   ) {}
 
   // Организация текущего пользователя (первое членство) + участники.
@@ -154,7 +154,7 @@ export class OrganizationsService {
       }
     });
     if (order.buyerId) {
-      void this.push.sendToUser(order.buyerId, {
+      void this.alerts.notify(order.buyerId, {
         title: approve ? 'Заказ согласован' : 'Заказ отклонён',
         body: approve ? 'Ваш заказ одобрен — можно оплачивать.' : 'Заказ отклонён согласующим.',
         url: `/orders/${order.id}`,

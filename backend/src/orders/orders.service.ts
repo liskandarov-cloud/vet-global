@@ -6,7 +6,7 @@ import { CreateOrderDto } from './dto/order.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PdfService } from '../documents/pdf.service';
 import { NotificationsService } from '../mail/notifications.service';
-import { PushService } from '../push/push.service';
+import { AlertsService } from '../alerts/alerts.service';
 
 @Injectable()
 export class OrdersService {
@@ -19,7 +19,7 @@ export class OrdersService {
     private readonly config: ConfigService,
     private readonly pdf: PdfService,
     private readonly notifications: NotificationsService,
-    private readonly push: PushService,
+    private readonly alerts: AlertsService,
   ) {
     this.commissionPct = Number(config.get('PLATFORM_COMMISSION_PERCENT') ?? 12);
     this.earnPct = Number(config.get('VETPOINTS_EARN_PERCENT') ?? 1);
@@ -232,7 +232,7 @@ export class OrdersService {
         .then((approvers) =>
           Promise.all(
             approvers.map((a) =>
-              this.push.sendToUser(a.userId, {
+              this.alerts.notify(a.userId, {
                 title: 'Заказ на согласование',
                 body: `${buyerName}: заказ на ${Math.round(total).toLocaleString('ru-RU')} сум ждёт одобрения`,
                 url: '/org',
@@ -312,7 +312,7 @@ export class OrdersService {
 
     void this.notifications.onOrderStatusChanged(id, status).catch(() => undefined);
     if (order.buyerId) {
-      void this.push.sendToUser(order.buyerId, {
+      void this.alerts.notify(order.buyerId, {
         title: `Заказ #${id.slice(0, 8)}`,
         body: `Статус изменён: ${ORDER_STATUS_RU[status] ?? status}`,
         url: `/orders/${id}`,
