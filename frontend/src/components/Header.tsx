@@ -34,6 +34,7 @@ export function Header() {
     { href: '/org', label: 'Организация' },
     { href: '/subscriptions', label: 'Подписки' },
     { href: '/financing', label: 'Финансирование' },
+    { href: '/market', label: 'Аналитика рынка' },
     { href: '/consult', label: 'Консультация' },
   ];
   const nav = [...primaryNav, ...b2bNav]; // плоский список для мобильного меню
