@@ -16,6 +16,11 @@ import { formatMoney } from '@/lib/utils';
 const TERM_RU: Record<string, string> = {
   PREPAY: 'Предоплата', NET_TERMS: 'Отсрочка', INSTALLMENT: 'Рассрочка',
 };
+const APPROVAL: Record<string, { label: string; cls: string }> = {
+  PENDING: { label: 'Ожидает согласования в организации', cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+  APPROVED: { label: 'Согласовано', cls: 'bg-teal-50 text-teal-700 border-teal-200' },
+  REJECTED: { label: 'Отклонено согласующим', cls: 'bg-red-50 text-red-600 border-red-200' },
+};
 
 const FLOW = ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED'] as const;
 const STATUS_RU: Record<string, string> = {
@@ -100,6 +105,12 @@ function OrderContent() {
           </span>
         </div>
       </div>
+
+      {order.approvalStatus && order.approvalStatus !== 'NONE' && APPROVAL[order.approvalStatus] && (
+        <div className={`mb-4 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium ${APPROVAL[order.approvalStatus].cls}`}>
+          <ShieldCheck size={16} /> {APPROVAL[order.approvalStatus].label}
+        </div>
+      )}
 
       {/* Timeline */}
       {cancelled ? (

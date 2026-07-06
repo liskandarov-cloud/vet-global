@@ -27,6 +27,7 @@ export function Header() {
     { href: '/suppliers', label: t('nav.suppliers') },
     { href: '/brands', label: 'Бренды' },
     { href: '/rfq', label: 'Запрос цен' },
+    { href: '/org', label: 'Организация' },
     { href: '/financing', label: 'Финансирование' },
     { href: '/blog', label: t('nav.blog') },
     { href: '/consult', label: 'Консультация' },

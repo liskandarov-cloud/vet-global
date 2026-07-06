@@ -100,6 +100,21 @@ enum RfqStatus {
   CLOSED // закрыт без выбора
 }
 
+// Роль участника организации-покупателя (B2B procurement).
+enum OrgRole {
+  OWNER // владелец: полный доступ, согласует
+  MANAGER // менеджер: согласует, управляет участниками
+  PURCHASER // закупщик: создаёт заказы в рамках лимита
+}
+
+// Статус согласования заказа.
+enum ApprovalStatus {
+  NONE // согласование не требуется
+  PENDING // ожидает согласования
+  APPROVED // согласовано
+  REJECTED // отклонено
+}
+
 // Animal species a product targets (ТЗ 6.1 фильтр «Животное»).
 enum AnimalType {
   POULTRY // птица
@@ -148,6 +163,7 @@ model User {
   creditApplications CreditApplication[]
   rfqs               Rfq[]               @relation("BuyerRfqs")
   rfqQuotes          RfqQuote[]          @relation("SellerQuotes")
+  memberships        OrgMembership[]
   reviews            Review[]
   vetPointsLedger    VetPointsTransaction[]
   promotions         Promotion[]
@@ -241,6 +257,36 @@ model Brand {
   createdAt   DateTime @default(now())
 
   @@index([isSponsored, sponsorRank])
+}
+
+// ─────────────────── Организации-покупатели (P2) ───────────────────
+
+// Организация-покупатель (несколько сотрудников закупают под общим юрлицом).
+model Organization {
+  id        String   @id @default(uuid())
+  name      String
+  inn       String?
+  createdAt DateTime @default(now())
+
+  members OrgMembership[]
+  orders  Order[]
+}
+
+// Участник организации: роль + лимит на заказ без согласования.
+model OrgMembership {
+  id         String   @id @default(uuid())
+  orgId      String
+  userId     String
+  role       OrgRole  @default(PURCHASER)
+  spendLimit Decimal  @default(0) @db.Decimal(12, 2) // лимит заказа без согласования (0 = требуется всегда)
+  createdAt  DateTime @default(now())
+
+  org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
+  user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([orgId, userId])
+  @@index([orgId])
+  @@index([userId])
 }
 
 // Заявка на финансирование закупок (кредитный лимит / рассрочка).
@@ -401,11 +447,17 @@ model Order {
   installments    Int? // число платежей для INSTALLMENT
   paymentSchedule Json? // график: [{ n, dueDate, amount }]
 
+  // Организация-покупатель и согласование (P2)
+  orgId          String?
+  approvalStatus ApprovalStatus @default(NONE)
+  approvedById   String? // кто согласовал/отклонил
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   buyer        User?         @relation("BuyerOrders", fields: [buyerId], references: [id])
   counterparty Counterparty? @relation(fields: [counterpartyId], references: [id])
+  org          Organization? @relation(fields: [orgId], references: [id])
   items        OrderItem[]
   invoice      Invoice?
   shipment     Shipment?
@@ -414,6 +466,7 @@ model Order {
   @@index([buyerId])
   @@index([status])
   @@index([createdAt])
+  @@index([orgId, approvalStatus])
 }
 
 model OrderItem {

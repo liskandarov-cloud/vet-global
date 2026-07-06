@@ -28,6 +28,7 @@ export default function CartPage() {
   const [netTermDays, setNetTermDays] = useState(30);
   const [installments, setInstallments] = useState(3);
   const [credit, setCredit] = useState<{ available: number; creditLimit: number } | null>(null);
+  const [org, setOrg] = useState<{ myRole?: string; myLimit?: number; org: any } | null>(null);
 
   useEffect(() => {
     if (!user) return;
@@ -37,6 +38,7 @@ export default function CartPage() {
       if (def) setCounterpartyId(def.id);
     }).catch(() => {});
     api.get('/financing/me').then((r) => setCredit(r.data)).catch(() => {});
+    api.get('/org/me').then((r) => setOrg(r.data)).catch(() => {});
   }, [user]);
 
   const sum = subtotal();
@@ -45,6 +47,7 @@ export default function CartPage() {
   const total = sum - pointsToUse;
   const available = credit?.available ?? 0;
   const creditShort = paymentTerm !== 'PREPAY' && total > available;
+  const needsApproval = org?.org && org.myRole === 'PURCHASER' && total > (org.myLimit ?? 0);
 
   const checkout = async () => {
     if (!user && (!name || !phone)) {
@@ -210,8 +213,14 @@ export default function CartPage() {
             </div>
           </div>
 
+          {needsApproval && (
+            <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+              Сумма превышает ваш лимит ({formatMoney(org?.myLimit ?? 0)}) — заказ уйдёт на согласование в организации.
+            </div>
+          )}
+
           <button className="btn-primary w-full" disabled={submitting} onClick={checkout}>
-            {submitting ? '…' : t('cart.checkout')}
+            {submitting ? '…' : needsApproval ? 'Оформить на согласование' : t('cart.checkout')}
           </button>
           <div className="flex items-center justify-center gap-4 text-xs text-ink-subtle">
             <span className="flex items-center gap-1"><ShieldCheck size={13} className="text-teal-700" /> Безопасно</span>

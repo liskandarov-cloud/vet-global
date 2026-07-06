@@ -25,6 +25,9 @@ export class PaymentsService {
     if (user.role === UserRole.BUYER && order.buyerId !== user.id) {
       throw new ForbiddenException('Not authorized');
     }
+    if (order.approvalStatus === 'PENDING') {
+      throw new BadRequestException('Заказ ожидает согласования в организации');
+    }
 
     const amount = Number(order.total);
     const payment = await this.prisma.payment.create({

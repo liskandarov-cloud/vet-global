@@ -1,6 +1,6 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus, PaymentTerm, UserRole, VetPointsType } from '@prisma/client';
+import { ApprovalStatus, OrderStatus, OrgRole, PaymentTerm, UserRole, VetPointsType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
@@ -139,6 +139,20 @@ export class OrdersService {
       }
     }
 
+    // ── Организация: согласование заказа сверх лимита закупщика ──
+    let orgId: string | null = null;
+    let approvalStatus: ApprovalStatus = ApprovalStatus.NONE;
+    if (user) {
+      const membership = await this.prisma.orgMembership.findFirst({ where: { userId: user.id } });
+      if (membership) {
+        orgId = membership.orgId;
+        // OWNER/MANAGER не требуют согласования; закупщик — если сумма превышает лимит (0 = всегда).
+        if (membership.role === OrgRole.PURCHASER && total > Number(membership.spendLimit)) {
+          approvalStatus = ApprovalStatus.PENDING;
+        }
+      }
+    }
+
     // Create order + deduct spent points atomically.
     const order = await this.prisma.$transaction(async (tx) => {
       const created = await tx.order.create({
@@ -158,6 +172,8 @@ export class OrdersService {
           dueDate,
           installments,
           paymentSchedule: (paymentSchedule as any) ?? undefined,
+          orgId,
+          approvalStatus,
           items: { create: items },
         },
         include: { items: true },
