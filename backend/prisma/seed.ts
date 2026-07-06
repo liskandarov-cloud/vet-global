@@ -42,11 +42,12 @@ async function main() {
   console.log(`✓ admin: ${adminEmail} / ${adminPassword}`);
 
   // ── Demo sellers (products are distributed across them) ──
+  // Демо-дистрибьюторы (вымышленные компании; распространяют реальные мировые бренды).
   const SELLERS = [
-    { email: 'seller@vetglobal.com', password: 'seller123', fullName: 'Иван Поставщиков', phone: '+998901112233', company: 'ООО «ВетФарм Импорт»', inn: '301234567', description: 'Официальный импортёр ветеринарных препаратов и вакцин.', rating: 4.7, reviewsCount: 12 },
-    { email: 'agrovet@vetglobal.com', password: 'seller123', fullName: 'Дилшод Рахимов', phone: '+998901112234', company: 'ООО «AgroVet Distribution»', inn: '302345678', description: 'Дистрибуция кормовых добавок и премиксов для птицефабрик и КРС.', rating: 4.5, reviewsCount: 8 },
-    { email: 'biopharm@vetglobal.com', password: 'seller123', fullName: 'Санжар Юлдашев', phone: '+998901112235', company: 'ООО «BioPharm Central Asia»', inn: '303456789', description: 'Производитель вакцин и диагностических систем.', rating: 4.8, reviewsCount: 15 },
-    { email: 'vetsnab@vetglobal.com', password: 'seller123', fullName: 'Азиз Каримов', phone: '+998901112236', company: 'ООО «ВетСнаб»', inn: '304567890', description: 'Ветеринарный инструмент, расходники и дезинфекция.', rating: 4.3, reviewsCount: 5 },
+    { email: 'seller@vetglobal.com', password: 'seller123', fullName: 'Иван Поставщиков', phone: '+998901112233', company: 'ООО «ВетФарм Импорт»', inn: '301234567', description: 'Импорт и дистрибуция ветпрепаратов и вакцин ведущих мировых брендов (Zoetis, MSD, Ceva, KRKA).', rating: 4.7, reviewsCount: 12 },
+    { email: 'agrovet@vetglobal.com', password: 'seller123', fullName: 'Дилшод Рахимов', phone: '+998901112234', company: 'ООО «AgroVet Distribution»', inn: '302345678', description: 'Кормовые добавки, премиксы и ферменты для птицефабрик и КРС (Alltech, dsm-firmenich, Provimi).', rating: 4.5, reviewsCount: 8 },
+    { email: 'biopharm@vetglobal.com', password: 'seller123', fullName: 'Санжар Юлдашев', phone: '+998901112235', company: 'ООО «BioPharm Central Asia»', inn: '303456789', description: 'Вакцины, диагностика и антибактериальные препараты (Boehringer Ingelheim, Hipra, IDEXX).', rating: 4.8, reviewsCount: 15 },
+    { email: 'vetsnab@vetglobal.com', password: 'seller123', fullName: 'Азиз Каримов', phone: '+998901112236', company: 'ООО «ВетСнаб»', inn: '304567890', description: 'Ветеринарный инструмент, расходники и дезинфекция (Virbac, CID Lines, Kersia).', rating: 4.3, reviewsCount: 5 },
   ];
   const sellers: { id: string }[] = [];
   for (const s of SELLERS) {
@@ -105,6 +106,22 @@ async function main() {
   const antibiotics = await prisma.category.findUnique({ where: { slug: 'antibiotics' } });
   const vitamins = await prisma.category.findUnique({ where: { slug: 'vitamins' } });
 
+  // Курированные royalty-free изображения по категориям (URL проверены на 200), с разнообразием.
+  const CAT_IMAGES: Record<string, string[]> = {
+    vaccines: ['1584362917165-526a968579e8', '1631549916768-4119b2e5f926', '1584308666744-24d5c474f2ae'],
+    antibiotics: ['1471864190281-a93a3070b6de', '1607619056574-7b8d3ee536b2', '1589927986089-35812388d1f4'],
+    vitamins: ['1550572017-edd951b55104', '1582719478250-c89cae4dc85b'],
+    'feed-additives': ['1518977676601-b53f82aba655', '1560493676-04071c5f467b'],
+    disinfectants: ['1576091160399-112ba8d25d1d', '1628771065518-0d82f1938462'],
+    diagnostics: ['1579154204601-01588f351e67', '1576091160399-112ba8d25d1d'],
+    other: ['1547908068-35ea7b47a21d', '1589927986089-35812388d1f4'],
+  };
+  const catImg = (slug: string, i = 0): string[] => {
+    const arr = CAT_IMAGES[slug] ?? CAT_IMAGES.other;
+    const id = arr[i % arr.length];
+    return [`https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=800&q=80`];
+  };
+
   const demoProducts = [
     {
       name: 'Вакцина против болезни Ньюкасла (штамм Ла-Сота)',
@@ -113,13 +130,13 @@ async function main() {
       categoryId: vaccines?.id,
       price: 85000,
       activeSubstance: 'Штамм La Sota',
-      manufacturer: 'BioVet',
+      manufacturer: 'Ceva Santé Animale',
       form: 'Лиофилизат',
       animalType: AnimalType.POULTRY,
       minOrder: 10,
       isPromotion: true,
       promotionText: '-15% до конца месяца',
-      images: ['https://images.unsplash.com/photo-1584362917165-526a968579e8?auto=format&fit=crop&w=800&q=80'],
+      images: catImg('vaccines', 0),
     },
     {
       name: 'Энрофлоксацин 10% раствор оральный',
@@ -128,11 +145,11 @@ async function main() {
       categoryId: antibiotics?.id,
       price: 120000,
       activeSubstance: 'Энрофлоксацин',
-      manufacturer: 'VetPharma',
+      manufacturer: 'KRKA',
       form: 'Раствор оральный',
       animalType: AnimalType.CATTLE,
       minOrder: 5,
-      images: ['https://images.unsplash.com/photo-1471864190281-a93a3070b6de?auto=format&fit=crop&w=800&q=80'],
+      images: catImg('antibiotics', 0),
     },
     {
       name: 'Витаминный комплекс АД3Е',
@@ -141,12 +158,12 @@ async function main() {
       categoryId: vitamins?.id,
       price: 45000,
       activeSubstance: 'Ретинол, Холекальциферол, Токоферол',
-      manufacturer: 'AgroVit',
+      manufacturer: 'Interchemie',
       form: 'Раствор для инъекций',
       animalType: AnimalType.OTHER,
       minOrder: 1,
       isNew: true,
-      images: ['https://images.unsplash.com/photo-1550572017-edd951b55104?auto=format&fit=crop&w=800&q=80'],
+      images: catImg('vitamins', 0),
     },
   ];
 
@@ -154,83 +171,92 @@ async function main() {
   for (const p of demoProducts) {
     if (!p.categoryId) continue;
     const exists = await prisma.product.findFirst({ where: { name: p.name } });
-    if (!exists) {
+    if (exists) {
+      // Обновляем реальный бренд и картинку у существующих товаров.
+      await prisma.product.update({
+        where: { id: exists.id },
+        data: { manufacturer: p.manufacturer, images: p.images, description: p.description },
+      });
+    } else {
       await prisma.product.create({
         data: { ...p, categoryId: p.categoryId, sellerId: sellers[sIdx++ % sellers.length].id },
       });
     }
   }
-  console.log(`✓ demo products seeded`);
+  console.log(`✓ demo products seeded (real brands + images)`);
 
   // ── Extended catalog (all categories) for a lively storefront ──
   const catMap = Object.fromEntries(
     (await prisma.category.findMany()).map((c) => [c.slug, c.id] as const),
   );
-  const imgOf = (slug: string) => {
-    const m: Record<string, string> = {
-      vaccines: '1584362917165-526a968579e8',
-      antibiotics: '1471864190281-a93a3070b6de',
-      vitamins: '1550572017-edd951b55104',
-      'feed-additives': '1518977676601-b53f82aba655',
-      disinfectants: '1471864190281-a93a3070b6de',
-      diagnostics: '1550572017-edd951b55104',
-      other: '1547908068-35ea7b47a21d',
-    };
-    return [`https://images.unsplash.com/photo-${m[slug] ?? '1547908068-35ea7b47a21d'}?auto=format&fit=crop&w=800&q=80`];
-  };
-
   type P = [string, string, number, string | null, string, string, AnimalType, number, boolean, boolean];
+  // Производители — реальные бренды-изготовители соответствующей продукции.
   const EXTRA: P[] = [
-    ['Вакцина против болезни Гамборо', 'vaccines', 92000, 'Штамм Winterfield 2512', 'BioVet', 'Лиофилизат', AnimalType.POULTRY, 10, false, true],
-    ['Вакцина против болезни Марека', 'vaccines', 110000, 'Herpesvirus turkey', 'Biotech', 'Суспензия', AnimalType.POULTRY, 5, false, false],
-    ['Вакцина против ящура КРС', 'vaccines', 145000, 'Инактивированный антиген', 'Nita-Farm', 'Эмульсия', AnimalType.CATTLE, 5, true, false],
-    ['Вакцина антирабическая', 'vaccines', 38000, 'Штамм RV-97', 'InVet', 'Раствор для инъекций', AnimalType.PETS, 1, false, true],
-    ['Тилозин 200 инъекционный', 'antibiotics', 95000, 'Тилозина тартрат', 'VIC', 'Раствор для инъекций', AnimalType.CATTLE, 5, false, false],
+    ['Вакцина против болезни Гамборо', 'vaccines', 92000, 'Штамм Winterfield 2512', 'Boehringer Ingelheim', 'Лиофилизат', AnimalType.POULTRY, 10, false, true],
+    ['Вакцина против болезни Марека', 'vaccines', 110000, 'Herpesvirus turkey', 'MSD Animal Health', 'Суспензия', AnimalType.POULTRY, 5, false, false],
+    ['Вакцина против ящура КРС', 'vaccines', 145000, 'Инактивированный антиген', 'Hipra', 'Эмульсия', AnimalType.CATTLE, 5, true, false],
+    ['Вакцина антирабическая', 'vaccines', 38000, 'Штамм RV-97', 'Zoetis', 'Раствор для инъекций', AnimalType.PETS, 1, false, true],
+    ['Тилозин 200 инъекционный', 'antibiotics', 95000, 'Тилозина тартрат', 'Interchemie', 'Раствор для инъекций', AnimalType.CATTLE, 5, false, false],
     ['Амоксициллин 15% LA', 'antibiotics', 128000, 'Амоксициллин', 'KRKA', 'Суспензия', AnimalType.CATTLE, 4, true, false],
-    ['Окситетрациклин 20%', 'antibiotics', 76000, 'Окситетрациклин', 'VetPharma', 'Раствор для инъекций', AnimalType.SMALL_RUMINANTS, 5, false, false],
-    ['Флорфеникол 30%', 'antibiotics', 158000, 'Флорфеникол', 'Invesa', 'Раствор оральный', AnimalType.POULTRY, 3, false, true],
-    ['Тетравит', 'vitamins', 42000, 'A, D3, E, F', 'AgroVit', 'Раствор для инъекций', AnimalType.OTHER, 1, false, false],
-    ['Витамин B-комплекс', 'vitamins', 35000, 'B1, B2, B6, B12', 'Nita-Farm', 'Раствор для инъекций', AnimalType.OTHER, 1, false, false],
-    ['Кальфосет (Ca+P+Mg)', 'vitamins', 68000, 'Кальций, фосфор, магний', 'VIC', 'Раствор для инъекций', AnimalType.CATTLE, 2, true, false],
-    ['Глутекс (дезинфектант)', 'disinfectants', 89000, 'Глутаровый альдегид', 'BioVet', 'Концентрат', AnimalType.OTHER, 2, false, false],
-    ['Йодовит', 'disinfectants', 54000, 'Йод, ПАВ', 'AgroVit', 'Раствор', AnimalType.OTHER, 4, false, false],
-    ['Дезосепт-форте', 'disinfectants', 120000, 'ЧАС, глутаральдегид', 'InVet', 'Концентрат', AnimalType.OTHER, 2, false, true],
-    ['Пробиотик Ветом 1.1', 'feed-additives', 64000, 'Bacillus subtilis', 'Biotech', 'Порошок', AnimalType.POULTRY, 5, false, false],
-    ['Аминокислотный комплекс', 'feed-additives', 98000, 'Лизин, метионин', 'VetPharma', 'Порошок', AnimalType.POULTRY, 5, true, false],
-    ['Ферментный премикс', 'feed-additives', 72000, 'Ксиланаза, фитаза', 'AgroVit', 'Гранулы', AnimalType.POULTRY, 10, false, false],
-    ['Мел кормовой', 'feed-additives', 18000, 'Карбонат кальция', 'VIC', 'Порошок', AnimalType.CATTLE, 20, false, false],
-    ['Экспресс-тест на мастит', 'diagnostics', 47000, 'Индикаторный реагент', 'InVet', 'Набор', AnimalType.CATTLE, 5, false, true],
-    ['Тест-полоски (кетоз)', 'diagnostics', 56000, 'BHB-реагент', 'Biotech', 'Полоски', AnimalType.CATTLE, 3, false, false],
-    ['Шприцы ветеринарные 20мл', 'other', 1200, null, 'MedSupply', 'Одноразовые', AnimalType.OTHER, 100, false, false],
-    ['Перчатки смотровые (100шт)', 'other', 42000, null, 'MedSupply', 'Нитрил', AnimalType.OTHER, 5, false, false],
+    ['Окситетрациклин 20%', 'antibiotics', 76000, 'Окситетрациклин', 'Bioveta', 'Раствор для инъекций', AnimalType.SMALL_RUMINANTS, 5, false, false],
+    ['Флорфеникол 30%', 'antibiotics', 158000, 'Флорфеникол', 'Vetoquinol', 'Раствор оральный', AnimalType.POULTRY, 3, false, true],
+    ['Тетравит', 'vitamins', 42000, 'A, D3, E, F', 'Nita-Farm', 'Раствор для инъекций', AnimalType.OTHER, 1, false, false],
+    ['Витамин B-комплекс', 'vitamins', 35000, 'B1, B2, B6, B12', 'Interchemie', 'Раствор для инъекций', AnimalType.OTHER, 1, false, false],
+    ['Кальфосет (Ca+P+Mg)', 'vitamins', 68000, 'Кальций, фосфор, магний', 'Vetoquinol', 'Раствор для инъекций', AnimalType.CATTLE, 2, true, false],
+    ['Глутекс (дезинфектант)', 'disinfectants', 89000, 'Глутаровый альдегид', 'CID Lines', 'Концентрат', AnimalType.OTHER, 2, false, false],
+    ['Йодовит', 'disinfectants', 54000, 'Йод, ПАВ', 'Virbac', 'Раствор', AnimalType.OTHER, 4, false, false],
+    ['Дезосепт-форте', 'disinfectants', 120000, 'ЧАС, глутаральдегид', 'Kersia', 'Концентрат', AnimalType.OTHER, 2, false, true],
+    ['Пробиотик для птицы', 'feed-additives', 64000, 'Bacillus subtilis', 'Alltech', 'Порошок', AnimalType.POULTRY, 5, false, false],
+    ['Аминокислотный комплекс', 'feed-additives', 98000, 'Лизин, метионин', 'Evonik', 'Порошок', AnimalType.POULTRY, 5, true, false],
+    ['Ферментный премикс', 'feed-additives', 72000, 'Ксиланаза, фитаза', 'dsm-firmenich', 'Гранулы', AnimalType.POULTRY, 10, false, false],
+    ['Мел кормовой', 'feed-additives', 18000, 'Карбонат кальция', 'Provimi', 'Порошок', AnimalType.CATTLE, 20, false, false],
+    ['Экспресс-тест на мастит', 'diagnostics', 47000, 'Индикаторный реагент', 'IDEXX', 'Набор', AnimalType.CATTLE, 5, false, true],
+    ['Тест-полоски (кетоз)', 'diagnostics', 56000, 'BHB-реагент', 'IDEXX', 'Полоски', AnimalType.CATTLE, 3, false, false],
+    ['Шприцы ветеринарные 20мл', 'other', 1200, null, 'Henke-Sass Wolf', 'Одноразовые', AnimalType.OTHER, 100, false, false],
+    ['Перчатки смотровые (100шт)', 'other', 42000, null, 'Mercator Medical', 'Нитрил', AnimalType.OTHER, 5, false, false],
   ];
 
   let extra = 0;
   for (const [name, slug, price, sub, man, form, animal, mo, promo, isNewFlag] of EXTRA) {
     if (!catMap[slug]) continue;
-    if (await prisma.product.findFirst({ where: { name } })) continue;
-    await prisma.product.create({
-      data: {
-        name,
-        description: `${name}. Производитель: ${man}. Форма: ${form}.`,
-        categoryId: catMap[slug],
-        price,
-        manufacturer: man,
-        form,
-        animalType: animal,
-        minOrder: mo,
-        inStock: true,
-        images: imgOf(slug),
-        isPromotion: promo,
-        promotionText: promo ? 'Спец. цена' : null,
-        isNew: isNewFlag,
-        sellerId: sellers[sIdx++ % sellers.length].id,
-        ...(sub ? { activeSubstance: sub } : {}),
-      },
-    });
+    const images = catImg(slug, extra);
+    const existing = await prisma.product.findFirst({ where: { name } });
+    if (existing) {
+      // Обновляем реальный бренд-производитель и картинку у уже засеянных товаров.
+      await prisma.product.update({
+        where: { id: existing.id },
+        data: {
+          manufacturer: man,
+          images,
+          form,
+          description: `${name}. Производитель: ${man}. Форма: ${form}.`,
+          ...(sub ? { activeSubstance: sub } : {}),
+        },
+      });
+    } else {
+      await prisma.product.create({
+        data: {
+          name,
+          description: `${name}. Производитель: ${man}. Форма: ${form}.`,
+          categoryId: catMap[slug],
+          price,
+          manufacturer: man,
+          form,
+          animalType: animal,
+          minOrder: mo,
+          inStock: true,
+          images,
+          isPromotion: promo,
+          promotionText: promo ? 'Спец. цена' : null,
+          isNew: isNewFlag,
+          sellerId: sellers[sIdx++ % sellers.length].id,
+          ...(sub ? { activeSubstance: sub } : {}),
+        },
+      });
+    }
     extra++;
   }
-  console.log(`✓ extended catalog: +${extra} products`);
+  console.log(`✓ extended catalog: ${extra} products (real brands + images)`);
 
   // ── Мульти-поставщик: офферы (сравнение цен) ──
   // Базовый оффер продавца-владельца + конкурирующие офферы других продавцов
@@ -309,7 +335,11 @@ async function main() {
       select: { manufacturer: true },
     });
     const names = mans.map((m) => m.manufacturer!).filter(Boolean);
-    const sponsored = new Set(names.slice(0, 2)); // демо: первые два бренда продвигаются
+    // Удаляем устаревшие бренды, которых больше нет среди производителей товаров.
+    await prisma.brand.deleteMany({ where: { name: { notIn: names } } });
+    // Спонсируемые — известные бренды (демо).
+    const preferSponsored = ['Zoetis', 'MSD Animal Health', 'Ceva Santé Animale', 'Boehringer Ingelheim'];
+    const sponsored = new Set(names.filter((n) => preferSponsored.includes(n)).slice(0, 3));
     const usedSlugs = new Set<string>();
     let bc = 0;
     for (const name of names) {
