@@ -167,6 +167,7 @@ model User {
   subscriptions      Subscription[]      @relation("BuyerSubs")
   sellerContracts    ContractPrice[]     @relation("SellerContracts")
   buyerContracts     ContractPrice[]     @relation("BuyerContracts")
+  pushSubscriptions  PushSubscription[]  @relation("PushSubs")
   reviews            Review[]
   vetPointsLedger    VetPointsTransaction[]
   promotions         Promotion[]
@@ -266,6 +267,20 @@ model Subscription {
 
   @@index([buyerId])
   @@index([active, nextRunAt])
+}
+
+// Подписка браузера на web-push уведомления (PWA).
+model PushSubscription {
+  id        String   @id @default(uuid())
+  userId    String
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  createdAt DateTime @default(now())
+
+  user User @relation("PushSubs", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }
 
 // Бренд/производитель + платное продвижение (блок 4).

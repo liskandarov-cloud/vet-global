@@ -8,10 +8,14 @@ import { ApprovalStatus, OrderStatus, OrgRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrgDto, InviteMemberDto, UpdateMemberDto } from './dto/organization.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { PushService } from '../push/push.service';
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly push: PushService,
+  ) {}
 
   // Организация текущего пользователя (первое членство) + участники.
   async myOrg(user: AuthUser) {
@@ -149,6 +153,13 @@ export class OrganizationsService {
         });
       }
     });
+    if (order.buyerId) {
+      void this.push.sendToUser(order.buyerId, {
+        title: approve ? 'Заказ согласован' : 'Заказ отклонён',
+        body: approve ? 'Ваш заказ одобрен — можно оплачивать.' : 'Заказ отклонён согласующим.',
+        url: `/orders/${order.id}`,
+      });
+    }
     return { ok: true };
   }
 }

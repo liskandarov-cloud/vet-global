@@ -6,6 +6,7 @@ import { CreateOrderDto } from './dto/order.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PdfService } from '../documents/pdf.service';
 import { NotificationsService } from '../mail/notifications.service';
+import { PushService } from '../push/push.service';
 
 @Injectable()
 export class OrdersService {
@@ -18,6 +19,7 @@ export class OrdersService {
     private readonly config: ConfigService,
     private readonly pdf: PdfService,
     private readonly notifications: NotificationsService,
+    private readonly push: PushService,
   ) {
     this.commissionPct = Number(config.get('PLATFORM_COMMISSION_PERCENT') ?? 12);
     this.earnPct = Number(config.get('VETPOINTS_EARN_PERCENT') ?? 1);
@@ -222,6 +224,24 @@ export class OrdersService {
 
     // Notify buyer + sellers + admin (fire-and-forget; email failures must not break checkout).
     void this.notifications.onOrderCreated(order.id).catch(() => undefined);
+
+    // Push согласующим, если заказ ушёл на согласование.
+    if (orgId && approvalStatus === ApprovalStatus.PENDING) {
+      void this.prisma.orgMembership
+        .findMany({ where: { orgId, role: { in: [OrgRole.OWNER, OrgRole.MANAGER] } } })
+        .then((approvers) =>
+          Promise.all(
+            approvers.map((a) =>
+              this.push.sendToUser(a.userId, {
+                title: 'Заказ на согласование',
+                body: `${buyerName}: заказ на ${Math.round(total).toLocaleString('ru-RU')} сум ждёт одобрения`,
+                url: '/org',
+              }),
+            ),
+          ),
+        )
+        .catch(() => undefined);
+    }
     // TODO(phase-2): Telegram routing to seller/admin (SRS 4.2).
     return this.serialize(order);
   }
@@ -291,6 +311,13 @@ export class OrdersService {
     }
 
     void this.notifications.onOrderStatusChanged(id, status).catch(() => undefined);
+    if (order.buyerId) {
+      void this.push.sendToUser(order.buyerId, {
+        title: `Заказ #${id.slice(0, 8)}`,
+        body: `Статус изменён: ${ORDER_STATUS_RU[status] ?? status}`,
+        url: `/orders/${id}`,
+      });
+    }
     return this.getOne(id, user);
   }
 
@@ -359,6 +386,15 @@ export class OrdersService {
     };
   }
 }
+
+const ORDER_STATUS_RU: Record<string, string> = {
+  PENDING: 'Новый',
+  CONFIRMED: 'Подтверждён',
+  PROCESSING: 'В обработке',
+  SHIPPED: 'Отгружен',
+  DELIVERED: 'Доставлен',
+  CANCELLED: 'Отменён',
+};
 
 // Цена за единицу с учётом объёмных скидок оффера (price breaks).
 export function unitPriceForQty(offer: any, qty: number): number {

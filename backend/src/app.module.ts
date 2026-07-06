@@ -26,6 +26,7 @@ import { OrganizationsModule } from './organizations/organizations.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
 import { ContractPricesModule } from './contract-prices/contract-prices.module';
 import { MarketModule } from './market/market.module';
+import { PushModule } from './push/push.module';
 import { OrdersModule } from './orders/orders.module';
 import { VetpointsModule } from './vetpoints/vetpoints.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -63,6 +64,7 @@ import { AppController } from './app.controller';
     SubscriptionsModule,
     ContractPricesModule,
     MarketModule,
+    PushModule,
     OrdersModule,
     VetpointsModule,
     ReviewsModule,

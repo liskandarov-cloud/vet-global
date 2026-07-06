@@ -42,3 +42,29 @@ self.addEventListener('fetch', (e) => {
     );
   }
 });
+
+// Web-push: показать уведомление.
+self.addEventListener('push', (e) => {
+  let data = { title: 'VetGlobal', body: '', url: '/' };
+  try { data = { ...data, ...e.data.json() }; } catch (_) {}
+  e.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: '/icon.svg',
+      badge: '/icon.svg',
+      data: { url: data.url || '/' },
+    }),
+  );
+});
+
+// Клик по уведомлению: открыть/сфокусировать нужную страницу.
+self.addEventListener('notificationclick', (e) => {
+  e.notification.close();
+  const url = (e.notification.data && e.notification.data.url) || '/';
+  e.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((list) => {
+      for (const c of list) { if (c.url.includes(url) && 'focus' in c) return c.focus(); }
+      return self.clients.openWindow(url);
+    }),
+  );
+});

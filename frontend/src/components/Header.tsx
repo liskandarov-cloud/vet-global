@@ -9,6 +9,7 @@ import { useI18n, Lang } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './ThemeToggle';
 import { SearchBox } from './SearchBox';
+import { PushToggle } from './PushToggle';
 
 export function Header() {
   const { t, lang, setLang } = useI18n();
@@ -90,6 +91,7 @@ export function Header() {
             ))}
           </div>
 
+          <PushToggle />
           <ThemeToggle />
 
           <Link href="/cart" className="relative btn-ghost" aria-label={t('nav.cart')}>
