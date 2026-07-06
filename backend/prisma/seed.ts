@@ -1,4 +1,9 @@
-import { PrismaClient, UserRole, AnimalType, OrderStatus } from '@prisma/client';
+import {
+  PrismaClient, UserRole, AnimalType, OrderStatus,
+  LeadSource, LeadStatus, ConsultStatus, VetPointsType,
+  DeliveryMethod, ShipmentStatus, PaymentProvider, PaymentStatus,
+  OrgRole, ApprovalStatus, PaymentTerm,
+} from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 
 const prisma = new PrismaClient();
@@ -48,6 +53,13 @@ async function main() {
     { email: 'agrovet@vetglobal.com', password: 'seller123', fullName: 'Дилшод Рахимов', phone: '+998901112234', company: 'ООО «AgroVet Distribution»', inn: '302345678', description: 'Кормовые добавки, премиксы и ферменты для птицефабрик и КРС (Alltech, dsm-firmenich, Provimi).', rating: 4.5, reviewsCount: 8 },
     { email: 'biopharm@vetglobal.com', password: 'seller123', fullName: 'Санжар Юлдашев', phone: '+998901112235', company: 'ООО «BioPharm Central Asia»', inn: '303456789', description: 'Вакцины, диагностика и антибактериальные препараты (Boehringer Ingelheim, Hipra, IDEXX).', rating: 4.8, reviewsCount: 15 },
     { email: 'vetsnab@vetglobal.com', password: 'seller123', fullName: 'Азиз Каримов', phone: '+998901112236', company: 'ООО «ВетСнаб»', inn: '304567890', description: 'Ветеринарный инструмент, расходники и дезинфекция (Virbac, CID Lines, Kersia).', rating: 4.3, reviewsCount: 5 },
+    { email: 'zoovet@vetglobal.com', password: 'seller123', fullName: 'Бахтиёр Усмонов', phone: '+998901112237', company: 'ООО «ZooVet Import»', inn: '305678901', description: 'Импорт вакцин и биопрепаратов для птицеводства (Ceva, MSD, Boehringer).', rating: 4.6, reviewsCount: 9 },
+    { email: 'agroline@vetglobal.com', password: 'seller123', fullName: 'Феруза Хакимова', phone: '+998901112238', company: 'ООО «AgroLine Central Asia»', inn: '306789012', description: 'Кормовые добавки, ферменты и премиксы (Evonik, Adisseo, dsm-firmenich).', rating: 4.4, reviewsCount: 7 },
+    { email: 'medvet@vetglobal.com', password: 'seller123', fullName: 'Рустам Абдуллаев', phone: '+998901112239', company: 'ООО «MedVet Farm»', inn: '307890123', description: 'Антибактериальные и противопаразитарные препараты (KRKA, Interchemie, Bioveta).', rating: 4.5, reviewsCount: 11 },
+    { email: 'vitapharm@vetglobal.com', password: 'seller123', fullName: 'Гульнора Юсупова', phone: '+998901112240', company: 'ООО «VitaPharm Uz»', inn: '308901234', description: 'Витамины, минеральные комплексы и тонизирующие препараты (Nita-Farm, Vetoquinol).', rating: 4.2, reviewsCount: 6 },
+    { email: 'diagnostika@vetglobal.com', password: 'seller123', fullName: 'Шухрат Тошматов', phone: '+998901112241', company: 'ООО «DiagnoLab»', inn: '309012345', description: 'Диагностические тест-системы и лабораторное оборудование (IDEXX, Zoetis).', rating: 4.7, reviewsCount: 8 },
+    { email: 'fermaservis@vetglobal.com', password: 'seller123', fullName: 'Дилноза Раупова', phone: '+998901112242', company: 'ООО «Ferma Servis»', inn: '310123456', description: 'Всё для животноводческих ферм: инструмент, бирки, расходники (Allflex, HSW).', rating: 4.1, reviewsCount: 4 },
+    { email: 'globalvet@vetglobal.com', password: 'seller123', fullName: 'Отабек Собиров', phone: '+998901112243', company: 'ООО «GlobalVet Distribution»', inn: '311234567', description: 'Мультибрендовый дистрибьютор ветпрепаратов и кормов по всему Узбекистану.', rating: 4.8, reviewsCount: 14 },
   ];
   const sellers: { id: string }[] = [];
   for (const s of SELLERS) {
@@ -487,18 +499,27 @@ async function main() {
     { title: 'Обзор выставки AgroWorld Uzbekistan 2026', excerpt: 'Реальной ветеринарной фармы на рынке — по пальцам пересчитать.', content: 'Из года в год выставляются одни и те же компании. Среди зарубежных ~70% — оборудование, немного кормовых добавок, и совсем мало представителей реальной ветеринарной фармы. Рынку не хватает прозрачного доступа к качественным препаратам — эту задачу и решает VetGlobal.' + SRC },
     { title: 'Масштабная перестройка системы ветеринарии', excerpt: 'Комитет реорганизован в Агентство; создан Комитет по безопасности пищевой продукции.', content: 'Комитет ветеринарии и развития животноводства реорганизован в Агентство по развитию животноводства и пастбищного хозяйства. Параллельно создан новый Комитет по безопасности пищевой продукции — меняется контур регулирования отрасли.' + SRC },
   ];
+  const BLOG_IMG = [
+    '/products/cattle.jpg', '/products/lab.jpg', '/products/vaccine2.jpg',
+    '/products/feed.jpg', '/products/disinfectant.jpg', '/products/vaccine.jpg',
+  ];
   if (adminForBlog) {
     let bposts = 0;
-    for (const p of POSTS) {
+    for (let i = 0; i < POSTS.length; i++) {
+      const p = POSTS[i];
       const slug = slugify(p.title);
-      if (!(await prisma.blogPost.findUnique({ where: { slug } }))) {
+      const image = BLOG_IMG[i % BLOG_IMG.length];
+      const existing = await prisma.blogPost.findUnique({ where: { slug } });
+      if (existing) {
+        await prisma.blogPost.update({ where: { slug }, data: { image } }); // добавить обложку
+      } else {
         await prisma.blogPost.create({
-          data: { ...p, slug, authorId: adminForBlog.id, authorName: adminForBlog.fullName, published: true },
+          data: { ...p, image, slug, authorId: adminForBlog.id, authorName: adminForBlog.fullName, published: true },
         });
         bposts++;
       }
     }
-    console.log(`✓ demo blog posts: +${bposts}`);
+    console.log(`✓ demo blog posts: +${bposts} (с обложками)`);
   }
 
   // ── Historical demo orders (spread over ~6 months) to populate analytics ──
@@ -553,6 +574,170 @@ async function main() {
     console.log(`✓ historical demo orders: ${ORDER_COUNT}`);
   } else {
     console.log('✓ historical demo orders already present');
+  }
+
+  // ═══════════ ДЕМО-НАПОЛНЕНИЕ ДЛЯ ПРЕЗЕНТАЦИИ (идемпотентно) ═══════════
+  {
+    const buyerMain = await prisma.user.findUnique({ where: { email: 'buyer@vetglobal.com' } });
+    const farm2 = await prisma.user.findUnique({ where: { email: 'farm2@vetglobal.com' } });
+    const clinic = await prisma.user.findUnique({ where: { email: 'clinic@vetglobal.com' } });
+    const sellerMain = await prisma.user.findUnique({ where: { email: 'seller@vetglobal.com' } });
+    const allProducts = await prisma.product.findMany({ orderBy: { createdAt: 'asc' } });
+    const allSellers = await prisma.user.findMany({ where: { role: UserRole.SELLER } });
+
+    if (buyerMain) {
+      // Сертификаты на офферы и товары (анти-фальсификат).
+      await prisma.offer.updateMany({ data: { certificates: ['/products/certificate.pdf'] } });
+      await prisma.product.updateMany({ data: { certificates: ['/products/certificate.pdf'] } });
+      const someOffers = await prisma.offer.findMany({ take: 45 });
+      for (let i = 0; i < someOffers.length; i++) {
+        if (i % 3 !== 0) await prisma.offer.update({ where: { id: someOffers[i].id }, data: { certVerified: true } });
+      }
+
+      // Финансирование: одобренный лимит + заявки.
+      await prisma.user.update({ where: { id: buyerMain.id }, data: { creditLimit: 50_000_000, creditUsed: 14_500_000 } });
+      if ((await prisma.creditApplication.count({ where: { buyerId: buyerMain.id } })) === 0) {
+        await prisma.creditApplication.create({ data: { buyerId: buyerMain.id, requestedLimit: 50_000_000, approvedLimit: 50_000_000, status: 'APPROVED', bankName: 'Банк-партнёр VetGlobal', purpose: 'Пополнение оборотных средств на закупку вакцин', decidedAt: new Date() } });
+        await prisma.creditApplication.create({ data: { buyerId: buyerMain.id, requestedLimit: 30_000_000, status: 'PENDING', bankName: 'Банк-партнёр VetGlobal', purpose: 'Сезонная закупка кормовых добавок' } });
+      }
+
+      // Контрагенты (юрлица).
+      if ((await prisma.counterparty.count({ where: { userId: buyerMain.id } })) === 0) {
+        await prisma.counterparty.create({ data: { userId: buyerMain.id, name: 'Птицефабрика «Заря»', inn: '305556677', mfo: '00842', bankAccount: '20208000900000000001', address: 'Ташкентская обл., Кибрайский р-н', isDefault: true } });
+        await prisma.counterparty.create({ data: { userId: buyerMain.id, name: 'ООО «Заря-Агро»', inn: '305556688', mfo: '00842', bankAccount: '20208000900000000002', address: 'г. Ташкент, Юнусабадский р-н' } });
+      }
+
+      // VetPoints — история операций.
+      if ((await prisma.vetPointsTransaction.count({ where: { userId: buyerMain.id } })) === 0) {
+        const orders5 = await prisma.order.findMany({ where: { buyerId: buyerMain.id }, take: 5, orderBy: { createdAt: 'desc' } });
+        for (const o of orders5) {
+          const earned = Number(o.vetPointsEarned);
+          if (earned > 0) await prisma.vetPointsTransaction.create({ data: { userId: buyerMain.id, amount: earned, type: VetPointsType.EARNED, description: `Начислено за заказ #${o.id.slice(0, 8)}`, orderId: o.id, createdAt: o.createdAt } });
+        }
+        await prisma.vetPointsTransaction.create({ data: { userId: buyerMain.id, amount: -5000, type: VetPointsType.SPENT, description: 'Оплата части заказа баллами' } });
+      }
+
+      // Избранное.
+      if ((await prisma.favorite.count({ where: { userId: buyerMain.id } })) === 0) {
+        for (const p of allProducts.slice(0, 5)) {
+          await prisma.favorite.create({ data: { userId: buyerMain.id, productId: p.id } }).catch(() => undefined);
+        }
+      }
+
+      // Подписки (автопополнение).
+      if ((await prisma.subscription.count({ where: { buyerId: buyerMain.id } })) < 3) {
+        for (const p of allProducts.slice(2, 4)) {
+          const off = await prisma.offer.findFirst({ where: { productId: p.id } });
+          await prisma.subscription.create({ data: { buyerId: buyerMain.id, productId: p.id, offerId: off?.id ?? null, quantity: Math.max(p.minOrder, 5), intervalDays: 30, nextRunAt: new Date(Date.now() + 20 * 86400000) } }).catch(() => undefined);
+        }
+      }
+
+      // Обогащение заказов: доставка / оплата / счёт / условия оплаты.
+      const myOrders = await prisma.order.findMany({ where: { buyerId: buyerMain.id, status: { not: OrderStatus.CANCELLED } }, orderBy: { createdAt: 'desc' }, take: 6 });
+      if (myOrders[0] && !(await prisma.shipment.findUnique({ where: { orderId: myOrders[0].id } }))) {
+        const o = myOrders[0];
+        await prisma.order.update({ where: { id: o.id }, data: { paymentTerm: PaymentTerm.NET_TERMS, netTermDays: 30, dueDate: new Date(Date.now() + 20 * 86400000) } });
+        await prisma.shipment.create({ data: { orderId: o.id, method: DeliveryMethod.TRANSPORT, status: ShipmentStatus.IN_TRANSIT, city: 'Ташкент', address: 'Юнусабадский р-н, ул. Амира Темура 15', recipientName: o.buyerName, recipientPhone: o.buyerPhone, cost: 120000, carrier: 'BTS Express', trackingNumber: 'BTS-2026-004417', estimatedDate: new Date(Date.now() + 3 * 86400000) } });
+        await prisma.payment.create({ data: { orderId: o.id, provider: PaymentProvider.PAYME, amount: o.total, status: PaymentStatus.PAID, providerTransId: 'pm_demo_' + o.id.slice(0, 6) } });
+        await prisma.invoice.upsert({ where: { orderId: o.id }, create: { orderId: o.id, number: `VG-2026-${o.id.slice(0, 6).toUpperCase()}`, amount: o.total, didoxStatus: 'SIGNED', didoxId: 'dx_' + o.id.slice(0, 8), signedAt: new Date() }, update: { didoxStatus: 'SIGNED', signedAt: new Date() } });
+      }
+      if (myOrders[1] && !(await prisma.shipment.findUnique({ where: { orderId: myOrders[1].id } }))) {
+        const o = myOrders[1];
+        const total = Number(o.total); const n = 3; const per = Math.round(total / n);
+        const schedule = Array.from({ length: n }, (_, i) => ({ n: i + 1, dueDate: new Date(Date.now() + (i + 1) * 30 * 86400000).toISOString(), amount: i === n - 1 ? total - per * (n - 1) : per }));
+        await prisma.order.update({ where: { id: o.id }, data: { paymentTerm: PaymentTerm.INSTALLMENT, installments: n, paymentSchedule: schedule as any, dueDate: new Date(schedule[n - 1].dueDate) } });
+        await prisma.shipment.create({ data: { orderId: o.id, method: DeliveryMethod.COURIER, status: ShipmentStatus.DELIVERED, city: 'Ташкент', recipientName: o.buyerName, recipientPhone: o.buyerPhone, cost: 45000, carrier: 'Собственная доставка', trackingNumber: 'VG-DLV-1188' } });
+        await prisma.payment.create({ data: { orderId: o.id, provider: PaymentProvider.CLICK, amount: o.total, status: PaymentStatus.PAID, providerTransId: 'ck_demo_' + o.id.slice(0, 6) } });
+      }
+      if (myOrders[2] && !(await prisma.payment.findFirst({ where: { orderId: myOrders[2].id } }))) {
+        const o = myOrders[2];
+        await prisma.payment.create({ data: { orderId: o.id, provider: PaymentProvider.UZUM, amount: o.total, status: PaymentStatus.PAID, providerTransId: 'uz_demo_' + o.id.slice(0, 6) } });
+        await prisma.invoice.upsert({ where: { orderId: o.id }, create: { orderId: o.id, number: `VG-2026-${o.id.slice(0, 6).toUpperCase()}`, amount: o.total, didoxStatus: 'SIGNED', signedAt: new Date() }, update: {} });
+      }
+
+      // Организация: команда + согласование.
+      const membership = await prisma.orgMembership.findFirst({ where: { userId: buyerMain.id } });
+      let orgId = membership?.orgId;
+      if (!orgId) {
+        const org = await prisma.organization.create({ data: { name: 'Агрохолдинг «Нурли Ер»', inn: '305556677', members: { create: { userId: buyerMain.id, role: OrgRole.OWNER, spendLimit: 0 } } } });
+        orgId = org.id;
+      }
+      if (orgId) {
+        if (farm2 && !(await prisma.orgMembership.findFirst({ where: { userId: farm2.id } }))) {
+          await prisma.orgMembership.create({ data: { orgId, userId: farm2.id, role: OrgRole.PURCHASER, spendLimit: 3_000_000 } });
+        }
+        if (clinic && !(await prisma.orgMembership.findFirst({ where: { userId: clinic.id } }))) {
+          await prisma.orgMembership.create({ data: { orgId, userId: clinic.id, role: OrgRole.MANAGER, spendLimit: 0 } });
+        }
+        if (farm2 && !(await prisma.order.findFirst({ where: { orgId, approvalStatus: ApprovalStatus.PENDING } }))) {
+          const p = allProducts[4];
+          const off = await prisma.offer.findFirst({ where: { productId: p.id }, orderBy: { price: 'asc' } });
+          const price = off ? Number(off.price) : Number(p.price);
+          const qty = Math.max(p.minOrder, 10);
+          await prisma.order.create({ data: {
+            buyerId: farm2.id, buyerName: farm2.fullName, buyerPhone: farm2.phone, buyerCompany: farm2.company,
+            orgId, approvalStatus: ApprovalStatus.PENDING, status: OrderStatus.PENDING,
+            subtotal: price * qty, total: price * qty, commission: Math.round(price * qty * 0.12), vetPointsEarned: Math.round(price * qty * 0.01),
+            items: { create: [{ productId: p.id, offerId: off?.id ?? null, productName: p.name, sellerId: off?.sellerId ?? p.sellerId, quantity: qty, price }] },
+          } });
+        }
+      }
+
+      // RFQ (запросы цен) с котировками.
+      if ((await prisma.rfq.count({ where: { buyerId: buyerMain.id } })) === 0) {
+        const rfqOpen = await prisma.rfq.create({ data: {
+          buyerId: buyerMain.id, title: 'Вакцины для птицефабрики на Q3', note: 'Требуется поставка на 3 месяца, оплата по факту.', status: 'OPEN',
+          items: { create: [{ name: 'Вакцина против болезни Ньюкасла, 1000 доз', quantity: 200 }, { name: 'Вакцина против Гамборо, 1000 доз', quantity: 150 }] },
+        } });
+        const q1 = allSellers[0], q2 = allSellers[1], q3 = allSellers[4] ?? allSellers[2];
+        if (q1) await prisma.rfqQuote.create({ data: { rfqId: rfqOpen.id, sellerId: q1.id, totalPrice: 18_500_000, leadTimeDays: 7, note: 'Склад в Ташкенте, отгрузка сразу.' } });
+        if (q2) await prisma.rfqQuote.create({ data: { rfqId: rfqOpen.id, sellerId: q2.id, totalPrice: 17_900_000, leadTimeDays: 10, note: 'Лучшая цена, срок 10 дней.' } });
+        if (q3 && q3.id !== q1?.id && q3.id !== q2?.id) await prisma.rfqQuote.create({ data: { rfqId: rfqOpen.id, sellerId: q3.id, totalPrice: 19_200_000, leadTimeDays: 5, note: 'Быстрая поставка.' } });
+        const rfqAwarded = await prisma.rfq.create({ data: {
+          buyerId: buyerMain.id, title: 'Кормовые добавки для КРС', note: 'Закрыт — выбран поставщик.', status: 'AWARDED',
+          items: { create: [{ name: 'Токсин-байндер, 25 кг', quantity: 40 }] },
+        } });
+        if (q1) await prisma.rfqQuote.create({ data: { rfqId: rfqAwarded.id, sellerId: q1.id, totalPrice: 9_600_000, leadTimeDays: 6, isAwarded: true } });
+        if (q2) await prisma.rfqQuote.create({ data: { rfqId: rfqAwarded.id, sellerId: q2.id, totalPrice: 10_100_000, leadTimeDays: 4 } });
+      }
+    }
+
+    // Лиды (CRM).
+    if ((await prisma.lead.count()) === 0) {
+      await prisma.lead.create({ data: { source: LeadSource.TELEGRAM, fullName: 'Азизбек Норматов', phone: '+998901234567', productName: 'Вакцина против болезни Ньюкасла', quantity: 100, message: 'Заявка из Telegram-бота', status: LeadStatus.NEW } });
+      await prisma.lead.create({ data: { source: LeadSource.WEB, fullName: 'Дилшод Каримов', phone: '+998907654321', productName: 'Энрофлоксацин 10%', message: 'Интересует опт, нужна цена', status: LeadStatus.CONTACTED } });
+      await prisma.lead.create({ data: { source: LeadSource.TELEGRAM, fullName: 'Мадина Юлдашева', phone: '+998901112299', message: 'Нужна консультация по вакцинации КРС', status: LeadStatus.NEW } });
+    }
+
+    // Консультации.
+    if ((await prisma.consultRequest.count()) === 0) {
+      await prisma.consultRequest.create({ data: { fullName: 'Ойбек Расулов', phone: '+998901239988', topic: 'Схема вакцинации бройлеров', animalType: AnimalType.POULTRY, message: 'Подскажите схему вакцинации для бройлеров на 45 дней.', status: ConsultStatus.NEW } });
+      await prisma.consultRequest.create({ data: { fullName: 'Нилуфар Азимова', phone: '+998901237766', topic: 'Мастит у КРС', animalType: AnimalType.CATTLE, message: 'Как лечить субклинический мастит в стаде?', status: ConsultStatus.ANSWERED, answer: 'Рекомендуем противомаститные препараты по результатам теста. Свяжемся детально.', answeredBy: 'Ветконсультант VetGlobal' } });
+    }
+
+    // Отзыв на модерации.
+    if (buyerMain && (await prisma.review.count({ where: { isApproved: false } })) === 0) {
+      const rp = allProducts[7];
+      const exists = await prisma.review.findUnique({ where: { productId_buyerId: { productId: rp.id, buyerId: buyerMain.id } } }).catch(() => null);
+      if (!exists) await prisma.review.create({ data: { productId: rp.id, buyerId: buyerMain.id, buyerName: buyerMain.fullName, rating: 5, comment: 'Отличный препарат, заказываем повторно. Ждём модерации.', isApproved: false } }).catch(() => undefined);
+    }
+
+    // Акции продавцов (Promotion) — наполняет /promotions и /promotions/mine.
+    if ((await prisma.promotion.count()) === 0) {
+      const promoProducts = await prisma.product.findMany({ where: { isPromotion: true }, take: 8 });
+      const disc = [10, 12, 15, 20, 15, 10, 25, 12];
+      for (let i = 0; i < promoProducts.length; i++) {
+        const p = promoProducts[i];
+        await prisma.promotion.create({ data: { sellerId: p.sellerId, productId: p.id, title: `Скидка на «${p.name}»`, description: 'Специальная цена при оптовом заказе.', discountPercent: disc[i % disc.length], endsAt: new Date(Date.now() + 30 * 86400000), isActive: true } }).catch(() => undefined);
+      }
+    }
+
+    // 1С sync-ключ продавцу.
+    if (sellerMain && !sellerMain.syncApiKey) {
+      await prisma.user.update({ where: { id: sellerMain.id }, data: { syncApiKey: 'vg_sync_' + sellerMain.id.slice(0, 12) } });
+    }
+
+    console.log('✓ demo enrichment done (financing, orders, org, rfq, leads, consults, promos, certs)');
   }
 }
 

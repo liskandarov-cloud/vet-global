@@ -28,12 +28,19 @@ export default function HomePage() {
   const [promos, setPromos] = useState<Product[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [stats, setStats] = useState({ products: 0, sellers: 0, brands: 0 });
 
   useEffect(() => {
     api.get('/categories').then((r) => setCategories(r.data)).catch(() => {});
     api.get('/products', { params: { isPromotion: true, limit: 4 } }).then((r) => setPromos(r.data.products)).catch(() => {});
     api.get('/sellers', { params: { verifiedOnly: true } }).then((r) => setSellers(r.data.slice(0, 3))).catch(() => {});
     api.get('/blog', { params: { limit: 3 } }).then((r) => setPosts(r.data.posts)).catch(() => {});
+    // Реальные счётчики для hero.
+    Promise.all([
+      api.get('/products', { params: { limit: 1 } }).then((r) => r.data.total).catch(() => 0),
+      api.get('/sellers').then((r) => (Array.isArray(r.data) ? r.data.length : 0)).catch(() => 0),
+      api.get('/brands').then((r) => (Array.isArray(r.data) ? r.data.length : 0)).catch(() => 0),
+    ]).then(([products, sellersCount, brands]) => setStats({ products, sellers: sellersCount, brands }));
   }, []);
 
   return (
@@ -56,9 +63,9 @@ export default function HomePage() {
             </div>
             <div className="mt-12 grid max-w-lg grid-cols-3 gap-6 animate-up" style={{ animationDelay: '0.2s' }}>
               {[
-                { icon: Beaker, value: '5 000+', label: 'Препаратов', labelUz: 'Preparatlar' },
-                { icon: Truck, value: '120+', label: 'Поставщиков', labelUz: 'Yetkazib beruvchilar' },
-                { icon: Activity, value: '10 000+', label: 'Заказов', labelUz: 'Buyurtmalar' },
+                { icon: Beaker, value: stats.products ? `${stats.products}` : '—', label: 'Препаратов', labelUz: 'Preparatlar' },
+                { icon: Truck, value: stats.sellers ? `${stats.sellers}` : '—', label: 'Поставщиков', labelUz: 'Yetkazib beruvchilar' },
+                { icon: Package, value: stats.brands ? `${stats.brands}` : '—', label: 'Брендов', labelUz: 'Brendlar' },
               ].map((s) => (
                 <div key={s.label}>
                   <div className="font-heading text-3xl font-extrabold text-ink">{s.value}</div>
