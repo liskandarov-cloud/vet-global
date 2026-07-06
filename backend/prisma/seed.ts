@@ -715,11 +715,15 @@ async function main() {
       await prisma.consultRequest.create({ data: { fullName: 'Нилуфар Азимова', phone: '+998901237766', topic: 'Мастит у КРС', animalType: AnimalType.CATTLE, message: 'Как лечить субклинический мастит в стаде?', status: ConsultStatus.ANSWERED, answer: 'Рекомендуем противомаститные препараты по результатам теста. Свяжемся детально.', answeredBy: 'Ветконсультант VetGlobal' } });
     }
 
-    // Отзыв на модерации.
+    // Отзыв на модерации — на товаре, который покупатель ещё не оценивал.
     if (buyerMain && (await prisma.review.count({ where: { isApproved: false } })) === 0) {
-      const rp = allProducts[7];
-      const exists = await prisma.review.findUnique({ where: { productId_buyerId: { productId: rp.id, buyerId: buyerMain.id } } }).catch(() => null);
-      if (!exists) await prisma.review.create({ data: { productId: rp.id, buyerId: buyerMain.id, buyerName: buyerMain.fullName, rating: 5, comment: 'Отличный препарат, заказываем повторно. Ждём модерации.', isApproved: false } }).catch(() => undefined);
+      const reviewed = new Set(
+        (await prisma.review.findMany({ where: { buyerId: buyerMain.id }, select: { productId: true } })).map((r) => r.productId),
+      );
+      const target = allProducts.find((p) => !reviewed.has(p.id));
+      if (target) {
+        await prisma.review.create({ data: { productId: target.id, buyerId: buyerMain.id, buyerName: buyerMain.fullName, rating: 5, comment: 'Отличный препарат, заказываем повторно. Ждём модерации.', isApproved: false } }).catch(() => undefined);
+      }
     }
 
     // Акции продавцов (Promotion) — наполняет /promotions и /promotions/mine.
