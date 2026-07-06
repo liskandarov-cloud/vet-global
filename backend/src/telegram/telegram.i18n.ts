@@ -26,6 +26,24 @@ export const T: Dict = {
   },
   price: { ru: 'Цена', uz: 'Narx' },
   open_site: { ru: 'Открыть на сайте', uz: 'Saytda ochish' },
+
+  btn_catalog: { ru: '📂 Каталог', uz: '📂 Katalog' },
+  btn_promotions: { ru: '🔥 Акции', uz: '🔥 Aksiyalar' },
+  choose_category: { ru: 'Выберите категорию:', uz: 'Kategoriyani tanlang:' },
+  category_empty: { ru: 'В этой категории пока нет товаров.', uz: 'Bu kategoriyada hozircha mahsulot yo‘q.' },
+  btn_back: { ru: '⬅️ Категории', uz: '⬅️ Kategoriyalar' },
+  from: { ru: 'от', uz: 'dan' },
+  offers_n: { ru: 'предложений', uz: 'taklif' },
+  in_stock: { ru: 'В наличии', uz: 'Mavjud' },
+  out_stock: { ru: 'Под заказ', uz: 'Buyurtma asosida' },
+  l_substance: { ru: 'Действующее вещество', uz: 'Faol modda' },
+  l_manufacturer: { ru: 'Производитель', uz: 'Ishlab chiqaruvchi' },
+  l_form: { ru: 'Форма', uz: 'Shakl' },
+  l_minorder: { ru: 'Мин. заказ', uz: 'Min. buyurtma' },
+  promotions_header: { ru: '🔥 Акции и спецпредложения:', uz: '🔥 Aksiyalar va maxsus takliflar:' },
+  no_promotions: { ru: 'Сейчас акций нет.', uz: 'Hozircha aksiyalar yo‘q.' },
+  page_of: { ru: 'стр.', uz: 'sahifa' },
+  sum: { ru: 'сум', uz: 'so‘m' },
 };
 
 export const t = (key: string, lang: BotLang) => T[key]?.[lang] ?? key;

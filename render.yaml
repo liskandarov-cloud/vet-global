@@ -41,3 +41,11 @@ services:
         value: admin123
       - key: CORS_ORIGINS
         value: "*"
+      - key: FRONTEND_URL
+        value: "https://vet-global.vercel.app"
+      # Telegram-бот: значение задать в дашборде Render (Environment) — тогда бот
+      # поднимется против прод-БД. ВАЖНО: только ОДИН процесс должен опрашивать бота.
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_ADMIN_CHAT_ID
+        sync: false
