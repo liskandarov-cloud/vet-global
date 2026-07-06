@@ -106,20 +106,20 @@ async function main() {
   const antibiotics = await prisma.category.findUnique({ where: { slug: 'antibiotics' } });
   const vitamins = await prisma.category.findUnique({ where: { slug: 'vitamins' } });
 
-  // Курированные royalty-free изображения по категориям (URL проверены на 200), с разнообразием.
+  // Реальные тематические изображения (Wikimedia Commons, CC), захостены во фронте
+  // /public/products/*. Каждое проверено вручную на релевантность.
   const CAT_IMAGES: Record<string, string[]> = {
-    vaccines: ['1584362917165-526a968579e8', '1631549916768-4119b2e5f926', '1584308666744-24d5c474f2ae'],
-    antibiotics: ['1471864190281-a93a3070b6de', '1607619056574-7b8d3ee536b2', '1589927986089-35812388d1f4'],
-    vitamins: ['1550572017-edd951b55104', '1582719478250-c89cae4dc85b'],
-    'feed-additives': ['1518977676601-b53f82aba655', '1560493676-04071c5f467b'],
-    disinfectants: ['1576091160399-112ba8d25d1d', '1628771065518-0d82f1938462'],
-    diagnostics: ['1579154204601-01588f351e67', '1576091160399-112ba8d25d1d'],
-    other: ['1547908068-35ea7b47a21d', '1589927986089-35812388d1f4'],
+    vaccines: ['/products/vaccine.jpg', '/products/vaccine2.jpg'],
+    antibiotics: ['/products/tablets.jpg', '/products/vaccine2.jpg'],
+    vitamins: ['/products/vaccine.jpg', '/products/cattle.jpg'],
+    'feed-additives': ['/products/feed.jpg', '/products/cattle.jpg'],
+    disinfectants: ['/products/disinfectant.jpg', '/products/disinfectant2.jpg'],
+    diagnostics: ['/products/lab.jpg', '/products/tablets.jpg'],
+    other: ['/products/lab.jpg', '/products/disinfectant.jpg'],
   };
   const catImg = (slug: string, i = 0): string[] => {
     const arr = CAT_IMAGES[slug] ?? CAT_IMAGES.other;
-    const id = arr[i % arr.length];
-    return [`https://images.unsplash.com/photo-${id}?auto=format&fit=crop&w=800&q=80`];
+    return [arr[i % arr.length]];
   };
 
   const demoProducts = [
@@ -214,6 +214,36 @@ async function main() {
     ['Тест-полоски (кетоз)', 'diagnostics', 56000, 'BHB-реагент', 'IDEXX', 'Полоски', AnimalType.CATTLE, 3, false, false],
     ['Шприцы ветеринарные 20мл', 'other', 1200, null, 'Henke-Sass Wolf', 'Одноразовые', AnimalType.OTHER, 100, false, false],
     ['Перчатки смотровые (100шт)', 'other', 42000, null, 'Mercator Medical', 'Нитрил', AnimalType.OTHER, 5, false, false],
+
+    // ── Расширенный ассортимент (полное наполнение) ──
+    ['Вакцина против инфекционного бронхита кур', 'vaccines', 98000, 'Штамм H120', 'Boehringer Ingelheim', 'Лиофилизат', AnimalType.POULTRY, 10, false, false],
+    ['Вакцина против оспы птиц', 'vaccines', 61000, 'Аттенуированный вирус', 'Ceva Santé Animale', 'Лиофилизат', AnimalType.POULTRY, 10, false, false],
+    ['Вакцина против бешенства (Nobivac Rabies)', 'vaccines', 42000, 'Инактивированный вирус', 'MSD Animal Health', 'Суспензия', AnimalType.PETS, 1, false, false],
+    ['Вакцина против бруцеллёза КРС', 'vaccines', 88000, 'Штамм RB-51', 'Zoetis', 'Лиофилизат', AnimalType.CATTLE, 5, false, false],
+    ['Вакцина комплексная для собак (DHPPi)', 'vaccines', 55000, 'Мультивалентная', 'Virbac', 'Лиофилизат', AnimalType.PETS, 1, false, true],
+    ['Цефтиофур 5% суспензия', 'antibiotics', 165000, 'Цефтиофур', 'Zoetis', 'Суспензия', AnimalType.CATTLE, 3, false, false],
+    ['Гентамицин 4% инъекционный', 'antibiotics', 58000, 'Гентамицин', 'Interchemie', 'Раствор для инъекций', AnimalType.SMALL_RUMINANTS, 5, false, false],
+    ['Доксициклин 20% порошок', 'antibiotics', 84000, 'Доксициклин', 'KRKA', 'Порошок оральный', AnimalType.POULTRY, 5, true, false],
+    ['Сульфадиметоксин + триметоприм', 'antibiotics', 69000, 'Сульфаниламид', 'Bioveta', 'Раствор оральный', AnimalType.POULTRY, 5, false, false],
+    ['Тилмикозин 30% инъекционный', 'antibiotics', 142000, 'Тилмикозин', 'Elanco', 'Раствор для инъекций', AnimalType.CATTLE, 3, false, true],
+    ['Селенит натрия + витамин E', 'vitamins', 39000, 'Селен, токоферол', 'Nita-Farm', 'Раствор для инъекций', AnimalType.CATTLE, 2, false, false],
+    ['Бутофан тонизирующий', 'vitamins', 47000, 'Бутафосфан, B12', 'Vetoquinol', 'Раствор для инъекций', AnimalType.OTHER, 2, false, false],
+    ['Мультивитамин для птицы (водораств.)', 'vitamins', 52000, 'A,D3,E,K,группа B', 'Interchemie', 'Порошок', AnimalType.POULTRY, 5, true, false],
+    ['Железодекстран для поросят', 'vitamins', 44000, 'Железа декстран', 'Bioveta', 'Раствор для инъекций', AnimalType.OTHER, 3, false, false],
+    ['Токсин-байндер (микосорб)', 'feed-additives', 96000, 'Глюкоманнан', 'Alltech', 'Порошок', AnimalType.POULTRY, 10, false, false],
+    ['Пробиотик для КРС', 'feed-additives', 78000, 'Lactobacillus', 'dsm-firmenich', 'Порошок', AnimalType.CATTLE, 5, false, false],
+    ['Метионин кормовой', 'feed-additives', 88000, 'DL-метионин', 'Evonik', 'Гранулы', AnimalType.POULTRY, 20, false, false],
+    ['Фитаза (фермент) 5000 FTU', 'feed-additives', 112000, 'Фитаза', 'dsm-firmenich', 'Гранулы', AnimalType.POULTRY, 10, true, false],
+    ['Монокальцийфосфат кормовой', 'feed-additives', 26000, 'MCP', 'Provimi', 'Гранулы', AnimalType.CATTLE, 25, false, false],
+    ['Виркон S (окислитель)', 'disinfectants', 138000, 'Пероксисульфат калия', 'CID Lines', 'Порошок', AnimalType.OTHER, 2, false, true],
+    ['Хлоргексидин 5% концентрат', 'disinfectants', 46000, 'Хлоргексидина биглюконат', 'Virbac', 'Концентрат', AnimalType.OTHER, 4, false, false],
+    ['Кальция гипохлорит', 'disinfectants', 32000, 'Гипохлорит кальция', 'Kersia', 'Порошок', AnimalType.OTHER, 5, false, false],
+    ['Тест-набор ИФА на лейкоз КРС', 'diagnostics', 320000, 'ELISA антитела', 'IDEXX', 'Набор', AnimalType.CATTLE, 1, false, false],
+    ['Экспресс-тест на стельность КРС', 'diagnostics', 78000, 'PAG-реагент', 'IDEXX', 'Набор', AnimalType.CATTLE, 2, false, true],
+    ['Иглы инъекционные (уп. 100 шт)', 'other', 24000, null, 'Henke-Sass Wolf', 'Одноразовые', AnimalType.OTHER, 20, false, false],
+    ['Шприц-дозатор автоматический 2 мл', 'other', 185000, null, 'Henke-Sass Wolf', 'Многоразовый', AnimalType.OTHER, 2, false, false],
+    ['Бирки ушные для КРС (уп. 100 шт)', 'other', 96000, null, 'Allflex', 'Пластик', AnimalType.CATTLE, 5, false, false],
+    ['Перчатки ректальные (уп. 50 шт)', 'other', 38000, null, 'Mercator Medical', 'Полиэтилен', AnimalType.CATTLE, 10, false, false],
   ];
 
   // Миграция переименованных товаров (без удаления — сохраняет ссылки заказов).

@@ -1,0 +1,12 @@
+Демонстрационные изображения товаров VetGlobal.
+Источник: Wikimedia Commons (свободные лицензии CC/PD). Использованы как временные
+демо-изображения категорий; в продакшене продавцы загружают собственные фото товара.
+
+vaccine.jpg      — Vaccine Vial (NIH BioArt 535), общественное достояние
+vaccine2.jpg     — Comirnaty vial (Wikimedia Commons, CC BY-SA)
+tablets.jpg      — Onsior (robenacoxib) blister, ветпрепарат Elanco (Wikimedia Commons, CC BY-SA)
+feed.jpg         — Animal feed bags unloading (Wikimedia Commons, CC BY-SA)
+cattle.jpg       — Dairy calves (Wikimedia Commons, CC BY-SA)
+disinfectant.jpg — BODE Sterillium bottle (Wikimedia Commons, CC BY-SA)
+disinfectant2.jpg— Schülke octenisept spray (Wikimedia Commons, CC BY-SA)
+lab.jpg          — Veterinary laboratory technician (USDA / Wikimedia Commons, public domain)

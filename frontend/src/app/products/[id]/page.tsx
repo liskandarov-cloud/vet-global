@@ -138,7 +138,7 @@ export default function ProductPage() {
 
   const images = product.images?.length
     ? product.images
-    : ['https://images.unsplash.com/photo-1547908068-35ea7b47a21d?crop=entropy&cs=srgb&fm=jpg&q=85&w=800'];
+    : ['/products/vaccine.jpg'];
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">

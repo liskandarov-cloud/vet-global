@@ -8,8 +8,7 @@ import { useCart, useFavorites, useAuth } from '@/lib/store';
 import { useI18n } from '@/lib/i18n';
 import { formatMoney } from '@/lib/utils';
 
-const PLACEHOLDER =
-  'https://images.unsplash.com/photo-1547908068-35ea7b47a21d?crop=entropy&cs=srgb&fm=jpg&q=85&w=600';
+const PLACEHOLDER = '/products/vaccine.jpg';
 
 export function ProductCard({ product }: { product: Product }) {
   const { t, tt } = useI18n();
