@@ -8,6 +8,7 @@ import { useAuth, useCart, useFavorites } from '@/lib/store';
 import { useI18n, Lang } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
 import { ThemeToggle } from './ThemeToggle';
+import { SearchBox } from './SearchBox';
 
 export function Header() {
   const { t, lang, setLang } = useI18n();
@@ -79,6 +80,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
+          <SearchBox className="hidden w-56 xl:block" />
           <div className="hidden overflow-hidden rounded-lg border border-slate-200 text-sm sm:flex">
             {(['ru', 'uz'] as Lang[]).map((l) => (
               <button key={l} onClick={() => setLang(l)}
@@ -115,6 +117,7 @@ export function Header() {
       {/* Mobile menu */}
       {open && (
         <div className="border-t border-slate-100 bg-white/95 px-4 py-3 lg:hidden">
+          <SearchBox className="mb-3" />
           <nav className="flex flex-col gap-1">
             {nav.map((n) => (
               <Link key={n.href} href={n.href} onClick={() => setOpen(false)}

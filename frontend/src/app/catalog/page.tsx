@@ -27,7 +27,7 @@ function CatalogInner() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
 
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(params.get('search') ?? '');
   const [category, setCategory] = useState(params.get('category') ?? '');
   const [manufacturer, setManufacturer] = useState('');
   const [animalType, setAnimalType] = useState('');
