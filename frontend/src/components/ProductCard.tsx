@@ -11,13 +11,14 @@ import { formatMoney } from '@/lib/utils';
 const PLACEHOLDER = '/products/vaccine.jpg';
 
 export function ProductCard({ product }: { product: Product }) {
-  const { t, tt } = useI18n();
+  const { t, tt, lang } = useI18n();
   const add = useCart((s) => s.add);
   const favIds = useFavorites((s) => s.ids);
   const toggleFav = useFavorites((s) => s.toggle);
   const user = useAuth((s) => s.user);
   const isFav = favIds.includes(product.id);
 
+  const displayName = lang === 'uz' && product.nameUz ? product.nameUz : product.name;
   const image = product.images?.[0] ?? PLACEHOLDER;
 
   const onFav = (e: React.MouseEvent) => {
@@ -72,7 +73,7 @@ export function ProductCard({ product }: { product: Product }) {
         )}
         <Link href={`/products/${product.id}`}>
           <h3 className="line-clamp-2 min-h-[2.5rem] font-semibold leading-snug hover:text-teal-700">
-            {product.name}
+            {displayName}
           </h3>
         </Link>
         <div className="mt-1 text-xs text-ink-subtle">
@@ -115,7 +116,7 @@ export function ProductCard({ product }: { product: Product }) {
                 add(
                   {
                     productId: product.id,
-                    name: product.name,
+                    name: displayName,
                     price: product.minPrice ?? product.price,
                     minOrder: product.minOrder,
                     image,

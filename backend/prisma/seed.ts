@@ -585,6 +585,64 @@ async function main() {
     const allProducts = await prisma.product.findMany({ orderBy: { createdAt: 'asc' } });
     const allSellers = await prisma.user.findMany({ where: { role: UserRole.SELLER } });
 
+    // Узбекские названия товаров (полная двуязычность каталога).
+    const NAME_UZ: Record<string, string> = {
+      'Вакцина против болезни Гамборо': 'Gamboro kasalligiga qarshi vaksina',
+      'Вакцина против болезни Марека': 'Marek kasalligiga qarshi vaksina',
+      'Вакцина против ящура КРС': 'Yashur (tuyoq-ogʻiz) kasalligiga qarshi vaksina, KRS',
+      'Вакцина антирабическая': 'Quturishga qarshi vaksina',
+      'Тилозин 200 инъекционный': 'Tilozin 200 inʼektsion',
+      'Амоксициллин 15% LA': 'Amoksitsillin 15% LA',
+      'Окситетрациклин 20%': 'Oksitetratsiklin 20%',
+      'Флорфеникол 30%': 'Florfenikol 30%',
+      'Тетравит': 'Tetravit',
+      'Витамин B-комплекс': 'B-vitamin kompleksi',
+      'Кальфосет (Ca+P+Mg)': 'Kalfoset (Ca+P+Mg)',
+      'Глутекс (дезинфектант)': 'Gluteks (dezinfektant)',
+      'Йодовит': 'Yodovit',
+      'Дезосепт-форте': 'Dezosept-forte',
+      'Пробиотик для птицы': 'Parranda uchun probiotik',
+      'Аминокислотный комплекс': 'Aminokislota kompleksi',
+      'Ферментный премикс': 'Fermentli premiks',
+      'Мел кормовой': 'Ozuqabop boʻr',
+      'Экспресс-тест на мастит': 'Mastitga ekspress-test',
+      'Тест-полоски (кетоз)': 'Test-tasmalar (ketoz)',
+      'Шприцы ветеринарные 20мл': 'Veterinariya shpritslari 20 ml',
+      'Перчатки смотровые (100шт)': 'Koʻrik qoʻlqoplari (100 dona)',
+      'Вакцина против инфекционного бронхита кур': 'Tovuqlar infeksion bronxitiga qarshi vaksina',
+      'Вакцина против оспы птиц': 'Parranda chechagiga qarshi vaksina',
+      'Вакцина против бешенства (Nobivac Rabies)': 'Quturishga qarshi vaksina (Nobivac Rabies)',
+      'Вакцина против бруцеллёза КРС': 'Qoramol brutsellyoziga qarshi vaksina',
+      'Вакцина комплексная для собак (DHPPi)': 'Itlar uchun kompleks vaksina (DHPPi)',
+      'Цефтиофур 5% суспензия': 'Seftiofur 5% suspenziya',
+      'Гентамицин 4% инъекционный': 'Gentamitsin 4% inʼektsion',
+      'Доксициклин 20% порошок': 'Doksitsiklin 20% kukun',
+      'Сульфадиметоксин + триметоприм': 'Sulfadimetoksin + trimetoprim',
+      'Тилмикозин 30% инъекционный': 'Tilmikozin 30% inʼektsion',
+      'Селенит натрия + витамин E': 'Natriy selenit + E vitamini',
+      'Бутофан тонизирующий': 'Butofan tonuslovchi',
+      'Мультивитамин для птицы (водораств.)': 'Parranda uchun multivitamin (suvda eriydigan)',
+      'Железодекстран для поросят': 'Choʻchqa bolalari uchun temir dekstran',
+      'Токсин-байндер (микосорб)': 'Toksin-baynder (mikosorb)',
+      'Пробиотик для КРС': 'Qoramol uchun probiotik',
+      'Метионин кормовой': 'Ozuqabop metionin',
+      'Ферментный премикс 5000 FTU': 'Fermentli premiks 5000 FTU',
+      'Фитаза (фермент) 5000 FTU': 'Fitaza (ferment) 5000 FTU',
+      'Монокальцийфосфат кормовой': 'Ozuqabop monokalsiy fosfat',
+      'Виркон S (окислитель)': 'Virkon S (oksidlovchi)',
+      'Хлоргексидин 5% концентрат': 'Xlorgeksidin 5% konsentrat',
+      'Кальция гипохлорит': 'Kalsiy gipoxlorit',
+      'Тест-набор ИФА на лейкоз КРС': 'Qoramol leykoziga IFA test-toʻplami',
+      'Экспресс-тест на стельность КРС': 'Qoramol boʻgʻozligiga ekspress-test',
+      'Иглы инъекционные (уп. 100 шт)': 'Inʼektsion ignalar (100 dona)',
+      'Шприц-дозатор автоматический 2 мл': 'Avtomatik shprits-dozator 2 ml',
+      'Бирки ушные для КРС (уп. 100 шт)': 'Qoramol uchun quloq birkalari (100 dona)',
+      'Перчатки ректальные (уп. 50 шт)': 'Rektal qoʻlqoplar (50 dona)',
+    };
+    for (const [ru, uz] of Object.entries(NAME_UZ)) {
+      await prisma.product.updateMany({ where: { name: ru }, data: { nameUz: uz } });
+    }
+
     if (buyerMain) {
       // Сертификаты на офферы и товары (анти-фальсификат).
       await prisma.offer.updateMany({ data: { certificates: ['/products/certificate.pdf'] } });

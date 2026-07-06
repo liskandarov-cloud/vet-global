@@ -32,7 +32,7 @@ interface Review { id: string; buyerName: string; rating: number; comment: strin
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
-  const { t, tt } = useI18n();
+  const { t, tt, lang } = useI18n();
   const add = useCart((s) => s.add);
   const currentUser = useAuth((s) => s.user);
 
@@ -177,7 +177,7 @@ export default function ProductPage() {
             {product.isPromotion && <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold text-white">{tt('Акция', 'Aksiya')}</span>}
             {product.isNew && <span className="rounded-md bg-teal-600 px-2 py-0.5 text-xs font-semibold text-white">{tt('Новинка', 'Yangi')}</span>}
           </div>
-          <h1 className="mt-2 font-heading text-3xl font-extrabold">{product.name}</h1>
+          <h1 className="mt-2 font-heading text-3xl font-extrabold">{lang === 'uz' && product.nameUz ? product.nameUz : product.name}</h1>
 
           {product.rating > 0 && (
             <div className="mt-2 flex items-center gap-1 text-sm text-ink-muted">

@@ -9,6 +9,7 @@ import { formatMoney } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 
 interface Hit {
+  nameUz?: string;
   id: string;
   name: string;
   manufacturer?: string;
@@ -18,7 +19,7 @@ interface Hit {
 }
 
 export function SearchBox({ className = '' }: { className?: string }) {
-  const { tt } = useI18n();
+  const { tt, lang } = useI18n();
   const router = useRouter();
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Hit[]>([]);
@@ -83,7 +84,7 @@ export function SearchBox({ className = '' }: { className?: string }) {
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={h.images?.[0] ?? '/icon.svg'} alt="" className="h-9 w-9 rounded-md object-cover" />
                   <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{h.name}</div>
+                    <div className="truncate text-sm font-medium">{lang === 'uz' && h.nameUz ? h.nameUz : h.name}</div>
                     <div className="truncate text-xs text-ink-subtle">{h.manufacturer ?? ''}</div>
                   </div>
                   <div className="shrink-0 text-sm font-semibold text-teal-700">{formatMoney(h.minPrice ?? h.price)}</div>
