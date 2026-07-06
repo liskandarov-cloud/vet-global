@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ShoppingCart, ShieldCheck, LogOut, LayoutDashboard, Sprout, Menu, X } from 'lucide-react';
+import { ShoppingCart, ShieldCheck, LogOut, LayoutDashboard, Sprout, Menu, X, ChevronDown } from 'lucide-react';
 import { useAuth, useCart, useFavorites } from '@/lib/store';
 import { useI18n, Lang } from '@/lib/i18n';
 import { cn } from '@/lib/utils';
@@ -21,17 +21,22 @@ export function Header() {
   const dashboardHref =
     user?.role === 'ADMIN' ? '/admin' : user?.role === 'SELLER' ? '/seller' : '/dashboard';
 
-  const nav = [
+  const primaryNav = [
     { href: '/catalog', label: t('nav.catalog') },
     { href: '/promotions', label: t('nav.promotions') },
     { href: '/suppliers', label: t('nav.suppliers') },
     { href: '/brands', label: 'Бренды' },
-    { href: '/rfq', label: 'Запрос цен' },
-    { href: '/org', label: 'Организация' },
-    { href: '/financing', label: 'Финансирование' },
     { href: '/blog', label: t('nav.blog') },
+  ];
+  // B2B-инструменты сгруппированы в выпадающее меню, чтобы не раздувать хедер.
+  const b2bNav = [
+    { href: '/rfq', label: 'Запрос цен (RFQ)' },
+    { href: '/org', label: 'Организация' },
+    { href: '/subscriptions', label: 'Подписки' },
+    { href: '/financing', label: 'Финансирование' },
     { href: '/consult', label: 'Консультация' },
   ];
+  const nav = [...primaryNav, ...b2bNav]; // плоский список для мобильного меню
 
   return (
     <header className="sticky top-0 z-40 glass shadow-sm">
@@ -44,13 +49,32 @@ export function Header() {
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
-          {nav.map((n) => (
+          {primaryNav.map((n) => (
             <Link key={n.href} href={n.href}
               className={cn('rounded-lg px-3 py-2 text-sm font-medium transition-colors',
                 pathname === n.href ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-teal-50 hover:text-teal-700')}>
               {n.label}
             </Link>
           ))}
+          {/* B2B-закупки — выпадающее меню (hover) */}
+          <div className="group relative">
+            <button className={cn('flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+              b2bNav.some((n) => n.href === pathname) ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-teal-50 hover:text-teal-700')}>
+              B2B-закупки
+              <ChevronDown size={14} />
+            </button>
+            <div className="absolute left-0 top-full hidden min-w-[210px] pt-2 group-hover:block">
+              <div className="rounded-xl border border-slate-200 bg-white p-1 shadow-lg">
+                {b2bNav.map((n) => (
+                  <Link key={n.href} href={n.href}
+                    className={cn('block rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                      pathname === n.href ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-teal-50 hover:text-teal-700')}>
+                    {n.label}
+                  </Link>
+                ))}
+              </div>
+            </div>
+          </div>
         </nav>
 
         <div className="flex items-center gap-2">

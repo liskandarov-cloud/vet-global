@@ -164,6 +164,7 @@ model User {
   rfqs               Rfq[]               @relation("BuyerRfqs")
   rfqQuotes          RfqQuote[]          @relation("SellerQuotes")
   memberships        OrgMembership[]
+  subscriptions      Subscription[]      @relation("BuyerSubs")
   reviews            Review[]
   vetPointsLedger    VetPointsTransaction[]
   promotions         Promotion[]
@@ -243,6 +244,26 @@ model RfqQuote {
   @@unique([rfqId, sellerId])
   @@index([rfqId])
   @@index([sellerId])
+}
+
+// Автопополнение: регулярный авто-заказ товара (P2).
+model Subscription {
+  id           String   @id @default(uuid())
+  buyerId      String
+  productId    String
+  offerId      String? // предпочитаемый поставщик; иначе — базовый товар
+  quantity     Int      @default(1)
+  intervalDays Int      @default(30)
+  nextRunAt    DateTime
+  active       Boolean  @default(true)
+  lastOrderId  String? // последний созданный заказ
+  createdAt    DateTime @default(now())
+
+  buyer   User    @relation("BuyerSubs", fields: [buyerId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@index([buyerId])
+  @@index([active, nextRunAt])
 }
 
 // Бренд/производитель + платное продвижение (блок 4).
@@ -371,11 +392,12 @@ model Product {
 
   category   Category    @relation(fields: [categoryId], references: [id])
   seller     User        @relation("SellerProducts", fields: [sellerId], references: [id], onDelete: Cascade)
-  offers     Offer[]
-  reviews    Review[]
-  orderItems OrderItem[]
-  promotions Promotion[]
-  favorites  Favorite[]
+  offers        Offer[]
+  reviews       Review[]
+  orderItems    OrderItem[]
+  promotions    Promotion[]
+  favorites     Favorite[]
+  subscriptions Subscription[]
 
   @@index([categoryId])
   @@index([sellerId])

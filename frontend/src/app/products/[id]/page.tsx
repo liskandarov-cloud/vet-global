@@ -18,6 +18,7 @@ import {
   ShieldAlert,
   CalendarClock,
   ClipboardCheck,
+  Repeat,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -41,6 +42,7 @@ export default function ProductPage() {
   const [activeImg, setActiveImg] = useState(0);
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
+  const [subInterval, setSubInterval] = useState(30);
 
   useEffect(() => {
     if (!id) return;
@@ -85,6 +87,22 @@ export default function ProductPage() {
   const selectOffer = (o: Offer) => {
     setSelectedOfferId(o.id);
     setQty((q) => Math.max(o.minOrder, q));
+  };
+
+  // Автопополнение: подписка на регулярную поставку выбранного оффера.
+  const subscribe = async () => {
+    if (!currentUser) { toast.error('Войдите, чтобы оформить автопополнение'); return; }
+    try {
+      await api.post('/subscriptions', {
+        productId: product.id,
+        offerId: selectedOffer?.id,
+        quantity: qty,
+        intervalDays: subInterval,
+      });
+      toast.success(`Автопополнение оформлено: каждые ${subInterval} дн.`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? 'Ошибка');
+    }
   };
 
   // Админ: верификация подлинности оффера.
@@ -207,6 +225,16 @@ export default function ProductPage() {
               <button className="btn-primary flex-1" onClick={addToCart}>
                 <ShoppingCart size={18} /> {t('product.addToCart')}
               </button>
+            </div>
+
+            {/* Автопополнение */}
+            <div className="mt-3 flex items-center gap-2 border-t border-teal-100 pt-3 text-sm">
+              <Repeat size={15} className="text-teal-700" />
+              <span className="text-ink-muted">Автопополнение каждые</span>
+              <select className="rounded-md border border-slate-200 px-2 py-1 text-sm outline-none" value={subInterval} onChange={(e) => setSubInterval(Number(e.target.value))}>
+                {[7, 14, 30, 60, 90].map((d) => <option key={d} value={d}>{d} дн</option>)}
+              </select>
+              <button className="btn-ghost !px-2 !py-1 text-sm text-teal-700" onClick={subscribe}>Подписаться</button>
             </div>
           </div>
         </div>
