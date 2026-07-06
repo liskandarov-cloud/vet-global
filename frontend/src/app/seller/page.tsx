@@ -5,6 +5,7 @@ import { Plus, Pencil, Trash2, Upload, X, TrendingUp, Package, ShoppingCart } fr
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { RoleGuard, StatCard, STATUS_LABELS } from '@/components/RoleGuard';
+import { SellerOffersPanel } from '@/components/SellerOffersPanel';
 import { TopProductsBar, WeeklyBars } from '@/components/Charts';
 import { Category, Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
@@ -25,7 +26,7 @@ const SHIP_LABELS: Record<string, string> = {
 const SHIP_METHODS: Record<string, string> = { COURIER: 'Курьер', PICKUP: 'Самовывоз', TRANSPORT: 'Транспортная компания' };
 
 function SellerContent() {
-  const [tab, setTab] = useState<'products' | 'orders' | 'promotions'>('products');
+  const [tab, setTab] = useState<'products' | 'offers' | 'orders' | 'promotions'>('products');
   const [stats, setStats] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -115,7 +116,7 @@ function SellerContent() {
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['products', 'Товары'], ['orders', 'Заказы'], ['promotions', `Акции${promotions.length ? ` (${promotions.length})` : ''}`]].map(([k, l]) => (
+        {[['products', 'Товары'], ['offers', 'Мои офферы'], ['orders', 'Заказы'], ['promotions', `Акции${promotions.length ? ` (${promotions.length})` : ''}`]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>
             {l}
@@ -149,6 +150,8 @@ function SellerContent() {
           </div>
         </div>
       )}
+
+      {tab === 'offers' && <SellerOffersPanel />}
 
       {tab === 'orders' && (
         <div className="mt-6 overflow-x-auto">

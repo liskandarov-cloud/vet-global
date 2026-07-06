@@ -3,7 +3,9 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Award, Package } from 'lucide-react';
+import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/store';
 
 interface Brand {
   id: string;
@@ -18,10 +20,21 @@ interface Brand {
 export default function BrandsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
+  const user = useAuth((s) => s.user);
+  const isAdmin = user?.role === 'ADMIN';
 
-  useEffect(() => {
-    api.get('/brands').then((r) => setBrands(r.data)).catch(() => {}).finally(() => setLoading(false));
-  }, []);
+  const load = () => api.get('/brands').then((r) => setBrands(r.data)).catch(() => {}).finally(() => setLoading(false));
+  useEffect(() => { load(); }, []);
+
+  const toggleSponsor = async (e: React.MouseEvent, b: Brand) => {
+    e.preventDefault();
+    e.stopPropagation();
+    try {
+      await api.patch(`/brands/${b.id}/sponsor`, { isSponsored: !b.isSponsored, sponsorRank: !b.isSponsored ? 10 : 0 });
+      toast.success(b.isSponsored ? 'Продвижение отключено' : 'Бренд продвигается');
+      load();
+    } catch { toast.error('Ошибка'); }
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -47,7 +60,17 @@ export default function BrandsPage() {
               </div>
               <div className="mt-3 font-heading text-lg font-bold">{b.name}</div>
               {b.description && <p className="mt-1 line-clamp-2 text-sm text-ink-muted">{b.description}</p>}
-              <div className="mt-3 inline-flex items-center gap-1 text-xs text-ink-subtle"><Package size={13} /> {b.productCount} товаров</div>
+              <div className="mt-3 flex items-center justify-between">
+                <span className="inline-flex items-center gap-1 text-xs text-ink-subtle"><Package size={13} /> {b.productCount} товаров</span>
+                {isAdmin && (
+                  <button
+                    onClick={(e) => toggleSponsor(e, b)}
+                    className={`rounded-md px-2 py-1 text-[11px] font-medium ${b.isSponsored ? 'bg-amber-100 text-amber-700' : 'border border-slate-200 text-ink-muted hover:border-amber-300'}`}
+                  >
+                    {b.isSponsored ? 'Продвигается ✓' : 'Продвигать'}
+                  </button>
+                )}
+              </div>
             </Link>
           ))}
         </div>

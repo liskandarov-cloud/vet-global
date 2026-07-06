@@ -22,7 +22,7 @@ import {
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
-import { useCart } from '@/lib/store';
+import { useCart, useAuth } from '@/lib/store';
 import { Product, Offer } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 import { formatMoney } from '@/lib/utils';
@@ -33,6 +33,7 @@ export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
   const { t } = useI18n();
   const add = useCart((s) => s.add);
+  const currentUser = useAuth((s) => s.user);
 
   const [product, setProduct] = useState<Product | null>(null);
   const [reviews, setReviews] = useState<Review[]>([]);
@@ -84,6 +85,19 @@ export default function ProductPage() {
   const selectOffer = (o: Offer) => {
     setSelectedOfferId(o.id);
     setQty((q) => Math.max(o.minOrder, q));
+  };
+
+  // Админ: верификация подлинности оффера.
+  const verifyOffer = async (offerId: string, verified: boolean) => {
+    try {
+      await api.post(`/offers/${offerId}/verify`, { verified });
+      setProduct((prev) =>
+        prev ? { ...prev, offers: prev.offers?.map((o) => (o.id === offerId ? { ...o, certVerified: verified } : o)) } : prev,
+      );
+      toast.success(verified ? 'Оффер верифицирован' : 'Верификация снята');
+    } catch {
+      toast.error('Ошибка');
+    }
   };
 
   const images = product.images?.length
@@ -303,6 +317,16 @@ export default function ProductPage() {
                           >
                             <ShoppingCart size={14} /> В корзину
                           </button>
+                          {currentUser?.role === 'ADMIN' && (
+                            <button
+                              aria-label="Верификация"
+                              title={o.certVerified ? 'Снять верификацию' : 'Верифицировать подлинность'}
+                              className={`grid h-8 w-8 place-items-center rounded-lg ${o.certVerified ? 'text-teal-700 hover:bg-teal-50' : 'text-ink-subtle hover:bg-slate-100'}`}
+                              onClick={(e) => { e.stopPropagation(); verifyOffer(o.id, !o.certVerified); }}
+                            >
+                              <BadgeCheck size={16} />
+                            </button>
+                          )}
                           <button
                             aria-label="Детали партии"
                             className="grid h-8 w-8 place-items-center rounded-lg text-ink-subtle hover:bg-slate-100"
