@@ -12,6 +12,7 @@ import { ProductCard } from '@/components/ProductCard';
 import { CounterpartiesPanel } from '@/components/CounterpartiesPanel';
 import { Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n';
 
 interface Order {
   id: string;
@@ -33,6 +34,7 @@ function downloadBlob(data: BlobPart, filename: string, type: string) {
 }
 
 function BuyerContent() {
+  const { tt } = useI18n();
   const { user } = useAuth();
   const addToCart = useCart((s) => s.add);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -52,7 +54,7 @@ function BuyerContent() {
     o.items.forEach((it) =>
       addToCart({ productId: it.productId, name: it.productName, price: it.price, minOrder: 1 }, it.quantity),
     );
-    toast.success('Товары добавлены в корзину');
+    toast.success(tt('Товары добавлены в корзину', 'Mahsulotlar savatga qoʻshildi'));
   };
 
   const invoice = async (id: string) => {
@@ -65,14 +67,14 @@ function BuyerContent() {
       const { data } = await api.post('/payments', { orderId, provider });
       if (data.mock) {
         await api.post(`/payments/${data.id}/mock-confirm`);
-        toast.success('Оплата прошла (демо)');
+        toast.success(tt('Оплата прошла (демо)', 'Toʻlov amalga oshdi (demo)'));
         load();
       } else {
         window.open(data.paymentUrl, '_blank');
-        toast.info('Открыта страница оплаты');
+        toast.info(tt('Открыта страница оплаты', 'Toʻlov sahifasi ochildi'));
       }
     } catch (e: any) {
-      toast.error(e?.response?.data?.message ?? 'Ошибка оплаты');
+      toast.error(e?.response?.data?.message ?? tt('Ошибка оплаты', 'Toʻlov xatosi'));
     }
   };
 
@@ -84,14 +86,14 @@ function BuyerContent() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6">
-        <span className="eyebrow">Кабинет</span>
-        <h1 className="mt-3 section-title">Покупатель</h1>
+        <span className="eyebrow">{tt('Кабинет', 'Kabinet')}</span>
+        <h1 className="mt-3 section-title">{tt('Покупатель', 'Xaridor')}</h1>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-3">
-        <StatCard label="Баланс VetPoints" value={formatMoney(user?.vetPointsBalance ?? 0)} accent icon={Gift} />
-        <StatCard label="Потрачено" value={formatMoney(stats?.totalSpent ?? 0)} icon={Wallet} />
-        <StatCard label="Заказов" value={String(stats?.ordersCount ?? orders.length)} icon={Package} />
+        <StatCard label={tt('Баланс VetPoints', 'VetPoints balansi')} value={formatMoney(user?.vetPointsBalance ?? 0)} accent icon={Gift} />
+        <StatCard label={tt('Потрачено', 'Sarflangan')} value={formatMoney(stats?.totalSpent ?? 0)} icon={Wallet} />
+        <StatCard label={tt('Заказов', 'Buyurtmalar')} value={String(stats?.ordersCount ?? orders.length)} icon={Package} />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">
@@ -103,7 +105,7 @@ function BuyerContent() {
 
       {favorites.length > 0 && (
         <div className="mt-8">
-          <h2 className="mb-3 font-heading text-xl font-bold">Избранное</h2>
+          <h2 className="mb-3 font-heading text-xl font-bold">{tt('Избранное', 'Sevimlilar')}</h2>
           <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
             {favorites.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
@@ -111,14 +113,14 @@ function BuyerContent() {
       )}
 
       <div className="mt-8 flex items-center justify-between">
-        <h2 className="font-heading text-xl font-bold">Мои заказы</h2>
+        <h2 className="font-heading text-xl font-bold">{tt('Мои заказы', 'Mening buyurtmalarim')}</h2>
         <button className="btn-secondary" onClick={exportExcel}><Download size={16} /> Excel</button>
       </div>
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-left text-ink-subtle">
             <tr className="border-b border-slate-100">
-              <th className="py-2">№</th><th>Дата</th><th>Статус</th><th>Сумма</th><th></th>
+              <th className="py-2">№</th><th>{tt('Дата', 'Sana')}</th><th>{tt('Статус', 'Holat')}</th><th>{tt('Сумма', 'Summa')}</th><th></th>
             </tr>
           </thead>
           <tbody>
@@ -132,17 +134,17 @@ function BuyerContent() {
                   {o.status === 'PENDING' && (
                     <PayControl onPay={(provider) => pay(o.id, provider)} />
                   )}
-                  <button className="btn-ghost !px-2 !py-1" onClick={() => repeat(o)} title="Повторить"><RotateCcw size={15} /></button>
-                  <button className="btn-ghost !px-2 !py-1" onClick={() => invoice(o.id)} title="Счёт PDF"><FileText size={15} /></button>
+                  <button className="btn-ghost !px-2 !py-1" onClick={() => repeat(o)} title={tt('Повторить', 'Takrorlash')}><RotateCcw size={15} /></button>
+                  <button className="btn-ghost !px-2 !py-1" onClick={() => invoice(o.id)} title={tt('Счёт PDF', 'Hisob-faktura PDF')}><FileText size={15} /></button>
                 </td>
               </tr>
             ))}
           </tbody>
         </table>
-        {orders.length === 0 && <div className="py-10 text-center text-ink-subtle">Заказов пока нет</div>}
+        {orders.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Заказов пока нет', 'Hozircha buyurtmalar yoʻq')}</div>}
       </div>
 
-      <h2 className="mt-10 font-heading text-xl font-bold">История VetPoints</h2>
+      <h2 className="mt-10 font-heading text-xl font-bold">{tt('История VetPoints', 'VetPoints tarixi')}</h2>
       <div className="mt-3 space-y-2">
         {txs.map((t) => (
           <div key={t.id} className="flex items-center justify-between rounded-lg border border-slate-100 px-4 py-2 text-sm">
@@ -152,13 +154,14 @@ function BuyerContent() {
             </span>
           </div>
         ))}
-        {txs.length === 0 && <div className="py-6 text-center text-ink-subtle">Пока нет операций</div>}
+        {txs.length === 0 && <div className="py-6 text-center text-ink-subtle">{tt('Пока нет операций', 'Hozircha amallar yoʻq')}</div>}
       </div>
     </div>
   );
 }
 
 function PayControl({ onPay }: { onPay: (provider: string) => void }) {
+  const { tt } = useI18n();
   const [provider, setProvider] = useState('CLICK');
   return (
     <span className="inline-flex items-center gap-1">
@@ -167,8 +170,8 @@ function PayControl({ onPay }: { onPay: (provider: string) => void }) {
         <option value="PAYME">Payme</option>
         <option value="UZUM">UZUM</option>
       </select>
-      <button className="btn-primary !px-2 !py-1 text-xs" onClick={() => onPay(provider)} title="Оплатить">
-        <CreditCard size={14} /> Оплатить
+      <button className="btn-primary !px-2 !py-1 text-xs" onClick={() => onPay(provider)} title={tt('Оплатить', 'Toʻlash')}>
+        <CreditCard size={14} /> {tt('Оплатить', 'Toʻlash')}
       </button>
     </span>
   );

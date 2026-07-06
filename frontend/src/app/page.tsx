@@ -23,7 +23,7 @@ interface Seller { id: string; company?: string; rating: number; productsCount: 
 interface Post { id: string; title: string; slug: string; excerpt?: string; createdAt: string }
 
 export default function HomePage() {
-  const { t, lang } = useI18n();
+  const { t, tt, lang } = useI18n();
   const [categories, setCategories] = useState<Category[]>([]);
   const [promos, setPromos] = useState<Product[]>([]);
   const [sellers, setSellers] = useState<Seller[]>([]);
@@ -45,24 +45,24 @@ export default function HomePage() {
           <div>
             <span className="eyebrow animate-up"><ShieldCheck size={14} /> {t('home.verified')}</span>
             <h1 className="mt-5 animate-up font-heading text-4xl font-extrabold leading-[1.05] md:text-6xl" style={{ animationDelay: '0.05s' }}>
-              <span className="text-gradient">B2B-платформа</span><br />ветеринарных решений
+              <span className="text-gradient">{tt('B2B-платформа', 'B2B-platforma')}</span><br />{tt('ветеринарных решений', 'veterinariya yechimlari')}
             </h1>
             <p className="mt-5 max-w-xl animate-up text-lg text-ink-muted" style={{ animationDelay: '0.1s' }}>
               {t('home.hero.subtitle')}
             </p>
             <div className="mt-8 flex flex-wrap gap-3 animate-up" style={{ animationDelay: '0.15s' }}>
               <Link href="/catalog" className="btn-primary">{t('home.hero.cta')} <ArrowRight size={18} /></Link>
-              <Link href="/consult" className="btn-secondary"><Stethoscope size={16} /> Ветконсультация</Link>
+              <Link href="/consult" className="btn-secondary"><Stethoscope size={16} /> {tt('Ветконсультация', 'Vet maslahat')}</Link>
             </div>
             <div className="mt-12 grid max-w-lg grid-cols-3 gap-6 animate-up" style={{ animationDelay: '0.2s' }}>
               {[
-                { icon: Beaker, value: '5 000+', label: 'Препаратов' },
-                { icon: Truck, value: '120+', label: 'Поставщиков' },
-                { icon: Activity, value: '10 000+', label: 'Заказов' },
+                { icon: Beaker, value: '5 000+', label: 'Препаратов', labelUz: 'Preparatlar' },
+                { icon: Truck, value: '120+', label: 'Поставщиков', labelUz: 'Yetkazib beruvchilar' },
+                { icon: Activity, value: '10 000+', label: 'Заказов', labelUz: 'Buyurtmalar' },
               ].map((s) => (
                 <div key={s.label}>
                   <div className="font-heading text-3xl font-extrabold text-ink">{s.value}</div>
-                  <div className="text-sm text-ink-subtle">{s.label}</div>
+                  <div className="text-sm text-ink-subtle">{tt(s.label, s.labelUz)}</div>
                 </div>
               ))}
             </div>
@@ -76,11 +76,11 @@ export default function HomePage() {
             {/* floating chips (hidden on mobile to avoid horizontal overflow) */}
             <div className="glass absolute -left-4 top-8 hidden items-center gap-2 rounded-xl px-3 py-2 shadow-soft sm:flex">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-teal-600 text-white"><ShieldCheck size={16} /></span>
-              <div className="text-xs"><div className="font-semibold">Проверенный</div><div className="text-ink-subtle">поставщик</div></div>
+              <div className="text-xs"><div className="font-semibold">{tt('Проверенный', 'Tekshirilgan')}</div><div className="text-ink-subtle">{tt('поставщик', 'yetkazib beruvchi')}</div></div>
             </div>
             <div className="glass absolute -bottom-4 right-6 hidden items-center gap-2 rounded-xl px-3 py-2 shadow-soft sm:flex">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary text-white"><FileText size={16} /></span>
-              <div className="text-xs"><div className="font-semibold">Сертификат</div><div className="text-ink-subtle">качества PDF</div></div>
+              <div className="text-xs"><div className="font-semibold">{tt('Сертификат', 'Sertifikat')}</div><div className="text-ink-subtle">{tt('качества PDF', 'sifat PDF')}</div></div>
             </div>
           </div>
         </div>
@@ -90,16 +90,16 @@ export default function HomePage() {
       <section className="border-y border-slate-100 bg-white">
         <div className="mx-auto grid max-w-7xl gap-6 px-4 py-8 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { icon: ShieldCheck, t: 'Проверенные поставщики', d: 'Верификация юрлиц и лицензий' },
-            { icon: FileText, t: 'Сертификаты качества', d: 'PDF к каждому препарату' },
-            { icon: Truck, t: 'Доставка и логистика', d: 'Курьер, самовывоз, ТК' },
-            { icon: Activity, t: 'Прозрачные цены', d: 'Без переплат 15–40%' },
+            { icon: ShieldCheck, t: 'Проверенные поставщики', tUz: 'Tekshirilgan yetkazib beruvchilar', d: 'Верификация юрлиц и лицензий', dUz: 'Yuridik shaxslar va litsenziyalar tekshiruvi' },
+            { icon: FileText, t: 'Сертификаты качества', tUz: 'Sifat sertifikatlari', d: 'PDF к каждому препарату', dUz: 'Har bir preparatga PDF' },
+            { icon: Truck, t: 'Доставка и логистика', tUz: 'Yetkazib berish va logistika', d: 'Курьер, самовывоз, ТК', dUz: 'Kuryer, olib ketish, TK' },
+            { icon: Activity, t: 'Прозрачные цены', tUz: 'Shaffof narxlar', d: 'Без переплат 15–40%', dUz: '15–40% ortiqcha toʻlovsiz' },
           ].map((f) => (
             <div key={f.t} className="flex items-start gap-3">
               <span className="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-teal-50 text-teal-700"><f.icon size={20} /></span>
               <div>
-                <div className="font-semibold">{f.t}</div>
-                <div className="text-sm text-ink-subtle">{f.d}</div>
+                <div className="font-semibold">{tt(f.t, f.tUz)}</div>
+                <div className="text-sm text-ink-subtle">{tt(f.d, f.dUz)}</div>
               </div>
             </div>
           ))}
@@ -110,7 +110,7 @@ export default function HomePage() {
       <section className="mx-auto max-w-7xl px-4 py-16">
         <div className="mb-8 flex items-end justify-between">
           <div>
-            <span className="eyebrow">Каталог</span>
+            <span className="eyebrow">{tt('Каталог', 'Katalog')}</span>
             <h2 className="section-title mt-3">{t('home.categories')}</h2>
           </div>
           <Link href="/catalog" className="btn-ghost hidden sm:inline-flex">{t('common.all')} <ArrowRight size={16} /></Link>
@@ -136,7 +136,7 @@ export default function HomePage() {
           <div className="mx-auto max-w-7xl px-4">
             <div className="mb-8 flex items-end justify-between">
               <div>
-                <span className="eyebrow" style={{ color: '#c2410c', background: '#ffedd5', borderColor: '#fed7aa' }}>Выгодно</span>
+                <span className="eyebrow" style={{ color: '#c2410c', background: '#ffedd5', borderColor: '#fed7aa' }}>{tt('Выгодно', 'Foydali')}</span>
                 <h2 className="section-title mt-3">{t('home.promotions')}</h2>
               </div>
               <Link href="/promotions" className="btn-ghost hidden sm:inline-flex">{t('common.all')} <ArrowRight size={16} /></Link>
@@ -156,7 +156,7 @@ export default function HomePage() {
       {sellers.length > 0 && (
         <section className="mx-auto max-w-7xl px-4 py-16">
           <div className="mb-8">
-            <span className="eyebrow"><ShieldCheck size={14} /> Доверие</span>
+            <span className="eyebrow"><ShieldCheck size={14} /> {tt('Доверие', 'Ishonch')}</span>
             <h2 className="section-title mt-3">{t('home.verified')}</h2>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
@@ -167,12 +167,12 @@ export default function HomePage() {
                 </span>
                 <div className="min-w-0">
                   <div className="flex items-center gap-1 font-semibold">
-                    <span className="truncate">{s.company ?? 'Поставщик'}</span>
+                    <span className="truncate">{s.company ?? tt('Поставщик', 'Yetkazib beruvchi')}</span>
                     {s.isVerified && <ShieldCheck size={15} className="shrink-0 text-teal-700" />}
                   </div>
                   <div className="mt-1 flex gap-3 text-sm text-ink-subtle">
                     <span className="flex items-center gap-1"><Star size={13} className="fill-amber-400 text-amber-400" />{s.rating.toFixed(1)}</span>
-                    <span>{s.productsCount} товаров</span>
+                    <span>{s.productsCount} {tt('товаров', 'mahsulot')}</span>
                   </div>
                 </div>
               </Link>
@@ -186,8 +186,8 @@ export default function HomePage() {
         <section className="mx-auto max-w-7xl px-4 pb-16">
           <div className="mb-8 flex items-end justify-between">
             <div>
-              <span className="eyebrow">Экспертиза</span>
-              <h2 className="section-title mt-3">{t('nav.blog')} и новости</h2>
+              <span className="eyebrow">{tt('Экспертиза', 'Ekspertiza')}</span>
+              <h2 className="section-title mt-3">{t('nav.blog')} {tt('и новости', 'va yangiliklar')}</h2>
             </div>
             <Link href="/blog" className="btn-ghost hidden sm:inline-flex">{t('common.all')} <ArrowRight size={16} /></Link>
           </div>
@@ -197,7 +197,7 @@ export default function HomePage() {
                 <div className="text-xs text-ink-subtle">{new Date(p.createdAt).toLocaleDateString('ru-RU')}</div>
                 <h3 className="mt-2 font-heading text-lg font-bold leading-snug">{p.title}</h3>
                 {p.excerpt && <p className="mt-2 line-clamp-3 text-sm text-ink-muted">{p.excerpt}</p>}
-                <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-teal-700">Читать <ArrowRight size={14} /></span>
+                <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-teal-700">{tt('Читать', 'Oʻqish')} <ArrowRight size={14} /></span>
               </Link>
             ))}
           </div>
@@ -209,11 +209,11 @@ export default function HomePage() {
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-teal-600 to-emerald-500 px-8 py-14 text-center text-white shadow-glow">
           <div className="absolute inset-0 bg-grid opacity-20" />
           <div className="relative">
-            <h2 className="font-heading text-3xl font-extrabold md:text-4xl">Начните закупки на VetGlobal</h2>
-            <p className="mx-auto mt-3 max-w-xl text-white/90">Прозрачные цены, проверенные поставщики и юридически значимый цикл сделки — в одном месте.</p>
+            <h2 className="font-heading text-3xl font-extrabold md:text-4xl">{tt('Начните закупки на VetGlobal', 'VetGlobalʼda xaridlarni boshlang')}</h2>
+            <p className="mx-auto mt-3 max-w-xl text-white/90">{tt('Прозрачные цены, проверенные поставщики и юридически значимый цикл сделки — в одном месте.', 'Shaffof narxlar, tekshirilgan yetkazib beruvchilar va yuridik ahamiyatga ega bitim sikli — bir joyda.')}</p>
             <div className="mt-8 flex justify-center gap-3">
-              <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-semibold text-teal-700 transition-transform hover:-translate-y-0.5">Создать аккаунт</Link>
-              <Link href="/catalog" className="inline-flex items-center gap-2 rounded-lg border border-white/40 px-6 py-3 font-semibold text-white transition-colors hover:bg-white/10">В каталог</Link>
+              <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-semibold text-teal-700 transition-transform hover:-translate-y-0.5">{tt('Создать аккаунт', 'Hisob yaratish')}</Link>
+              <Link href="/catalog" className="inline-flex items-center gap-2 rounded-lg border border-white/40 px-6 py-3 font-semibold text-white transition-colors hover:bg-white/10">{tt('В каталог', 'Katalogga')}</Link>
             </div>
           </div>
         </div>

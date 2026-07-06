@@ -12,7 +12,7 @@ const PLACEHOLDER =
   'https://images.unsplash.com/photo-1547908068-35ea7b47a21d?crop=entropy&cs=srgb&fm=jpg&q=85&w=600';
 
 export function ProductCard({ product }: { product: Product }) {
-  const { t } = useI18n();
+  const { t, tt } = useI18n();
   const add = useCart((s) => s.add);
   const favIds = useFavorites((s) => s.ids);
   const toggleFav = useFavorites((s) => s.toggle);
@@ -25,7 +25,7 @@ export function ProductCard({ product }: { product: Product }) {
     e.preventDefault();
     e.stopPropagation();
     if (!user) {
-      toast.error('Войдите, чтобы добавить в избранное');
+      toast.error(tt('Войдите, чтобы добавить в избранное', 'Sevimlilarga qoʻshish uchun kiring'));
       return;
     }
     toggleFav(product.id);
@@ -35,7 +35,7 @@ export function ProductCard({ product }: { product: Product }) {
     <div className="group relative overflow-hidden rounded-xl border border-slate-200 bg-white transition-all duration-300 hover:shadow-lg hover:shadow-slate-200/50">
       <button
         onClick={onFav}
-        aria-label="В избранное"
+        aria-label={tt('В избранное', 'Sevimlilarga')}
         className={`absolute right-2 top-2 z-10 grid h-8 w-8 place-items-center rounded-full bg-white/90 shadow-sm transition-colors ${isFav ? 'text-red-500' : 'text-slate-400 hover:text-red-500'}`}
       >
         <Heart size={16} className={isFav ? 'fill-red-500' : ''} />
@@ -49,13 +49,13 @@ export function ProductCard({ product }: { product: Product }) {
         />
         <div className="absolute left-2 top-2 flex flex-col gap-1">
           {product.isPromotion && (
-            <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold text-white">Акция</span>
+            <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold text-white">{tt('Акция', 'Aksiya')}</span>
           )}
           {product.isNew && (
-            <span className="rounded-md bg-teal-600 px-2 py-0.5 text-xs font-semibold text-white">Новинка</span>
+            <span className="rounded-md bg-teal-600 px-2 py-0.5 text-xs font-semibold text-white">{tt('Новинка', 'Yangi')}</span>
           )}
           {!product.inStock && (
-            <span className="rounded-md bg-slate-700 px-2 py-0.5 text-xs font-semibold text-white">Под заказ</span>
+            <span className="rounded-md bg-slate-700 px-2 py-0.5 text-xs font-semibold text-white">{tt('Под заказ', 'Buyurtma asosida')}</span>
           )}
         </div>
         {product.certificates?.length > 0 && (
@@ -93,20 +93,20 @@ export function ProductCard({ product }: { product: Product }) {
           <div>
             {product.offersCount && product.offersCount > 0 && product.minPrice != null ? (
               <>
-                <div className="text-[11px] leading-none text-ink-subtle">от</div>
+                <div className="text-[11px] leading-none text-ink-subtle">{tt('от', 'dan')}</div>
                 <div className="font-heading text-lg font-bold text-ink">{formatMoney(product.minPrice)}</div>
               </>
             ) : (
               <div className="font-heading text-lg font-bold text-ink">{formatMoney(product.price)}</div>
             )}
             {product.offersCount && product.offersCount > 1 ? (
-              <div className="text-xs font-medium text-teal-700">{product.offersCount} предложений</div>
+              <div className="text-xs font-medium text-teal-700">{product.offersCount} {tt('предложений', 'taklif')}</div>
             ) : (
               <div className="text-xs text-ink-subtle">{t('product.minOrder')}: {product.minOrder}</div>
             )}
           </div>
           {product.offersCount && product.offersCount > 1 ? (
-            <Link href={`/products/${product.id}`} className="btn-primary !px-3 !py-2" aria-label="Сравнить цены">
+            <Link href={`/products/${product.id}`} className="btn-primary !px-3 !py-2" aria-label={tt('Сравнить цены', 'Narxlarni solishtirish')}>
               <Scale size={16} />
             </Link>
           ) : (
@@ -123,7 +123,7 @@ export function ProductCard({ product }: { product: Product }) {
                   },
                   product.minOrder,
                 );
-                toast.success('Добавлено в корзину');
+                toast.success(tt('Добавлено в корзину', 'Savatga qoʻshildi'));
               }}
               aria-label={t('product.addToCart')}
             >

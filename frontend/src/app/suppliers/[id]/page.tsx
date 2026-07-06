@@ -6,6 +6,7 @@ import { ShieldCheck, Star } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Product } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
+import { useI18n } from '@/lib/i18n';
 
 interface Seller {
   id: string;
@@ -19,6 +20,7 @@ interface Seller {
 }
 
 export default function SupplierPage() {
+  const { tt } = useI18n();
   const { id } = useParams<{ id: string }>();
   const [seller, setSeller] = useState<Seller | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -29,7 +31,7 @@ export default function SupplierPage() {
     api.get('/products', { params: { sellerId: id, limit: 24 } }).then((r) => setProducts(r.data.products));
   }, [id]);
 
-  if (!seller) return <div className="py-24 text-center text-ink-subtle">Загрузка…</div>;
+  if (!seller) return <div className="py-24 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>;
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
@@ -40,23 +42,23 @@ export default function SupplierPage() {
           </span>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="font-heading text-3xl font-extrabold">{seller.company ?? 'Поставщик'}</h1>
+              <h1 className="font-heading text-3xl font-extrabold">{seller.company ?? tt('Поставщик', 'Yetkazib beruvchi')}</h1>
               {seller.isVerified && <ShieldCheck size={22} />}
             </div>
-            {seller.isVerified && <span className="mt-1 inline-block rounded-full bg-white/20 px-3 py-0.5 text-xs font-medium">Проверенный поставщик</span>}
+            {seller.isVerified && <span className="mt-1 inline-block rounded-full bg-white/20 px-3 py-0.5 text-xs font-medium">{tt('Проверенный поставщик', 'Tekshirilgan yetkazib beruvchi')}</span>}
           </div>
         </div>
         <div className="p-6">
         {seller.description && <p className="text-ink-muted">{seller.description}</p>}
         <div className="mt-4 flex gap-6 text-sm text-ink-muted">
           <span className="flex items-center gap-1"><Star size={15} className="fill-amber-400 text-amber-400" />{seller.rating.toFixed(1)} ({seller.reviewsCount})</span>
-          <span>{seller.productsCount} товаров</span>
-          <span>С нами с {new Date(seller.createdAt).toLocaleDateString('ru-RU')}</span>
+          <span>{seller.productsCount} {tt('товаров', 'mahsulot')}</span>
+          <span>{tt('С нами с', 'Biz bilan')} {new Date(seller.createdAt).toLocaleDateString('ru-RU')}</span>
         </div>
         </div>
       </div>
 
-      <h2 className="mb-4 mt-8 font-heading text-2xl font-bold">Ассортимент</h2>
+      <h2 className="mb-4 mt-8 font-heading text-2xl font-bold">{tt('Ассортимент', 'Assortiment')}</h2>
       <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
         {products.map((p) => <ProductCard key={p.id} product={p} />)}
       </div>

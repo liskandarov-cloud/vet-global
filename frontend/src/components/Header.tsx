@@ -12,7 +12,7 @@ import { SearchBox } from './SearchBox';
 import { NotificationBell } from './NotificationBell';
 
 export function Header() {
-  const { t, lang, setLang } = useI18n();
+  const { t, tt, lang, setLang } = useI18n();
   const { user, logout } = useAuth();
   const clearFav = useFavorites((s) => s.clear);
   const count = useCart((s) => s.count());
@@ -27,17 +27,17 @@ export function Header() {
     { href: '/catalog', label: t('nav.catalog') },
     { href: '/promotions', label: t('nav.promotions') },
     { href: '/suppliers', label: t('nav.suppliers') },
-    { href: '/brands', label: 'Бренды' },
+    { href: '/brands', label: tt('Бренды', 'Brendlar') },
     { href: '/blog', label: t('nav.blog') },
   ];
   // B2B-инструменты сгруппированы в выпадающее меню, чтобы не раздувать хедер.
   const b2bNav = [
-    { href: '/rfq', label: 'Запрос цен (RFQ)' },
-    { href: '/org', label: 'Организация' },
-    { href: '/subscriptions', label: 'Подписки' },
-    { href: '/financing', label: 'Финансирование' },
-    { href: '/market', label: 'Аналитика рынка' },
-    { href: '/consult', label: 'Консультация' },
+    { href: '/rfq', label: tt('Запрос цен (RFQ)', 'Narx soʻrovi (RFQ)') },
+    { href: '/org', label: tt('Организация', 'Tashkilot') },
+    { href: '/subscriptions', label: tt('Подписки', 'Obunalar') },
+    { href: '/financing', label: tt('Финансирование', 'Moliyalashtirish') },
+    { href: '/market', label: tt('Аналитика рынка', 'Bozor tahlili') },
+    { href: '/consult', label: tt('Консультация', 'Konsultatsiya') },
   ];
   const nav = [...primaryNav, ...b2bNav]; // плоский список для мобильного меню
 
@@ -63,7 +63,7 @@ export function Header() {
           <div className="group relative">
             <button className={cn('flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
               b2bNav.some((n) => n.href === pathname) ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-teal-50 hover:text-teal-700')}>
-              B2B-закупки
+              {tt('B2B-закупки', 'B2B xaridlar')}
               <ChevronDown size={14} />
             </button>
             <div className="absolute left-0 top-full hidden min-w-[210px] pt-2 group-hover:block">

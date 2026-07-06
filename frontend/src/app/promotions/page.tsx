@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Tag } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatMoney } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n';
 
 interface Promo {
   id: string;
@@ -17,6 +18,7 @@ interface Promo {
 }
 
 export default function PromotionsPage() {
+  const { tt } = useI18n();
   const [promos, setPromos] = useState<Promo[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -27,13 +29,13 @@ export default function PromotionsPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
       <div className="mb-8">
-        <span className="eyebrow" style={{ color: '#c2410c', background: '#ffedd5', borderColor: '#fed7aa' }}>Выгодно</span>
-        <h1 className="mt-3 section-title">Акции и предложения</h1>
+        <span className="eyebrow" style={{ color: '#c2410c', background: '#ffedd5', borderColor: '#fed7aa' }}>{tt('Выгодно', 'Foydali')}</span>
+        <h1 className="mt-3 section-title">{tt('Акции и предложения', 'Aksiyalar va takliflar')}</h1>
       </div>
       {loading ? (
-        <div className="py-20 text-center text-ink-subtle">Загрузка…</div>
+        <div className="py-20 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>
       ) : promos.length === 0 ? (
-        <div className="py-20 text-center text-ink-subtle">Активных акций пока нет</div>
+        <div className="py-20 text-center text-ink-subtle">{tt('Активных акций пока нет', 'Hozircha faol aksiyalar yoʻq')}</div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {promos.map((p) => (
@@ -41,7 +43,7 @@ export default function PromotionsPage() {
               <div className="flex items-center gap-2 bg-gradient-to-r from-orange-500 to-amber-500 px-4 py-2 text-white">
                 <Tag size={16} />
                 <span className="font-semibold">-{p.discountPercent}%</span>
-                {p.endsAt && <span className="ml-auto text-xs opacity-90">до {new Date(p.endsAt).toLocaleDateString('ru-RU')}</span>}
+                {p.endsAt && <span className="ml-auto text-xs opacity-90">{tt('до', 'gacha')} {new Date(p.endsAt).toLocaleDateString('ru-RU')}</span>}
               </div>
               <div className="p-4">
                 <h3 className="font-semibold">{p.title}</h3>

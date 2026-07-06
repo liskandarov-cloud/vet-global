@@ -32,7 +32,7 @@ interface Review { id: string; buyerName: string; rating: number; comment: strin
 
 export default function ProductPage() {
   const { id } = useParams<{ id: string }>();
-  const { t } = useI18n();
+  const { t, tt } = useI18n();
   const add = useCart((s) => s.add);
   const currentUser = useAuth((s) => s.user);
 
@@ -99,7 +99,7 @@ export default function ProductPage() {
       },
       qty,
     );
-    toast.success('Добавлено в корзину');
+    toast.success(tt('Добавлено в корзину', 'Savatga qoʻshildi'));
   };
 
   const selectOffer = (o: Offer) => {
@@ -109,7 +109,7 @@ export default function ProductPage() {
 
   // Автопополнение: подписка на регулярную поставку выбранного оффера.
   const subscribe = async () => {
-    if (!currentUser) { toast.error('Войдите, чтобы оформить автопополнение'); return; }
+    if (!currentUser) { toast.error(tt('Войдите, чтобы оформить автопополнение', 'Avto toʻldirishni rasmiylashtirish uchun tizimga kiring')); return; }
     try {
       await api.post('/subscriptions', {
         productId: product.id,
@@ -117,9 +117,9 @@ export default function ProductPage() {
         quantity: qty,
         intervalDays: subInterval,
       });
-      toast.success(`Автопополнение оформлено: каждые ${subInterval} дн.`);
+      toast.success(`${tt('Автопополнение оформлено: каждые', 'Avto toʻldirish rasmiylashtirildi: har')} ${subInterval} ${tt('дн.', 'kun')}`);
     } catch (e: any) {
-      toast.error(e?.response?.data?.message ?? 'Ошибка');
+      toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
     }
   };
 
@@ -130,9 +130,9 @@ export default function ProductPage() {
       setProduct((prev) =>
         prev ? { ...prev, offers: prev.offers?.map((o) => (o.id === offerId ? { ...o, certVerified: verified } : o)) } : prev,
       );
-      toast.success(verified ? 'Оффер верифицирован' : 'Верификация снята');
+      toast.success(verified ? tt('Оффер верифицирован', 'Taklif tasdiqlandi') : tt('Верификация снята', 'Tasdiqlash bekor qilindi'));
     } catch {
-      toast.error('Ошибка');
+      toast.error(tt('Ошибка', 'Xatolik'));
     }
   };
 
@@ -143,7 +143,7 @@ export default function ProductPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
       <nav className="mb-5 flex items-center gap-2 text-sm text-ink-subtle">
-        <Link href="/" className="hover:text-teal-700">Главная</Link>
+        <Link href="/" className="hover:text-teal-700">{tt('Главная', 'Bosh sahifa')}</Link>
         <span>/</span>
         <Link href="/catalog" className="hover:text-teal-700">{t('nav.catalog')}</Link>
         {product.category && (<><span>/</span><span className="text-ink-muted">{product.category.name}</span></>)}
@@ -174,15 +174,15 @@ export default function ProductPage() {
         {/* Info */}
         <div>
           <div className="flex gap-2">
-            {product.isPromotion && <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold text-white">Акция</span>}
-            {product.isNew && <span className="rounded-md bg-teal-600 px-2 py-0.5 text-xs font-semibold text-white">Новинка</span>}
+            {product.isPromotion && <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold text-white">{tt('Акция', 'Aksiya')}</span>}
+            {product.isNew && <span className="rounded-md bg-teal-600 px-2 py-0.5 text-xs font-semibold text-white">{tt('Новинка', 'Yangi')}</span>}
           </div>
           <h1 className="mt-2 font-heading text-3xl font-extrabold">{product.name}</h1>
 
           {product.rating > 0 && (
             <div className="mt-2 flex items-center gap-1 text-sm text-ink-muted">
               <Star size={15} className="fill-amber-400 text-amber-400" />
-              {product.rating.toFixed(1)} · {product.reviewsCount} отзывов
+              {product.rating.toFixed(1)} · {product.reviewsCount} {tt('отзывов', 'sharh')}
             </div>
           )}
 
@@ -211,29 +211,29 @@ export default function ProductPage() {
             {offers.length > 0 && (
               <div className="mb-1 text-xs font-medium text-teal-700">
                 {selectedOffer?.seller?.company
-                  ? `Предложение: ${selectedOffer.seller.company}`
-                  : 'Лучшее предложение'}
-                {offers.length > 1 && ` · всего ${offers.length} поставщиков`}
+                  ? `${tt('Предложение', 'Taklif')}: ${selectedOffer.seller.company}`
+                  : tt('Лучшее предложение', 'Eng yaxshi taklif')}
+                {offers.length > 1 && ` · ${tt('всего', 'jami')} ${offers.length} ${tt('поставщиков', 'yetkazib beruvchi')}`}
               </div>
             )}
             <div className="flex items-center gap-2">
               <div className="font-heading text-4xl font-extrabold text-gradient">{formatMoney(unitPrice)}</div>
               {hasContract && (
-                <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">по договору</span>
+                <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">{tt('по договору', 'shartnoma boʻyicha')}</span>
               )}
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-subtle">
               <span>{t('product.minOrder')}: {effMinOrder}</span>
               <span>·</span>
-              <span>{effInStock ? 'В наличии' : 'Под заказ'}</span>
-              {selectedOffer?.leadTimeDays != null && (<><span>·</span><span className="inline-flex items-center gap-1"><Truck size={13} /> {selectedOffer.leadTimeDays} дн.</span></>)}
-              {selectedOffer?.isRx && (<><span>·</span><span className="inline-flex items-center gap-1 text-amber-600"><Pill size={13} /> по рецепту</span></>)}
+              <span>{effInStock ? tt('В наличии', 'Mavjud') : tt('Под заказ', 'Buyurtma asosida')}</span>
+              {selectedOffer?.leadTimeDays != null && (<><span>·</span><span className="inline-flex items-center gap-1"><Truck size={13} /> {selectedOffer.leadTimeDays} {tt('дн.', 'kun')}</span></>)}
+              {selectedOffer?.isRx && (<><span>·</span><span className="inline-flex items-center gap-1 text-amber-600"><Pill size={13} /> {tt('по рецепту', 'retsept boʻyicha')}</span></>)}
             </div>
             {selectedOffer?.priceBreaks && selectedOffer.priceBreaks.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
                 {selectedOffer.priceBreaks.map((b, i) => (
                   <span key={i} className={`rounded-md border px-2 py-0.5 ${qty >= b.minQty ? 'border-teal-300 bg-teal-50 text-teal-700' : 'border-slate-200 text-ink-subtle'}`}>
-                    от {b.minQty} шт — {formatMoney(b.price)}
+                    {tt('от', 'dan')} {b.minQty} {tt('шт', 'dona')} — {formatMoney(b.price)}
                   </span>
                 ))}
               </div>
@@ -253,11 +253,11 @@ export default function ProductPage() {
             {/* Автопополнение */}
             <div className="mt-3 flex items-center gap-2 border-t border-teal-100 pt-3 text-sm">
               <Repeat size={15} className="text-teal-700" />
-              <span className="text-ink-muted">Автопополнение каждые</span>
+              <span className="text-ink-muted">{tt('Автопополнение каждые', 'Avto toʻldirish har')}</span>
               <select className="rounded-md border border-slate-200 px-2 py-1 text-sm outline-none" value={subInterval} onChange={(e) => setSubInterval(Number(e.target.value))}>
-                {[7, 14, 30, 60, 90].map((d) => <option key={d} value={d}>{d} дн</option>)}
+                {[7, 14, 30, 60, 90].map((d) => <option key={d} value={d}>{d} {tt('дн', 'kun')}</option>)}
               </select>
-              <button className="btn-ghost !px-2 !py-1 text-sm text-teal-700" onClick={subscribe}>Подписаться</button>
+              <button className="btn-ghost !px-2 !py-1 text-sm text-teal-700" onClick={subscribe}>{tt('Подписаться', 'Obuna boʻlish')}</button>
             </div>
           </div>
         </div>
@@ -268,26 +268,26 @@ export default function ProductPage() {
         <section className="mt-12">
           <div className="mb-3 flex items-center gap-2">
             <Layers size={20} className="text-teal-700" />
-            <h2 className="font-heading text-2xl font-bold">Предложения поставщиков</h2>
+            <h2 className="font-heading text-2xl font-bold">{tt('Предложения поставщиков', 'Yetkazib beruvchilar takliflari')}</h2>
             <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700">{offers.length}</span>
           </div>
           {/* Баннер доверия / анти-фальсификат */}
           <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-teal-100 bg-teal-50/50 px-4 py-2.5 text-xs text-ink-muted">
-            <span className="flex items-center gap-1.5 font-medium text-teal-700"><ShieldCheck size={14} /> Гарантия подлинности</span>
-            <span className="flex items-center gap-1"><ClipboardCheck size={13} /> рег. номер госреестра</span>
-            <span className="flex items-center gap-1"><CalendarClock size={13} /> контроль срока годности</span>
-            <span className="flex items-center gap-1"><BadgeCheck size={13} /> проверенные сертификаты партии</span>
+            <span className="flex items-center gap-1.5 font-medium text-teal-700"><ShieldCheck size={14} /> {tt('Гарантия подлинности', 'Haqiqiylik kafolati')}</span>
+            <span className="flex items-center gap-1"><ClipboardCheck size={13} /> {tt('рег. номер госреестра', 'davlat reestri reg. raqami')}</span>
+            <span className="flex items-center gap-1"><CalendarClock size={13} /> {tt('контроль срока годности', 'yaroqlilik muddati nazorati')}</span>
+            <span className="flex items-center gap-1"><BadgeCheck size={13} /> {tt('проверенные сертификаты партии', 'partiyaning tekshirilgan sertifikatlari')}</span>
           </div>
           <div className="overflow-x-auto rounded-2xl border border-slate-200">
             <table className="w-full min-w-[720px] text-sm">
               <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-ink-subtle">
                 <tr>
-                  <th className="px-4 py-3 font-medium">Поставщик</th>
-                  <th className="px-4 py-3 font-medium">Цена / ед.</th>
-                  <th className="px-4 py-3 font-medium">Наличие</th>
-                  <th className="px-4 py-3 font-medium">Срок</th>
-                  <th className="px-4 py-3 font-medium">Мин. заказ</th>
-                  <th className="px-4 py-3 font-medium">Гарантии</th>
+                  <th className="px-4 py-3 font-medium">{tt('Поставщик', 'Yetkazib beruvchi')}</th>
+                  <th className="px-4 py-3 font-medium">{tt('Цена / ед.', 'Narx / dona')}</th>
+                  <th className="px-4 py-3 font-medium">{tt('Наличие', 'Mavjudlik')}</th>
+                  <th className="px-4 py-3 font-medium">{tt('Срок', 'Muddat')}</th>
+                  <th className="px-4 py-3 font-medium">{tt('Мин. заказ', 'Min. buyurtma')}</th>
+                  <th className="px-4 py-3 font-medium">{tt('Гарантии', 'Kafolatlar')}</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
@@ -307,7 +307,7 @@ export default function ProductPage() {
                         <div className="flex items-center gap-2">
                           <input type="radio" checked={isSel} onChange={() => selectOffer(o)} className="accent-teal-600" />
                           <Link href={`/suppliers/${o.sellerId}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:text-teal-700">
-                            {o.seller?.company ?? 'Поставщик'}
+                            {o.seller?.company ?? tt('Поставщик', 'Yetkazib beruvchi')}
                           </Link>
                           {o.seller?.isVerified && <ShieldCheck size={14} className="text-teal-700" />}
                         </div>
@@ -321,34 +321,34 @@ export default function ProductPage() {
                         {contractMap[o.id] != null ? (
                           <>
                             <span className="font-heading font-bold text-emerald-700">{formatMoney(contractMap[o.id])}</span>
-                            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">по договору</span>
+                            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">{tt('по договору', 'shartnoma boʻyicha')}</span>
                             <div className="text-xs text-ink-subtle line-through">{formatMoney(o.price)}</div>
                           </>
                         ) : (
                           <>
                             <span className="font-heading font-bold">{formatMoney(o.price)}</span>
                             {isCheapest && offers.length > 1 && (
-                              <span className="ml-2 rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">мин. цена</span>
+                              <span className="ml-2 rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">{tt('мин. цена', 'min. narx')}</span>
                             )}
                             {o.netTermDays ? (
-                              <div className="text-xs text-ink-subtle">отсрочка {o.netTermDays} дн.</div>
+                              <div className="text-xs text-ink-subtle">{tt('отсрочка', 'toʻlov muddati')} {o.netTermDays} {tt('дн.', 'kun')}</div>
                             ) : null}
                           </>
                         )}
                       </td>
                       <td className="px-4 py-3">
                         {o.inStock ? (
-                          <span className="text-teal-700">{o.stockQty != null ? `${o.stockQty} шт` : 'В наличии'}</span>
+                          <span className="text-teal-700">{o.stockQty != null ? `${o.stockQty} ${tt('шт', 'dona')}` : tt('В наличии', 'Mavjud')}</span>
                         ) : (
-                          <span className="text-ink-subtle">Под заказ</span>
+                          <span className="text-ink-subtle">{tt('Под заказ', 'Buyurtma asosida')}</span>
                         )}
                       </td>
-                      <td className="px-4 py-3 text-ink-muted">{o.leadTimeDays != null ? `${o.leadTimeDays} дн.` : '—'}</td>
-                      <td className="px-4 py-3 text-ink-muted">{o.minOrder} шт</td>
+                      <td className="px-4 py-3 text-ink-muted">{o.leadTimeDays != null ? `${o.leadTimeDays} ${tt('дн.', 'kun')}` : '—'}</td>
+                      <td className="px-4 py-3 text-ink-muted">{o.minOrder} {tt('шт', 'dona')}</td>
                       <td className="px-4 py-3">
                         <div className="flex flex-wrap gap-1">
                           {o.certVerified && (
-                            <span className="inline-flex items-center gap-1 rounded bg-teal-50 px-1.5 py-0.5 text-[11px] text-teal-700"><BadgeCheck size={12} /> сертиф.</span>
+                            <span className="inline-flex items-center gap-1 rounded bg-teal-50 px-1.5 py-0.5 text-[11px] text-teal-700"><BadgeCheck size={12} /> {tt('сертиф.', 'sertif.')}</span>
                           )}
                           {o.isRx && (
                             <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-700"><Pill size={12} /> Rx</span>
@@ -373,15 +373,15 @@ export default function ProductPage() {
                                 },
                                 o.minOrder,
                               );
-                              toast.success(`Добавлено: ${o.seller?.company ?? 'поставщик'}`);
+                              toast.success(`${tt('Добавлено', 'Qoʻshildi')}: ${o.seller?.company ?? tt('поставщик', 'yetkazib beruvchi')}`);
                             }}
                           >
-                            <ShoppingCart size={14} /> В корзину
+                            <ShoppingCart size={14} /> {tt('В корзину', 'Savatga')}
                           </button>
                           {currentUser?.role === 'ADMIN' && (
                             <button
-                              aria-label="Верификация"
-                              title={o.certVerified ? 'Снять верификацию' : 'Верифицировать подлинность'}
+                              aria-label={tt('Верификация', 'Tasdiqlash')}
+                              title={o.certVerified ? tt('Снять верификацию', 'Tasdiqlashni bekor qilish') : tt('Верифицировать подлинность', 'Haqiqiyligini tasdiqlash')}
                               className={`grid h-8 w-8 place-items-center rounded-lg ${o.certVerified ? 'text-teal-700 hover:bg-teal-50' : 'text-ink-subtle hover:bg-slate-100'}`}
                               onClick={(e) => { e.stopPropagation(); verifyOffer(o.id, !o.certVerified); }}
                             >
@@ -389,7 +389,7 @@ export default function ProductPage() {
                             </button>
                           )}
                           <button
-                            aria-label="Детали партии"
+                            aria-label={tt('Детали партии', 'Partiya tafsilotlari')}
                             className="grid h-8 w-8 place-items-center rounded-lg text-ink-subtle hover:bg-slate-100"
                             onClick={(e) => { e.stopPropagation(); setExpandedOfferId(isOpen ? null : o.id); }}
                           >
@@ -402,30 +402,30 @@ export default function ProductPage() {
                       <tr className="border-t border-slate-100 bg-slate-50/60">
                         <td colSpan={7} className="px-4 py-3">
                           <div className="grid gap-3 text-xs sm:grid-cols-4">
-                            <Detail icon={<ClipboardCheck size={14} />} label="Госреестр №" value={o.regNumber ?? '—'} />
-                            <Detail icon={<Layers size={14} />} label="Партия" value={o.batchNumber ?? '—'} />
+                            <Detail icon={<ClipboardCheck size={14} />} label={tt('Госреестр №', 'Davlat reestri №')} value={o.regNumber ?? '—'} />
+                            <Detail icon={<Layers size={14} />} label={tt('Партия', 'Partiya')} value={o.batchNumber ?? '—'} />
                             <Detail
                               icon={exp?.expired ? <ShieldAlert size={14} /> : <CalendarClock size={14} />}
-                              label="Годен до"
+                              label={tt('Годен до', 'Yaroqlilik muddati')}
                               value={exp?.label ?? '—'}
                               tone={exp?.expired ? 'danger' : exp?.warn ? 'warn' : 'ok'}
-                              note={exp?.expired ? 'просрочено' : exp?.warn ? 'скоро истекает' : undefined}
+                              note={exp?.expired ? tt('просрочено', 'muddati oʻtgan') : exp?.warn ? tt('скоро истекает', 'tez orada tugaydi') : undefined}
                             />
                             <div>
-                              <div className="mb-1 flex items-center gap-1 text-ink-subtle"><FileText size={14} /> Сертификаты</div>
+                              <div className="mb-1 flex items-center gap-1 text-ink-subtle"><FileText size={14} /> {tt('Сертификаты', 'Sertifikatlar')}</div>
                               {o.certificates?.length ? (
                                 o.certificates.map((c, ci) => (
-                                  <a key={ci} href={c} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="block text-teal-700 hover:underline">Сертификат {ci + 1}</a>
+                                  <a key={ci} href={c} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="block text-teal-700 hover:underline">{tt('Сертификат', 'Sertifikat')} {ci + 1}</a>
                                 ))
                               ) : (
                                 <span className="text-ink-subtle">—</span>
                               )}
-                              {o.certVerified && <div className="mt-1 inline-flex items-center gap-1 text-teal-700"><BadgeCheck size={12} /> проверено платформой</div>}
+                              {o.certVerified && <div className="mt-1 inline-flex items-center gap-1 text-teal-700"><BadgeCheck size={12} /> {tt('проверено платформой', 'platforma tomonidan tekshirilgan')}</div>}
                             </div>
                           </div>
                           {o.isRx && (
                             <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
-                              <Pill size={12} /> Рецептурный препарат — отпуск по ветеринарному рецепту
+                              <Pill size={12} /> {tt('Рецептурный препарат — отпуск по ветеринарному рецепту', 'Retsept boʻyicha preparat — veterinariya retsepti boʻyicha beriladi')}
                             </div>
                           )}
                         </td>
@@ -437,14 +437,14 @@ export default function ProductPage() {
               </tbody>
             </table>
           </div>
-          <p className="mt-2 text-xs text-ink-subtle">Цены указаны за единицу. Итог рассчитывается с учётом объёмных скидок выбранного поставщика.</p>
+          <p className="mt-2 text-xs text-ink-subtle">{tt('Цены указаны за единицу. Итог рассчитывается с учётом объёмных скидок выбранного поставщика.', 'Narxlar bir dona uchun koʻrsatilgan. Jami tanlangan yetkazib beruvchining hajmli chegirmalari hisobga olingan holda hisoblanadi.')}</p>
         </section>
       )}
 
       {/* Reviews */}
       {reviews.length > 0 && (
         <section className="mt-12">
-          <h2 className="mb-4 font-heading text-2xl font-bold">Отзывы</h2>
+          <h2 className="mb-4 font-heading text-2xl font-bold">{tt('Отзывы', 'Sharhlar')}</h2>
           <div className="grid gap-4 md:grid-cols-2">
             {reviews.map((r) => (
               <div key={r.id} className="card p-4">

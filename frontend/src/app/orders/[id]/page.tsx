@@ -12,6 +12,7 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth, useCart } from '@/lib/store';
 import { formatMoney } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n';
 
 const TERM_RU: Record<string, string> = {
   PREPAY: 'Предоплата', NET_TERMS: 'Отсрочка', INSTALLMENT: 'Рассрочка',
@@ -43,9 +44,50 @@ function downloadBlob(data: BlobPart, filename: string, type: string) {
 function OrderContent() {
   const { id } = useParams<{ id: string }>();
   const router = useRouter();
+  const { tt } = useI18n();
   const addToCart = useCart((s) => s.add);
   const [order, setOrder] = useState<any>(null);
   const [notFound, setNotFound] = useState(false);
+
+  // Локализованные ярлыки статусов (RU из модульных словарей + UZ по смыслу).
+  const termLabel: Record<string, string> = {
+    PREPAY: tt('Предоплата', 'Oldindan toʻlov'),
+    NET_TERMS: tt('Отсрочка', 'Muddatli toʻlov'),
+    INSTALLMENT: tt('Рассрочка', 'Boʻlib toʻlash'),
+  };
+  const approvalLabel: Record<string, string> = {
+    PENDING: tt('Ожидает согласования в организации', 'Tashkilotda kelishuv kutilmoqda'),
+    APPROVED: tt('Согласовано', 'Kelishilgan'),
+    REJECTED: tt('Отклонено согласующим', 'Kelishuvchi tomonidan rad etilgan'),
+  };
+  const statusLabel: Record<string, string> = {
+    PENDING: tt('Новый', 'Yangi'),
+    CONFIRMED: tt('Подтверждён', 'Tasdiqlangan'),
+    PROCESSING: tt('В обработке', 'Qayta ishlanmoqda'),
+    SHIPPED: tt('Отгружен', 'Joʻnatilgan'),
+    DELIVERED: tt('Доставлен', 'Yetkazilgan'),
+    CANCELLED: tt('Отменён', 'Bekor qilingan'),
+  };
+  const shipLabel: Record<string, string> = {
+    PENDING: tt('Ожидает', 'Kutilmoqda'),
+    ASSIGNED: tt('Назначен', 'Tayinlangan'),
+    IN_TRANSIT: tt('В пути', 'Yoʻlda'),
+    DELIVERED: tt('Доставлено', 'Yetkazilgan'),
+    RETURNED: tt('Возврат', 'Qaytarilgan'),
+  };
+  const didoxLabel: Record<string, string> = {
+    DRAFT: tt('Черновик', 'Qoralama'),
+    SENT: tt('Отправлен', 'Yuborilgan'),
+    SIGNED: tt('Подписан', 'Imzolangan'),
+    REJECTED: tt('Отклонён', 'Rad etilgan'),
+  };
+  const payLabel: Record<string, string> = {
+    PENDING: tt('Ожидает', 'Kutilmoqda'),
+    PAID: tt('Оплачен', 'Toʻlangan'),
+    FAILED: tt('Ошибка', 'Xatolik'),
+    CANCELLED: tt('Отменён', 'Bekor qilingan'),
+    REFUNDED: tt('Возврат', 'Qaytarilgan'),
+  };
 
   // Повторить заказ — вернуть позиции в корзину (с выбранным ранее оффером).
   const reorder = () => {
@@ -61,7 +103,7 @@ function OrderContent() {
         it.quantity,
       );
     });
-    toast.success('Позиции добавлены в корзину — проверьте актуальные цены');
+    toast.success(tt('Позиции добавлены в корзину — проверьте актуальные цены', 'Pozitsiyalar savatga qoʻshildi — dolzarb narxlarni tekshiring'));
     router.push('/cart');
   };
 
@@ -69,8 +111,8 @@ function OrderContent() {
     api.get(`/orders/${id}`).then((r) => setOrder(r.data)).catch(() => setNotFound(true));
   useEffect(() => { if (id) load(); }, [id]);
 
-  if (notFound) return <div className="py-24 text-center text-ink-subtle">Заказ не найден</div>;
-  if (!order) return <div className="py-24 text-center text-ink-subtle">Загрузка…</div>;
+  if (notFound) return <div className="py-24 text-center text-ink-subtle">{tt('Заказ не найден', 'Buyurtma topilmadi')}</div>;
+  if (!order) return <div className="py-24 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>;
 
   const cancelled = order.status === 'CANCELLED';
   const currentIdx = FLOW.indexOf(order.status);
@@ -83,38 +125,38 @@ function OrderContent() {
   const pay = async (provider: string) => {
     try {
       const { data } = await api.post('/payments', { orderId: id, provider });
-      if (data.mock) { await api.post(`/payments/${data.id}/mock-confirm`); toast.success('Оплата прошла (демо)'); load(); }
+      if (data.mock) { await api.post(`/payments/${data.id}/mock-confirm`); toast.success(tt('Оплата прошла (демо)', 'Toʻlov amalga oshdi (demo)')); load(); }
       else { window.open(data.paymentUrl, '_blank'); }
-    } catch (e: any) { toast.error(e?.response?.data?.message ?? 'Ошибка оплаты'); }
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка оплаты', 'Toʻlov xatosi')); }
   };
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-10">
-      <Link href="/dashboard" className="btn-ghost mb-4"><ArrowLeft size={16} /> Мои заказы</Link>
+      <Link href="/dashboard" className="btn-ghost mb-4"><ArrowLeft size={16} /> {tt('Мои заказы', 'Mening buyurtmalarim')}</Link>
 
       <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <span className="eyebrow">Заказ</span>
+          <span className="eyebrow">{tt('Заказ', 'Buyurtma')}</span>
           <h1 className="mt-2 section-title">#{String(id).slice(0, 8)}</h1>
-          <p className="mt-1 text-sm text-ink-subtle">от {new Date(order.createdAt).toLocaleString('ru-RU')}</p>
+          <p className="mt-1 text-sm text-ink-subtle">{tt('от', 'sana')} {new Date(order.createdAt).toLocaleString('ru-RU')}</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="btn-outline !py-1.5 text-sm" onClick={reorder}><RefreshCw size={15} /> Повторить заказ</button>
+          <button className="btn-outline !py-1.5 text-sm" onClick={reorder}><RefreshCw size={15} /> {tt('Повторить заказ', 'Buyurtmani takrorlash')}</button>
           <span className={`rounded-full px-4 py-1.5 text-sm font-semibold ${cancelled ? 'bg-red-100 text-red-600' : 'bg-teal-100 text-teal-700'}`}>
-            {STATUS_RU[order.status]}
+            {statusLabel[order.status] ?? STATUS_RU[order.status]}
           </span>
         </div>
       </div>
 
       {order.approvalStatus && order.approvalStatus !== 'NONE' && APPROVAL[order.approvalStatus] && (
         <div className={`mb-4 flex items-center gap-2 rounded-xl border px-4 py-3 text-sm font-medium ${APPROVAL[order.approvalStatus].cls}`}>
-          <ShieldCheck size={16} /> {APPROVAL[order.approvalStatus].label}
+          <ShieldCheck size={16} /> {approvalLabel[order.approvalStatus] ?? APPROVAL[order.approvalStatus].label}
         </div>
       )}
 
       {/* Timeline */}
       {cancelled ? (
-        <div className="card flex items-center gap-3 p-5 text-red-600"><XCircle size={20} /> Заказ отменён</div>
+        <div className="card flex items-center gap-3 p-5 text-red-600"><XCircle size={20} /> {tt('Заказ отменён', 'Buyurtma bekor qilingan')}</div>
       ) : (
         <div className="card p-6">
           <div className="flex items-center justify-between">
@@ -130,7 +172,7 @@ function OrderContent() {
                     </span>
                     <div className={`h-0.5 flex-1 ${i === FLOW.length - 1 ? 'opacity-0' : i < currentIdx ? 'bg-teal-500' : 'bg-slate-200'}`} />
                   </div>
-                  <span className={`mt-2 text-xs ${done ? 'font-medium text-ink' : 'text-ink-subtle'}`}>{STATUS_RU[s]}</span>
+                  <span className={`mt-2 text-xs ${done ? 'font-medium text-ink' : 'text-ink-subtle'}`}>{statusLabel[s] ?? STATUS_RU[s]}</span>
                 </div>
               );
             })}
@@ -141,7 +183,7 @@ function OrderContent() {
       <div className="mt-6 grid gap-6 md:grid-cols-[1.4fr_1fr]">
         {/* Items */}
         <div className="card p-5">
-          <h2 className="mb-3 font-semibold">Позиции</h2>
+          <h2 className="mb-3 font-semibold">{tt('Позиции', 'Pozitsiyalar')}</h2>
           <div className="divide-y divide-line">
             {order.items?.map((it: any) => (
               <div key={it.id} className="flex items-center justify-between py-2 text-sm">
@@ -151,9 +193,9 @@ function OrderContent() {
             ))}
           </div>
           <div className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
-            <div className="flex justify-between"><span className="text-ink-muted">Сумма позиций</span><span>{formatMoney(order.subtotal)}</span></div>
+            <div className="flex justify-between"><span className="text-ink-muted">{tt('Сумма позиций', 'Pozitsiyalar summasi')}</span><span>{formatMoney(order.subtotal)}</span></div>
             {order.vetPointsUsed > 0 && <div className="flex justify-between text-secondary"><span>VetPoints</span><span>-{formatMoney(order.vetPointsUsed)}</span></div>}
-            <div className="flex justify-between border-t border-line pt-2 font-heading text-lg font-bold"><span>Итого</span><span className="text-gradient">{formatMoney(order.total)}</span></div>
+            <div className="flex justify-between border-t border-line pt-2 font-heading text-lg font-bold"><span>{tt('Итого', 'Jami')}</span><span className="text-gradient">{formatMoney(order.total)}</span></div>
           </div>
         </div>
 
@@ -161,7 +203,7 @@ function OrderContent() {
         <div className="space-y-4">
           {order.status === 'PENDING' && (
             <div className="card p-5">
-              <h3 className="mb-2 font-semibold">Оплата</h3>
+              <h3 className="mb-2 font-semibold">{tt('Оплата', 'Toʻlov')}</h3>
               <div className="flex gap-2">
                 {['CLICK', 'PAYME', 'UZUM'].map((p) => (
                   <button key={p} className="btn-secondary flex-1 !px-2 !py-1.5 text-xs" onClick={() => pay(p)}>{p === 'CLICK' ? 'Click' : p === 'PAYME' ? 'Payme' : 'UZUM'}</button>
@@ -173,19 +215,19 @@ function OrderContent() {
           {payment && (
             <div className="card flex items-center justify-between p-4 text-sm">
               <span className="flex items-center gap-2 text-ink-muted"><CreditCard size={15} /> {payment.provider}</span>
-              <span className={`rounded-md px-2 py-0.5 text-xs ${payment.status === 'PAID' ? 'bg-teal-100 text-teal-700' : 'bg-amber-100 text-amber-700'}`}>{PAY_RU[payment.status]}</span>
+              <span className={`rounded-md px-2 py-0.5 text-xs ${payment.status === 'PAID' ? 'bg-teal-100 text-teal-700' : 'bg-amber-100 text-amber-700'}`}>{payLabel[payment.status] ?? PAY_RU[payment.status]}</span>
             </div>
           )}
 
           {order.paymentTerm && order.paymentTerm !== 'PREPAY' && (
             <div className="card p-4 text-sm">
-              <div className="mb-1 flex items-center gap-2 font-medium"><CalendarClock size={15} className="text-teal-700" /> {TERM_RU[order.paymentTerm]}</div>
-              {order.dueDate && <div className="text-ink-muted">Оплатить до: <span className="font-medium text-ink">{new Date(order.dueDate).toLocaleDateString('ru-RU')}</span></div>}
+              <div className="mb-1 flex items-center gap-2 font-medium"><CalendarClock size={15} className="text-teal-700" /> {termLabel[order.paymentTerm] ?? TERM_RU[order.paymentTerm]}</div>
+              {order.dueDate && <div className="text-ink-muted">{tt('Оплатить до', 'Toʻlash muddati')}: <span className="font-medium text-ink">{new Date(order.dueDate).toLocaleDateString('ru-RU')}</span></div>}
               {Array.isArray(order.paymentSchedule) && order.paymentSchedule.length > 0 && (
                 <div className="mt-2 space-y-1">
                   {order.paymentSchedule.map((p: any) => (
                     <div key={p.n} className="flex justify-between text-xs">
-                      <span className="text-ink-subtle">Платёж {p.n} · {new Date(p.dueDate).toLocaleDateString('ru-RU')}</span>
+                      <span className="text-ink-subtle">{tt('Платёж', 'Toʻlov')} {p.n} · {new Date(p.dueDate).toLocaleDateString('ru-RU')}</span>
                       <span className="font-medium">{formatMoney(p.amount)}</span>
                     </div>
                   ))}
@@ -196,21 +238,21 @@ function OrderContent() {
 
           <div className="card p-4 text-sm">
             <div className="mb-2 flex items-center justify-between">
-              <span className="flex items-center gap-2 font-medium"><FileText size={15} /> Счёт</span>
-              <button className="btn-ghost !px-2 !py-1 text-xs text-teal-700" onClick={invoice}>Скачать PDF</button>
+              <span className="flex items-center gap-2 font-medium"><FileText size={15} /> {tt('Счёт', 'Hisob-faktura')}</span>
+              <button className="btn-ghost !px-2 !py-1 text-xs text-teal-700" onClick={invoice}>{tt('Скачать PDF', 'PDF yuklab olish')}</button>
             </div>
             {order.invoice?.number && <div className="text-ink-subtle">№ {order.invoice.number}</div>}
             {order.invoice?.didoxStatus && (
-              <div className="mt-1 flex items-center gap-1 text-ink-subtle">ЭДО (Didox): <span className="font-medium text-teal-700">{DIDOX_RU[order.invoice.didoxStatus] ?? order.invoice.didoxStatus}</span></div>
+              <div className="mt-1 flex items-center gap-1 text-ink-subtle">{tt('ЭДО (Didox)', 'EHF (Didox)')}: <span className="font-medium text-teal-700">{didoxLabel[order.invoice.didoxStatus] ?? DIDOX_RU[order.invoice.didoxStatus] ?? order.invoice.didoxStatus}</span></div>
             )}
           </div>
 
           {order.shipment && (
             <div className="card p-4 text-sm">
-              <div className="mb-1 flex items-center gap-2 font-medium"><Truck size={15} /> Доставка</div>
-              <div className="text-ink-muted">Статус: <span className="font-medium text-ink">{SHIP_RU[order.shipment.status]}</span></div>
-              {order.shipment.carrier && <div className="text-ink-muted">Перевозчик: {order.shipment.carrier}</div>}
-              {order.shipment.trackingNumber && <div className="text-ink-muted">Трек: {order.shipment.trackingNumber}</div>}
+              <div className="mb-1 flex items-center gap-2 font-medium"><Truck size={15} /> {tt('Доставка', 'Yetkazib berish')}</div>
+              <div className="text-ink-muted">{tt('Статус', 'Holat')}: <span className="font-medium text-ink">{shipLabel[order.shipment.status] ?? SHIP_RU[order.shipment.status]}</span></div>
+              {order.shipment.carrier && <div className="text-ink-muted">{tt('Перевозчик', 'Tashuvchi')}: {order.shipment.carrier}</div>}
+              {order.shipment.trackingNumber && <div className="text-ink-muted">{tt('Трек', 'Kuzatuv raqami')}: {order.shipment.trackingNumber}</div>}
               {(order.shipment.city || order.shipment.address) && (
                 <div className="mt-1 flex items-start gap-1 text-ink-subtle"><MapPin size={13} className="mt-0.5 shrink-0" />{[order.shipment.city, order.shipment.address].filter(Boolean).join(', ')}</div>
               )}
@@ -225,11 +267,12 @@ function OrderContent() {
 // Any authenticated role may view; backend enforces per-order access.
 export default function OrderPage() {
   const { user, ready } = useAuth();
+  const { tt } = useI18n();
   const router = useRouter();
   useEffect(() => {
     if (ready && !user) router.replace('/login');
   }, [ready, user, router]);
 
-  if (!ready || !user) return <div className="py-24 text-center text-ink-subtle">Загрузка…</div>;
+  if (!ready || !user) return <div className="py-24 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>;
   return <OrderContent />;
 }

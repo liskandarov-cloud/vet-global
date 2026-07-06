@@ -5,6 +5,7 @@ import {
   XAxis, YAxis, Tooltip, CartesianGrid,
 } from 'recharts';
 import { formatMoney } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n';
 
 const TEAL = '#0D9488';
 const PIE_COLORS = ['#0D9488', '#10B981', '#F97316', '#6366F1', '#14B8A6', '#F59E0B', '#8B5CF6'];
@@ -14,11 +15,12 @@ const GRID = 'rgba(148,163,184,0.18)';
 const kfmt = (n: number) => (n >= 1000 ? `${Math.round(n / 1000)}k` : String(n));
 
 function ChartCard({ title, children, empty }: { title: string; children: React.ReactNode; empty?: boolean }) {
+  const { tt } = useI18n();
   return (
     <div className="card p-5">
       <div className="mb-3 font-semibold">{title}</div>
       {empty ? (
-        <div className="grid h-[220px] place-items-center text-sm text-ink-subtle">Пока нет данных</div>
+        <div className="grid h-[220px] place-items-center text-sm text-ink-subtle">{tt('Пока нет данных', 'Hozircha maʼlumot yoʻq')}</div>
       ) : (
         <div style={{ width: '100%', height: 220 }}>{children}</div>
       )}
@@ -32,8 +34,9 @@ const tip = {
 };
 
 export function SpendArea({ data }: { data: { month: string; value: number }[] }) {
+  const { tt } = useI18n();
   return (
-    <ChartCard title="Траты по месяцам" empty={!data?.length}>
+    <ChartCard title={tt('Траты по месяцам', 'Oylik xarajatlar')} empty={!data?.length}>
       <ResponsiveContainer>
         <AreaChart data={data} margin={{ left: -10, right: 8, top: 8 }}>
           <defs>
@@ -54,8 +57,9 @@ export function SpendArea({ data }: { data: { month: string; value: number }[] }
 }
 
 export function CategoryPie({ data }: { data: { name: string; value: number }[] }) {
+  const { tt } = useI18n();
   return (
-    <ChartCard title="Доли категорий" empty={!data?.length}>
+    <ChartCard title={tt('Доли категорий', 'Kategoriyalar ulushi')} empty={!data?.length}>
       <ResponsiveContainer>
         <PieChart>
           <Pie data={data} dataKey="value" nameKey="name" innerRadius={45} outerRadius={80} paddingAngle={2}>
@@ -68,9 +72,10 @@ export function CategoryPie({ data }: { data: { name: string; value: number }[] 
   );
 }
 
-export function WeeklyBars({ data, title = 'Заказы по неделям' }: { data: { week: string; count: number }[]; title?: string }) {
+export function WeeklyBars({ data, title }: { data: { week: string; count: number }[]; title?: string }) {
+  const { tt } = useI18n();
   return (
-    <ChartCard title={title} empty={!data?.length}>
+    <ChartCard title={title ?? tt('Заказы по неделям', 'Haftalik buyurtmalar')} empty={!data?.length}>
       <ResponsiveContainer>
         <BarChart data={data} margin={{ left: -20, right: 8, top: 8 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={GRID} vertical={false} />
@@ -85,9 +90,10 @@ export function WeeklyBars({ data, title = 'Заказы по неделям' }:
 }
 
 export function TopProductsBar({ data }: { data: { name: string; revenue: number }[] }) {
+  const { tt } = useI18n();
   const rows = (data ?? []).map((d) => ({ name: d.name.length > 18 ? d.name.slice(0, 18) + '…' : d.name, revenue: d.revenue }));
   return (
-    <ChartCard title="Топ товаров по обороту" empty={!rows.length}>
+    <ChartCard title={tt('Топ товаров по обороту', 'Aylanma boʻyicha top mahsulotlar')} empty={!rows.length}>
       <ResponsiveContainer>
         <BarChart data={rows} layout="vertical" margin={{ left: 8, right: 12, top: 4, bottom: 4 }}>
           <CartesianGrid strokeDasharray="3 3" stroke={GRID} horizontal={false} />

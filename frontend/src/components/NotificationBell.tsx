@@ -6,6 +6,7 @@ import { Bell, Check, BellRing, BellOff } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
+import { useI18n } from '@/lib/i18n';
 
 interface Note { id: string; title: string; body: string; url?: string | null; read: boolean; createdAt: string }
 
@@ -18,15 +19,16 @@ function urlB64ToUint8(base64: string): Uint8Array {
   return arr;
 }
 
-function timeAgo(iso: string) {
+function timeAgo(iso: string, tt: (ru: string, uz: string) => string) {
   const diff = (Date.now() - new Date(iso).getTime()) / 1000;
-  if (diff < 60) return 'только что';
-  if (diff < 3600) return `${Math.floor(diff / 60)} мин назад`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)} ч назад`;
+  if (diff < 60) return tt('только что', 'hozirgina');
+  if (diff < 3600) return `${Math.floor(diff / 60)} ${tt('мин назад', 'daqiqa oldin')}`;
+  if (diff < 86400) return `${Math.floor(diff / 3600)} ${tt('ч назад', 'soat oldin')}`;
   return new Date(iso).toLocaleDateString('ru-RU');
 }
 
 export function NotificationBell() {
+  const { tt } = useI18n();
   const user = useAuth((s) => s.user);
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -65,7 +67,7 @@ export function NotificationBell() {
   const readAll = () => { api.post('/notifications/read-all').catch(() => {}); setUnread(0); setItems((xs) => xs.map((x) => ({ ...x, read: true }))); };
 
   const togglePush = async () => {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { toast.error('Браузер не поддерживает push'); return; }
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) { toast.error(tt('Браузер не поддерживает push', 'Brauzer push’ni qoʻllab-quvvatlamaydi')); return; }
     try {
       const reg = await navigator.serviceWorker.ready;
       const existing = await reg.pushManager.getSubscription();
@@ -73,23 +75,23 @@ export function NotificationBell() {
         await api.post('/push/unsubscribe', { endpoint: existing.endpoint }).catch(() => {});
         await existing.unsubscribe();
         setPushOn(false);
-        toast.success('Push выключен');
+        toast.success(tt('Push выключен', 'Push oʻchirildi'));
       } else {
         const perm = await Notification.requestPermission();
-        if (perm !== 'granted') { toast.error('Разрешение не выдано'); return; }
+        if (perm !== 'granted') { toast.error(tt('Разрешение не выдано', 'Ruxsat berilmadi')); return; }
         const { data } = await api.get('/push/vapid-public-key');
-        if (!data?.publicKey) { toast.error('Push недоступен'); return; }
+        if (!data?.publicKey) { toast.error(tt('Push недоступен', 'Push mavjud emas')); return; }
         const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(data.publicKey) as BufferSource });
         await api.post('/push/subscribe', sub.toJSON());
         setPushOn(true);
-        toast.success('Push включён');
+        toast.success(tt('Push включён', 'Push yoqildi'));
       }
-    } catch { toast.error('Не удалось'); }
+    } catch { toast.error(tt('Не удалось', 'Amalga oshmadi')); }
   };
 
   return (
     <div ref={boxRef} className="relative">
-      <button onClick={() => { setOpen((o) => !o); if (!open) load(); }} className="btn-ghost relative !px-2" aria-label="Уведомления">
+      <button onClick={() => { setOpen((o) => !o); if (!open) load(); }} className="btn-ghost relative !px-2" aria-label={tt('Уведомления', 'Bildirishnomalar')}>
         <Bell size={18} />
         {unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
@@ -101,13 +103,13 @@ export function NotificationBell() {
       {open && (
         <div className="absolute right-0 top-full z-50 mt-2 w-80 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
           <div className="flex items-center justify-between border-b border-slate-100 px-4 py-2.5">
-            <span className="font-medium">Уведомления</span>
-            {unread > 0 && <button onClick={readAll} className="text-xs text-teal-700 hover:underline">Прочитать все</button>}
+            <span className="font-medium">{tt('Уведомления', 'Bildirishnomalar')}</span>
+            {unread > 0 && <button onClick={readAll} className="text-xs text-teal-700 hover:underline">{tt('Прочитать все', 'Barchasini oʻqilgan')}</button>}
           </div>
 
           <div className="max-h-80 overflow-y-auto">
             {items.length === 0 ? (
-              <div className="px-4 py-8 text-center text-sm text-ink-subtle">Уведомлений нет</div>
+              <div className="px-4 py-8 text-center text-sm text-ink-subtle">{tt('Уведомлений нет', 'Bildirishnomalar yoʻq')}</div>
             ) : (
               items.map((n) => (
                 <button key={n.id} onClick={() => openNote(n)} className={`block w-full border-b border-slate-50 px-4 py-2.5 text-left hover:bg-slate-50 ${!n.read ? 'bg-teal-50/40' : ''}`}>
@@ -116,7 +118,7 @@ export function NotificationBell() {
                     <div className={n.read ? 'pl-4' : ''}>
                       <div className="text-sm font-medium">{n.title}</div>
                       <div className="text-xs text-ink-muted">{n.body}</div>
-                      <div className="mt-0.5 text-[11px] text-ink-subtle">{timeAgo(n.createdAt)}</div>
+                      <div className="mt-0.5 text-[11px] text-ink-subtle">{timeAgo(n.createdAt, tt)}</div>
                     </div>
                   </div>
                 </button>
@@ -126,7 +128,7 @@ export function NotificationBell() {
 
           <button onClick={togglePush} className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-sm hover:bg-slate-50">
             {pushOn ? <BellRing size={15} className="text-teal-700" /> : <BellOff size={15} className="text-ink-subtle" />}
-            {pushOn ? 'Push-уведомления включены' : 'Включить push-уведомления'}
+            {pushOn ? tt('Push-уведомления включены', 'Push bildirishnomalar yoqilgan') : tt('Включить push-уведомления', 'Push bildirishnomalarni yoqish')}
             {pushOn && <Check size={14} className="ml-auto text-teal-700" />}
           </button>
         </div>

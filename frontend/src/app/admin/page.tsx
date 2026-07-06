@@ -7,11 +7,12 @@ import { api } from '@/lib/api';
 import { RoleGuard, StatCard } from '@/components/RoleGuard';
 import { WeeklyBars } from '@/components/Charts';
 import { formatMoney } from '@/lib/utils';
-
-const LEAD_STATUS: Record<string, string> = { NEW: 'Новая', CONTACTED: 'В работе', CLOSED: 'Закрыта' };
-const CONSULT_STATUS: Record<string, string> = { NEW: 'Новая', IN_PROGRESS: 'В работе', ANSWERED: 'Отвечено', CLOSED: 'Закрыта' };
+import { useI18n } from '@/lib/i18n';
 
 function AdminContent() {
+  const { tt } = useI18n();
+  const LEAD_STATUS: Record<string, string> = { NEW: tt('Новая', 'Yangi'), CONTACTED: tt('В работе', 'Jarayonda'), CLOSED: tt('Закрыта', 'Yopilgan') };
+  const CONSULT_STATUS: Record<string, string> = { NEW: tt('Новая', 'Yangi'), IN_PROGRESS: tt('В работе', 'Jarayonda'), ANSWERED: tt('Отвечено', 'Javob berildi'), CLOSED: tt('Закрыта', 'Yopilgan') };
   const [tab, setTab] = useState<'overview' | 'billing' | 'users' | 'reviews' | 'leads' | 'consults' | 'blog'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
@@ -33,9 +34,9 @@ function AdminContent() {
   };
 
   const delPost = async (id: string) => {
-    if (!confirm('Удалить публикацию?')) return;
+    if (!confirm(tt('Удалить публикацию?', 'Nashr oʻchirilsinmi?'))) return;
     await api.delete(`/blog/${id}`);
-    toast.success('Удалено');
+    toast.success(tt('Удалено', 'Oʻchirildi'));
     load();
   };
 
@@ -52,34 +53,34 @@ function AdminContent() {
   const newConsults = consults.filter((c) => c.status === 'NEW').length;
 
   const answerConsult = async (id: string) => {
-    const answer = window.prompt('Ответ клиенту:');
+    const answer = window.prompt(tt('Ответ клиенту:', 'Mijozga javob:'));
     if (answer == null) return;
     await api.patch(`/consultations/${id}`, { answer, status: 'ANSWERED' });
-    toast.success('Ответ сохранён');
+    toast.success(tt('Ответ сохранён', 'Javob saqlandi'));
     load();
   };
 
-  const verify = async (id: string) => { await api.patch(`/admin/users/${id}/verify`, { isVerified: true }); toast.success('Подтверждён'); load(); };
-  const ban = async (id: string, isBanned: boolean) => { await api.patch(`/admin/users/${id}/ban`, { isBanned }); toast.success(isBanned ? 'Заблокирован' : 'Разблокирован'); load(); };
-  const approve = async (id: string) => { await api.patch(`/reviews/${id}/approve`, { isApproved: true }); toast.success('Опубликован'); load(); };
+  const verify = async (id: string) => { await api.patch(`/admin/users/${id}/verify`, { isVerified: true }); toast.success(tt('Подтверждён', 'Tasdiqlandi')); load(); };
+  const ban = async (id: string, isBanned: boolean) => { await api.patch(`/admin/users/${id}/ban`, { isBanned }); toast.success(isBanned ? tt('Заблокирован', 'Bloklandi') : tt('Разблокирован', 'Blokdan chiqarildi')); load(); };
+  const approve = async (id: string) => { await api.patch(`/reviews/${id}/approve`, { isApproved: true }); toast.success(tt('Опубликован', 'Chop etildi')); load(); };
   const setLeadStatus = async (id: string, status: string) => { await api.patch(`/leads/${id}`, { status }); load(); };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6">
-        <span className="eyebrow">Управление</span>
-        <h1 className="mt-3 section-title">Админ-панель</h1>
+        <span className="eyebrow">{tt('Управление', 'Boshqaruv')}</span>
+        <h1 className="mt-3 section-title">{tt('Админ-панель', 'Admin panel')}</h1>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="GMV (оборот)" value={formatMoney(stats?.gmv ?? 0)} accent icon={TrendingUp} />
-        <StatCard label="Комиссия платформы" value={formatMoney(stats?.commission ?? 0)} accent icon={Percent} />
-        <StatCard label="Пользователей" value={String(stats?.totalUsers ?? 0)} icon={Users} />
-        <StatCard label="Заказов" value={String(stats?.totalOrders ?? 0)} icon={ShoppingCart} />
+        <StatCard label={tt('GMV (оборот)', 'GMV (aylanma)')} value={formatMoney(stats?.gmv ?? 0)} accent icon={TrendingUp} />
+        <StatCard label={tt('Комиссия платформы', 'Platforma komissiyasi')} value={formatMoney(stats?.commission ?? 0)} accent icon={Percent} />
+        <StatCard label={tt('Пользователей', 'Foydalanuvchilar')} value={String(stats?.totalUsers ?? 0)} icon={Users} />
+        <StatCard label={tt('Заказов', 'Buyurtmalar')} value={String(stats?.totalOrders ?? 0)} icon={ShoppingCart} />
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['overview', 'Обзор'], ['billing', 'Биллинг'], ['leads', `Заявки${newLeads ? ` (${newLeads})` : ''}`], ['consults', `Консультации${newConsults ? ` (${newConsults})` : ''}`], ['users', `Пользователи${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `Отзывы${reviews.length ? ` (${reviews.length})` : ''}`], ['blog', 'Блог']].map(([k, l]) => (
+        {[['overview', tt('Обзор', 'Umumiy')], ['billing', tt('Биллинг', 'Billing')], ['leads', `${tt('Заявки', 'Arizalar')}${newLeads ? ` (${newLeads})` : ''}`], ['consults', `${tt('Консультации', 'Konsultatsiyalar')}${newConsults ? ` (${newConsults})` : ''}`], ['users', `${tt('Пользователи', 'Foydalanuvchilar')}${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `${tt('Отзывы', 'Sharhlar')}${reviews.length ? ` (${reviews.length})` : ''}`], ['blog', tt('Блог', 'Blog')]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>{l}</button>
         ))}
@@ -88,28 +89,28 @@ function AdminContent() {
       {tab === 'overview' && (
         <>
         <div className="mt-6">
-          <WeeklyBars data={stats?.ordersByWeek ?? []} title="Заказы по неделям (платформа)" />
+          <WeeklyBars data={stats?.ordersByWeek ?? []} title={tt('Заказы по неделям (платформа)', 'Haftalik buyurtmalar (platforma)')} />
         </div>
         <div className="mt-4 grid gap-6 md:grid-cols-2">
           <div className="card p-5">
-            <h3 className="mb-3 font-semibold">Топ поставщиков</h3>
+            <h3 className="mb-3 font-semibold">{tt('Топ поставщиков', 'Top yetkazib beruvchilar')}</h3>
             {(stats?.topSellers ?? []).map((s: any, i: number) => (
               <div key={s.id} className="flex items-center justify-between border-b border-slate-50 py-2 text-sm">
                 <span>{i + 1}. {s.company}</span>
                 <span className="font-semibold">{formatMoney(s.revenue)}</span>
               </div>
             ))}
-            {!stats?.topSellers?.length && <div className="text-sm text-ink-subtle">Нет данных</div>}
+            {!stats?.topSellers?.length && <div className="text-sm text-ink-subtle">{tt('Нет данных', 'Maʼlumot yoʻq')}</div>}
           </div>
           <div className="card p-5">
-            <h3 className="mb-3 font-semibold">Сводка</h3>
+            <h3 className="mb-3 font-semibold">{tt('Сводка', 'Xulosa')}</h3>
             <div className="space-y-2 text-sm">
-              <Row l="Поставщиков" v={stats?.totalSellers ?? 0} />
-              <Row l="Покупателей" v={stats?.totalBuyers ?? 0} />
-              <Row l="Товаров" v={stats?.totalProducts ?? 0} />
-              <Row l="Доставлено заказов" v={stats?.deliveredOrders ?? 0} />
-              <Row l="На модерации (продавцы)" v={stats?.pendingSellers ?? 0} />
-              <Row l="Отзывов на модерации" v={stats?.pendingReviews ?? 0} />
+              <Row l={tt('Поставщиков', 'Yetkazib beruvchilar')} v={stats?.totalSellers ?? 0} />
+              <Row l={tt('Покупателей', 'Xaridorlar')} v={stats?.totalBuyers ?? 0} />
+              <Row l={tt('Товаров', 'Mahsulotlar')} v={stats?.totalProducts ?? 0} />
+              <Row l={tt('Доставлено заказов', 'Yetkazilgan buyurtmalar')} v={stats?.deliveredOrders ?? 0} />
+              <Row l={tt('На модерации (продавцы)', 'Moderatsiyada (sotuvchilar)')} v={stats?.pendingSellers ?? 0} />
+              <Row l={tt('Отзывов на модерации', 'Moderatsiyadagi sharhlar')} v={stats?.pendingReviews ?? 0} />
             </div>
           </div>
         </div>
@@ -119,13 +120,13 @@ function AdminContent() {
       {tab === 'billing' && (
         <div className="mt-6">
           <div className="mb-4 flex items-center justify-between">
-            <div className="text-sm text-ink-muted">Комиссия платформы: <b>{billing?.commissionPercent ?? 12}%</b></div>
+            <div className="text-sm text-ink-muted">{tt('Комиссия платформы', 'Platforma komissiyasi')}: <b>{billing?.commissionPercent ?? 12}%</b></div>
             <button className="btn-secondary" onClick={exportBilling}><Download size={16} /> Excel</button>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-ink-subtle">
-                <tr className="border-b border-slate-100"><th className="py-2">Поставщик</th><th>Заказов</th><th>Оборот</th><th>Комиссия</th><th>К выплате</th></tr>
+                <tr className="border-b border-slate-100"><th className="py-2">{tt('Поставщик', 'Yetkazib beruvchi')}</th><th>{tt('Заказов', 'Buyurtmalar')}</th><th>{tt('Оборот', 'Aylanma')}</th><th>{tt('Комиссия', 'Komissiya')}</th><th>{tt('К выплате', 'Toʻlovga')}</th></tr>
               </thead>
               <tbody>
                 {(billing?.rows ?? []).map((r: any) => (
@@ -139,7 +140,7 @@ function AdminContent() {
                 ))}
                 {billing?.totals && billing.rows.length > 0 && (
                   <tr className="border-t-2 border-slate-200 font-bold">
-                    <td className="py-2">Итого</td>
+                    <td className="py-2">{tt('Итого', 'Jami')}</td>
                     <td></td>
                     <td>{formatMoney(billing.totals.revenue)}</td>
                     <td className="text-secondary">{formatMoney(billing.totals.commission)}</td>
@@ -148,7 +149,7 @@ function AdminContent() {
                 )}
               </tbody>
             </table>
-            {!billing?.rows?.length && <div className="py-10 text-center text-ink-subtle">Нет данных</div>}
+            {!billing?.rows?.length && <div className="py-10 text-center text-ink-subtle">{tt('Нет данных', 'Maʼlumot yoʻq')}</div>}
           </div>
         </div>
       )}
@@ -157,7 +158,7 @@ function AdminContent() {
         <div className="mt-6 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-ink-subtle">
-              <tr className="border-b border-slate-100"><th className="py-2">Имя</th><th>Роль</th><th>Компания</th><th>Статус</th><th></th></tr>
+              <tr className="border-b border-slate-100"><th className="py-2">{tt('Имя', 'Ism')}</th><th>{tt('Роль', 'Rol')}</th><th>{tt('Компания', 'Kompaniya')}</th><th>{tt('Статус', 'Holat')}</th><th></th></tr>
             </thead>
             <tbody>
               {users.map((u) => (
@@ -166,9 +167,9 @@ function AdminContent() {
                   <td>{u.role}</td>
                   <td>{u.company ?? '—'}</td>
                   <td>
-                    {u.isBanned ? <span className="text-red-500">Заблокирован</span>
-                      : u.isVerified ? <span className="inline-flex items-center gap-1 text-teal-700"><ShieldCheck size={14} />Проверен</span>
-                      : <span className="text-amber-600">Не проверен</span>}
+                    {u.isBanned ? <span className="text-red-500">{tt('Заблокирован', 'Bloklangan')}</span>
+                      : u.isVerified ? <span className="inline-flex items-center gap-1 text-teal-700"><ShieldCheck size={14} />{tt('Проверен', 'Tasdiqlangan')}</span>
+                      : <span className="text-amber-600">{tt('Не проверен', 'Tasdiqlanmagan')}</span>}
                   </td>
                   <td className="flex gap-2 py-2">
                     {!u.isVerified && u.role === 'SELLER' && <button className="btn-ghost !px-2 !py-1 text-teal-700" onClick={() => verify(u.id)}><Check size={15} /></button>}
@@ -189,10 +190,10 @@ function AdminContent() {
                 <div className="font-medium">{r.buyerName} · {r.rating}★</div>
                 <p className="text-sm text-ink-muted">{r.comment}</p>
               </div>
-              <button className="btn-primary !px-3 !py-2" onClick={() => approve(r.id)}><Check size={16} /> Одобрить</button>
+              <button className="btn-primary !px-3 !py-2" onClick={() => approve(r.id)}><Check size={16} /> {tt('Одобрить', 'Maʼqullash')}</button>
             </div>
           ))}
-          {reviews.length === 0 && <div className="py-10 text-center text-ink-subtle">Нет отзывов на модерации</div>}
+          {reviews.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Нет отзывов на модерации', 'Moderatsiyada sharhlar yoʻq')}</div>}
         </div>
       )}
 
@@ -200,13 +201,13 @@ function AdminContent() {
         <div className="mt-6 overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-ink-subtle">
-              <tr className="border-b border-slate-100"><th className="py-2">Дата</th><th>Источник</th><th>Клиент</th><th>Товар</th><th>Статус</th></tr>
+              <tr className="border-b border-slate-100"><th className="py-2">{tt('Дата', 'Sana')}</th><th>{tt('Источник', 'Manba')}</th><th>{tt('Клиент', 'Mijoz')}</th><th>{tt('Товар', 'Mahsulot')}</th><th>{tt('Статус', 'Holat')}</th></tr>
             </thead>
             <tbody>
               {leads.map((l) => (
                 <tr key={l.id} className="border-b border-slate-50">
                   <td className="py-2">{new Date(l.createdAt).toLocaleDateString('ru-RU')}</td>
-                  <td><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs">{l.source === 'TELEGRAM' ? 'Telegram' : 'Сайт'}</span></td>
+                  <td><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs">{l.source === 'TELEGRAM' ? 'Telegram' : tt('Сайт', 'Sayt')}</span></td>
                   <td>{l.fullName}<div className="text-xs text-ink-subtle">{l.phone}</div></td>
                   <td>{l.productName ?? '—'}{l.quantity ? ` × ${l.quantity}` : ''}</td>
                   <td>
@@ -218,7 +219,7 @@ function AdminContent() {
               ))}
             </tbody>
           </table>
-          {leads.length === 0 && <div className="py-10 text-center text-ink-subtle">Заявок пока нет</div>}
+          {leads.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Заявок пока нет', 'Hozircha arizalar yoʻq')}</div>}
         </div>
       )}
 
@@ -230,31 +231,31 @@ function AdminContent() {
                 <div>
                   <div className="font-medium">{c.topic} <span className="text-xs text-ink-subtle">· {c.fullName} ({c.phone})</span></div>
                   <p className="mt-1 text-sm text-ink-muted">{c.message}</p>
-                  {c.answer && <p className="mt-2 rounded-lg bg-teal-50 p-2 text-sm text-teal-800"><b>Ответ:</b> {c.answer}</p>}
+                  {c.answer && <p className="mt-2 rounded-lg bg-teal-50 p-2 text-sm text-teal-800"><b>{tt('Ответ:', 'Javob:')}</b> {c.answer}</p>}
                 </div>
                 <div className="flex flex-col items-end gap-2">
                   <span className={`rounded-md px-2 py-0.5 text-xs ${c.status === 'ANSWERED' ? 'bg-teal-100 text-teal-700' : c.status === 'NEW' ? 'bg-amber-100 text-amber-700' : 'bg-slate-100'}`}>
                     {CONSULT_STATUS[c.status]}
                   </span>
-                  <button className="btn-secondary !px-3 !py-1.5 text-xs" onClick={() => answerConsult(c.id)}>Ответить</button>
+                  <button className="btn-secondary !px-3 !py-1.5 text-xs" onClick={() => answerConsult(c.id)}>{tt('Ответить', 'Javob berish')}</button>
                 </div>
               </div>
             </div>
           ))}
-          {consults.length === 0 && <div className="py-10 text-center text-ink-subtle">Консультаций пока нет</div>}
+          {consults.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Консультаций пока нет', 'Hozircha konsultatsiyalar yoʻq')}</div>}
         </div>
       )}
 
       {tab === 'blog' && (
         <div className="mt-6">
           <button className="btn-primary mb-4" onClick={() => setEditingPost({ title: '', titleUz: '', content: '', contentUz: '', excerpt: '', image: '', published: true })}>
-            <Plus size={16} /> Новая публикация
+            <Plus size={16} /> {tt('Новая публикация', 'Yangi nashr')}
           </button>
           <div className="space-y-2">
             {posts.map((p) => (
               <div key={p.id} className="card flex items-center justify-between p-4">
                 <div>
-                  <div className="font-medium">{p.title} {!p.published && <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700">черновик</span>}</div>
+                  <div className="font-medium">{p.title} {!p.published && <span className="ml-2 rounded bg-amber-100 px-2 py-0.5 text-xs text-amber-700">{tt('черновик', 'qoralama')}</span>}</div>
                   <div className="text-xs text-ink-subtle">{new Date(p.createdAt).toLocaleDateString('ru-RU')} · /{p.slug}</div>
                 </div>
                 <div className="flex gap-1">
@@ -263,7 +264,7 @@ function AdminContent() {
                 </div>
               </div>
             ))}
-            {posts.length === 0 && <div className="py-10 text-center text-ink-subtle">Публикаций пока нет</div>}
+            {posts.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Публикаций пока нет', 'Hozircha nashrlar yoʻq')}</div>}
           </div>
         </div>
       )}
@@ -276,12 +277,13 @@ function AdminContent() {
 }
 
 function BlogForm({ initial, onClose, onSaved }: any) {
+  const { tt } = useI18n();
   const [form, setForm] = useState<any>(initial);
   const [saving, setSaving] = useState(false);
   const upd = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
 
   const save = async () => {
-    if (!form.title || !form.content) return toast.error('Заголовок и текст обязательны');
+    if (!form.title || !form.content) return toast.error(tt('Заголовок и текст обязательны', 'Sarlavha va matn majburiy'));
     setSaving(true);
     const payload = {
       title: form.title,
@@ -295,10 +297,10 @@ function BlogForm({ initial, onClose, onSaved }: any) {
     try {
       if (form.id) await api.patch(`/blog/${form.id}`, payload);
       else await api.post('/blog', payload);
-      toast.success('Сохранено');
+      toast.success(tt('Сохранено', 'Saqlandi'));
       onSaved();
     } catch (e: any) {
-      toast.error(e?.response?.data?.message ?? 'Ошибка');
+      toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
     } finally {
       setSaving(false);
     }
@@ -308,24 +310,24 @@ function BlogForm({ initial, onClose, onSaved }: any) {
     <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/40 p-4">
       <div className="my-8 w-full max-w-2xl rounded-2xl bg-white p-6">
         <div className="mb-4 flex items-center justify-between">
-          <h3 className="font-heading text-xl font-bold">{form.id ? 'Редактировать' : 'Новая'} публикация</h3>
+          <h3 className="font-heading text-xl font-bold">{form.id ? tt('Редактировать публикацию', 'Nashrni tahrirlash') : tt('Новая публикация', 'Yangi nashr')}</h3>
           <button onClick={onClose}><X size={20} /></button>
         </div>
         <div className="space-y-3">
-          <input className="input" placeholder="Заголовок (RU)" value={form.title} onChange={(e) => upd('title', e.target.value)} />
-          <input className="input" placeholder="Заголовок (UZ)" value={form.titleUz} onChange={(e) => upd('titleUz', e.target.value)} />
-          <input className="input" placeholder="Краткое описание (excerpt)" value={form.excerpt} onChange={(e) => upd('excerpt', e.target.value)} />
-          <input className="input" placeholder="URL картинки" value={form.image} onChange={(e) => upd('image', e.target.value)} />
-          <textarea className="input !h-auto py-2" rows={6} placeholder="Текст (RU)" value={form.content} onChange={(e) => upd('content', e.target.value)} />
-          <textarea className="input !h-auto py-2" rows={4} placeholder="Текст (UZ)" value={form.contentUz} onChange={(e) => upd('contentUz', e.target.value)} />
+          <input className="input" placeholder={tt('Заголовок (RU)', 'Sarlavha (RU)')} value={form.title} onChange={(e) => upd('title', e.target.value)} />
+          <input className="input" placeholder={tt('Заголовок (UZ)', 'Sarlavha (UZ)')} value={form.titleUz} onChange={(e) => upd('titleUz', e.target.value)} />
+          <input className="input" placeholder={tt('Краткое описание (excerpt)', 'Qisqacha tavsif (excerpt)')} value={form.excerpt} onChange={(e) => upd('excerpt', e.target.value)} />
+          <input className="input" placeholder={tt('URL картинки', 'Rasm URL')} value={form.image} onChange={(e) => upd('image', e.target.value)} />
+          <textarea className="input !h-auto py-2" rows={6} placeholder={tt('Текст (RU)', 'Matn (RU)')} value={form.content} onChange={(e) => upd('content', e.target.value)} />
+          <textarea className="input !h-auto py-2" rows={4} placeholder={tt('Текст (UZ)', 'Matn (UZ)')} value={form.contentUz} onChange={(e) => upd('contentUz', e.target.value)} />
           <label className="flex items-center gap-2 text-sm">
             <input type="checkbox" checked={form.published} onChange={(e) => upd('published', e.target.checked)} className="h-4 w-4 accent-teal-600" />
-            Опубликовать
+            {tt('Опубликовать', 'Chop etish')}
           </label>
         </div>
         <div className="mt-6 flex justify-end gap-2">
-          <button className="btn-secondary" onClick={onClose}>Отмена</button>
-          <button className="btn-primary" disabled={saving} onClick={save}>{saving ? '…' : 'Сохранить'}</button>
+          <button className="btn-secondary" onClick={onClose}>{tt('Отмена', 'Bekor qilish')}</button>
+          <button className="btn-primary" disabled={saving} onClick={save}>{saving ? '…' : tt('Сохранить', 'Saqlash')}</button>
         </div>
       </div>
     </div>

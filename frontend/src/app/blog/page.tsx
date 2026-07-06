@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { api } from '@/lib/api';
+import { useI18n } from '@/lib/i18n';
 
 interface Post {
   id: string;
@@ -14,6 +15,7 @@ interface Post {
 }
 
 export default function BlogPage() {
+  const { tt } = useI18n();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -28,14 +30,14 @@ export default function BlogPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-10">
       <div className="mb-8">
-        <span className="eyebrow">Экспертиза</span>
-        <h1 className="mt-3 section-title">Блог и новости</h1>
+        <span className="eyebrow">{tt('Экспертиза', 'Ekspertiza')}</span>
+        <h1 className="mt-3 section-title">{tt('Блог и новости', 'Blog va yangiliklar')}</h1>
       </div>
 
       {loading ? (
-        <div className="py-20 text-center text-ink-subtle">Загрузка…</div>
+        <div className="py-20 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>
       ) : posts.length === 0 ? (
-        <div className="py-20 text-center text-ink-subtle">Публикаций пока нет</div>
+        <div className="py-20 text-center text-ink-subtle">{tt('Публикаций пока нет', 'Hozircha eʼlonlar yoʻq')}</div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
           {posts.map((p) => (

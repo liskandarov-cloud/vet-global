@@ -11,7 +11,7 @@ import { useI18n } from '@/lib/i18n';
 import { formatMoney } from '@/lib/utils';
 
 export default function CartPage() {
-  const { t } = useI18n();
+  const { t, tt } = useI18n();
   const router = useRouter();
   const { items, setQty, remove, clear, subtotal } = useCart();
   const { user, refresh } = useAuth();
@@ -51,7 +51,7 @@ export default function CartPage() {
 
   const checkout = async () => {
     if (!user && (!name || !phone)) {
-      toast.error('Укажите имя и телефон');
+      toast.error(tt('Укажите имя и телефон', 'Ism va telefonni kiriting'));
       return;
     }
     setSubmitting(true);
@@ -72,7 +72,7 @@ export default function CartPage() {
       toast.success(t('cart.orderPlaced'));
       router.push(user ? '/dashboard' : '/');
     } catch (e: any) {
-      toast.error(e?.response?.data?.message ?? 'Ошибка оформления');
+      toast.error(e?.response?.data?.message ?? tt('Ошибка оформления', 'Rasmiylashtirishda xatolik'));
     } finally {
       setSubmitting(false);
     }
@@ -91,7 +91,7 @@ export default function CartPage() {
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <div className="mb-6">
-        <span className="eyebrow">Оформление</span>
+        <span className="eyebrow">{tt('Оформление', 'Rasmiylashtirish')}</span>
         <h1 className="mt-3 section-title">{t('cart.title')}</h1>
       </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
@@ -132,13 +132,13 @@ export default function CartPage() {
 
           {user && counterparties.length > 0 && (
             <div>
-              <label className="mb-1 block text-sm font-medium">Контрагент (юрлицо)</label>
+              <label className="mb-1 block text-sm font-medium">{tt('Контрагент (юрлицо)', 'Kontragent (yuridik shaxs)')}</label>
               <select className="input" value={counterpartyId} onChange={(e) => setCounterpartyId(e.target.value)}>
                 {counterparties.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name} · ИНН {c.inn}</option>
+                  <option key={c.id} value={c.id}>{c.name} · {tt('ИНН', 'INN')} {c.inn}</option>
                 ))}
               </select>
-              <Link href="/dashboard" className="mt-1 inline-block text-xs text-teal-700 hover:underline">Управлять реквизитами</Link>
+              <Link href="/dashboard" className="mt-1 inline-block text-xs text-teal-700 hover:underline">{tt('Управлять реквизитами', 'Rekvizitlarni boshqarish')}</Link>
             </div>
           )}
 
@@ -152,20 +152,20 @@ export default function CartPage() {
           {user && (
             <div className="border-t border-slate-100 pt-3">
               <div className="mb-2 flex items-center gap-1.5 text-sm font-medium">
-                <CreditCard size={15} className="text-teal-700" /> Условия оплаты
+                <CreditCard size={15} className="text-teal-700" /> {tt('Условия оплаты', 'Toʻlov shartlari')}
               </div>
               <div className="grid grid-cols-3 gap-1.5 text-xs">
                 {([
-                  ['PREPAY', 'Предоплата'],
-                  ['NET_TERMS', 'Отсрочка'],
-                  ['INSTALLMENT', 'Рассрочка'],
-                ] as const).map(([val, label]) => (
+                  ['PREPAY', 'Предоплата', 'Oldindan toʻlov'],
+                  ['NET_TERMS', 'Отсрочка', 'Toʻlov muddati'],
+                  ['INSTALLMENT', 'Рассрочка', 'Boʻlib toʻlash'],
+                ] as const).map(([val, label, labelUz]) => (
                   <button
                     key={val}
                     onClick={() => setPaymentTerm(val)}
                     className={`rounded-lg border px-2 py-2 font-medium transition-colors ${paymentTerm === val ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-ink-muted hover:border-teal-200'}`}
                   >
-                    {label}
+                    {tt(label, labelUz)}
                   </button>
                 ))}
               </div>
@@ -180,7 +180,7 @@ export default function CartPage() {
               {paymentTerm === 'INSTALLMENT' && (
                 <div className="mt-2 flex gap-1.5">
                   {[3, 6, 12].map((n) => (
-                    <button key={n} onClick={() => setInstallments(n)} className={`flex-1 rounded-md border px-2 py-1 text-xs ${installments === n ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-ink-muted'}`}>{n} мес</button>
+                    <button key={n} onClick={() => setInstallments(n)} className={`flex-1 rounded-md border px-2 py-1 text-xs ${installments === n ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-ink-muted'}`}>{n} {tt('мес', 'oy')}</button>
                   ))}
                 </div>
               )}
@@ -188,14 +188,14 @@ export default function CartPage() {
               {paymentTerm !== 'PREPAY' && (
                 <div className="mt-2 text-xs">
                   <div className="flex items-center gap-1 text-ink-subtle">
-                    <CalendarClock size={12} /> Доступный лимит: <b className={creditShort ? 'text-red-500' : 'text-teal-700'}>{formatMoney(available)}</b>
+                    <CalendarClock size={12} /> {tt('Доступный лимит', 'Mavjud limit')}: <b className={creditShort ? 'text-red-500' : 'text-teal-700'}>{formatMoney(available)}</b>
                   </div>
                   {paymentTerm === 'INSTALLMENT' && !creditShort && (
-                    <div className="mt-0.5 text-ink-subtle">≈ {formatMoney(Math.ceil(total / installments))} / мес × {installments}</div>
+                    <div className="mt-0.5 text-ink-subtle">≈ {formatMoney(Math.ceil(total / installments))} / {tt('мес', 'oy')} × {installments}</div>
                   )}
                   {creditShort && (
                     <div className="mt-1 rounded-md bg-red-50 px-2 py-1 text-red-600">
-                      Не хватает лимита. <Link href="/financing" className="font-medium underline">Оформить финансирование</Link>
+                      {tt('Не хватает лимита.', 'Limit yetarli emas.')} <Link href="/financing" className="font-medium underline">{tt('Оформить финансирование', 'Moliyalashtirishni rasmiylashtirish')}</Link>
                     </div>
                   )}
                 </div>
@@ -209,22 +209,22 @@ export default function CartPage() {
               <div className="flex justify-between text-secondary"><span>VetPoints</span><span>-{formatMoney(pointsToUse)}</span></div>
             )}
             <div className="flex items-baseline justify-between border-t border-slate-100 pt-2 font-heading font-bold">
-              <span className="text-lg">Итого</span><span className="text-2xl text-gradient">{formatMoney(total)}</span>
+              <span className="text-lg">{tt('Итого', 'Jami')}</span><span className="text-2xl text-gradient">{formatMoney(total)}</span>
             </div>
           </div>
 
           {needsApproval && (
             <div className="rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
-              Сумма превышает ваш лимит ({formatMoney(org?.myLimit ?? 0)}) — заказ уйдёт на согласование в организации.
+              {tt('Сумма превышает ваш лимит', 'Summa sizning limitingizdan oshib ketdi')} ({formatMoney(org?.myLimit ?? 0)}) — {tt('заказ уйдёт на согласование в организации.', 'buyurtma tashkilotda kelishuvga yuboriladi.')}
             </div>
           )}
 
           <button className="btn-primary w-full" disabled={submitting} onClick={checkout}>
-            {submitting ? '…' : needsApproval ? 'Оформить на согласование' : t('cart.checkout')}
+            {submitting ? '…' : needsApproval ? tt('Оформить на согласование', 'Kelishuvga rasmiylashtirish') : t('cart.checkout')}
           </button>
           <div className="flex items-center justify-center gap-4 text-xs text-ink-subtle">
-            <span className="flex items-center gap-1"><ShieldCheck size={13} className="text-teal-700" /> Безопасно</span>
-            <span className="flex items-center gap-1"><FileText size={13} className="text-teal-700" /> Счёт PDF</span>
+            <span className="flex items-center gap-1"><ShieldCheck size={13} className="text-teal-700" /> {tt('Безопасно', 'Xavfsiz')}</span>
+            <span className="flex items-center gap-1"><FileText size={13} className="text-teal-700" /> {tt('Счёт PDF', 'PDF hisob-faktura')}</span>
           </div>
         </div>
       </div>

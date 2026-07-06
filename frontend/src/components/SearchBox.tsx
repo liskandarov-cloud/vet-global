@@ -6,6 +6,7 @@ import Link from 'next/link';
 import { Search, X } from 'lucide-react';
 import { api } from '@/lib/api';
 import { formatMoney } from '@/lib/utils';
+import { useI18n } from '@/lib/i18n';
 
 interface Hit {
   id: string;
@@ -17,6 +18,7 @@ interface Hit {
 }
 
 export function SearchBox({ className = '' }: { className?: string }) {
+  const { tt } = useI18n();
   const router = useRouter();
   const [q, setQ] = useState('');
   const [hits, setHits] = useState<Hit[]>([]);
@@ -61,7 +63,7 @@ export function SearchBox({ className = '' }: { className?: string }) {
           onChange={(e) => setQ(e.target.value)}
           onFocus={() => hits.length && setOpen(true)}
           onKeyDown={(e) => e.key === 'Enter' && submit()}
-          placeholder="Поиск товаров…"
+          placeholder={tt('Поиск товаров…', 'Mahsulot qidirish…')}
           className="h-9 w-full bg-transparent text-sm outline-none"
         />
         {q && <button onClick={() => { setQ(''); setHits([]); }} className="text-ink-subtle hover:text-ink"><X size={14} /></button>}
@@ -70,9 +72,9 @@ export function SearchBox({ className = '' }: { className?: string }) {
       {open && (q.trim().length >= 2) && (
         <div className="absolute left-0 right-0 top-full z-50 mt-1 overflow-hidden rounded-xl border border-slate-200 bg-white shadow-lg">
           {loading && hits.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-ink-subtle">Поиск…</div>
+            <div className="px-4 py-3 text-sm text-ink-subtle">{tt('Поиск…', 'Qidirish…')}</div>
           ) : hits.length === 0 ? (
-            <div className="px-4 py-3 text-sm text-ink-subtle">Ничего не найдено</div>
+            <div className="px-4 py-3 text-sm text-ink-subtle">{tt('Ничего не найдено', 'Hech narsa topilmadi')}</div>
           ) : (
             <>
               {hits.map((h) => (
@@ -88,7 +90,7 @@ export function SearchBox({ className = '' }: { className?: string }) {
                 </Link>
               ))}
               <button onClick={submit} className="block w-full border-t border-slate-100 px-3 py-2 text-left text-sm font-medium text-teal-700 hover:bg-slate-50">
-                Все результаты по «{q}» →
+                {tt('Все результаты по', 'Barcha natijalar')} «{q}» →
               </button>
             </>
           )}

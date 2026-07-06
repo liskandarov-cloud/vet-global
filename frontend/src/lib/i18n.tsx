@@ -63,9 +63,11 @@ interface I18nCtx {
   lang: Lang;
   setLang: (l: Lang) => void;
   t: (key: string) => string;
+  // Инлайновый перевод: tt('русский', 'oʻzbekcha') — узбекский пишется прямо у строки.
+  tt: (ru: string, uz: string) => string;
 }
 
-const Ctx = createContext<I18nCtx>({ lang: 'ru', setLang: () => {}, t: (k) => k });
+const Ctx = createContext<I18nCtx>({ lang: 'ru', setLang: () => {}, t: (k) => k, tt: (ru) => ru });
 
 export function I18nProvider({ children }: { children: ReactNode }) {
   const [lang, setLangState] = useState<Lang>('ru');
@@ -81,8 +83,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   };
 
   const t = (key: string) => DICT[key]?.[lang] ?? key;
+  const tt = (ru: string, uz: string) => (lang === 'uz' ? uz : ru);
 
-  return <Ctx.Provider value={{ lang, setLang, t }}>{children}</Ctx.Provider>;
+  return <Ctx.Provider value={{ lang, setLang, t, tt }}>{children}</Ctx.Provider>;
 }
 
 export const useI18n = () => useContext(Ctx);

@@ -8,17 +8,17 @@ import { useI18n } from '@/lib/i18n';
 import { Category, Product } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 
-const ANIMALS = [
-  { value: 'POULTRY', label: 'Птица' },
-  { value: 'CATTLE', label: 'КРС' },
-  { value: 'SMALL_RUMINANTS', label: 'МРС' },
-  { value: 'HORSES', label: 'Лошади' },
-  { value: 'PETS', label: 'Кошки/собаки' },
-  { value: 'OTHER', label: 'Прочее' },
+const ANIMALS: { value: string; label: [string, string] }[] = [
+  { value: 'POULTRY', label: ['Птица', 'Parranda'] },
+  { value: 'CATTLE', label: ['КРС', 'Yirik shoxli mol'] },
+  { value: 'SMALL_RUMINANTS', label: ['МРС', 'Mayda shoxli mol'] },
+  { value: 'HORSES', label: ['Лошади', 'Otlar'] },
+  { value: 'PETS', label: ['Кошки/собаки', 'Mushuklar/itlar'] },
+  { value: 'OTHER', label: ['Прочее', 'Boshqa'] },
 ];
 
 function CatalogInner() {
-  const { t, lang } = useI18n();
+  const { t, tt, lang } = useI18n();
   const params = useSearchParams();
 
   const [categories, setCategories] = useState<Category[]>([]);
@@ -83,7 +83,7 @@ function CatalogInner() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
       <div className="mb-6">
-        <span className="eyebrow">Каталог</span>
+        <span className="eyebrow">{tt('Каталог', 'Katalog')}</span>
         <h1 className="mt-3 section-title">{t('catalog.title')}</h1>
       </div>
 
@@ -129,7 +129,7 @@ function CatalogInner() {
             <select className="input" value={animalType} onChange={(e) => setAnimalType(e.target.value)}>
               <option value="">{t('catalog.all')}</option>
               {ANIMALS.map((a) => (
-                <option key={a.value} value={a.value}>{a.label}</option>
+                <option key={a.value} value={a.value}>{tt(a.label[0], a.label[1])}</option>
               ))}
             </select>
           </div>
@@ -145,12 +145,12 @@ function CatalogInner() {
         {/* Results */}
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <span className="text-sm text-ink-muted">{total} товаров</span>
+            <span className="text-sm text-ink-muted">{total} {tt('товаров', 'mahsulot')}</span>
             <select className="input !h-9 !w-auto" value={sort} onChange={(e) => setSort(e.target.value)}>
-              <option value="newest">Сначала новые</option>
-              <option value="price_asc">Дешевле</option>
-              <option value="price_desc">Дороже</option>
-              <option value="rating">По рейтингу</option>
+              <option value="newest">{tt('Сначала новые', 'Avval yangilari')}</option>
+              <option value="price_asc">{tt('Дешевле', 'Arzonroq')}</option>
+              <option value="price_desc">{tt('Дороже', 'Qimmatroq')}</option>
+              <option value="rating">{tt('По рейтингу', 'Reyting boʻyicha')}</option>
             </select>
           </div>
 
@@ -173,7 +173,7 @@ function CatalogInner() {
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 className="btn-secondary !px-3 !py-1.5 text-sm disabled:opacity-40"
               >
-                Назад
+                {tt('Назад', 'Orqaga')}
               </button>
               {Array.from({ length: totalPages }).map((_, i) => (
                 <button
@@ -189,7 +189,7 @@ function CatalogInner() {
                 onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                 className="btn-secondary !px-3 !py-1.5 text-sm disabled:opacity-40"
               >
-                Вперёд
+                {tt('Вперёд', 'Oldinga')}
               </button>
             </div>
           )}
@@ -200,8 +200,9 @@ function CatalogInner() {
 }
 
 export default function CatalogPage() {
+  const { tt } = useI18n();
   return (
-    <Suspense fallback={<div className="py-20 text-center text-ink-subtle">Загрузка…</div>}>
+    <Suspense fallback={<div className="py-20 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>}>
       <CatalogInner />
     </Suspense>
   );

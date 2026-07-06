@@ -4,9 +4,11 @@ import { useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
 import { useAuth } from '@/lib/store';
+import { useI18n } from '@/lib/i18n';
 
 export function RoleGuard({ role, children }: { role: 'BUYER' | 'SELLER' | 'ADMIN'; children: ReactNode }) {
   const { user, ready } = useAuth();
+  const { tt } = useI18n();
   const router = useRouter();
 
   useEffect(() => {
@@ -16,7 +18,7 @@ export function RoleGuard({ role, children }: { role: 'BUYER' | 'SELLER' | 'ADMI
   }, [ready, user, role, router]);
 
   if (!ready || !user || user.role !== role) {
-    return <div className="py-24 text-center text-ink-subtle">Загрузка…</div>;
+    return <div className="py-24 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>;
   }
   return <>{children}</>;
 }
