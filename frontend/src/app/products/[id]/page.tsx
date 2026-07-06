@@ -43,6 +43,7 @@ export default function ProductPage() {
   const [selectedOfferId, setSelectedOfferId] = useState<string | null>(null);
   const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
   const [subInterval, setSubInterval] = useState(30);
+  const [contractMap, setContractMap] = useState<Record<string, number>>({});
 
   useEffect(() => {
     if (!id) return;
@@ -56,6 +57,22 @@ export default function ProductPage() {
     api.get('/reviews', { params: { productId: id } }).then((r) => setReviews(r.data)).catch(() => {});
   }, [id]);
 
+  // Контрактные (персональные) цены покупателя по этому товару.
+  useEffect(() => {
+    if (!id || !currentUser) { setContractMap({}); return; }
+    api.get('/contract-prices/my', { params: { productId: id } }).then((r) => {
+      const m: Record<string, number> = {};
+      (r.data ?? []).forEach((c: any) => { m[c.offerId] = c.price; });
+      setContractMap(m);
+    }).catch(() => {});
+  }, [id, currentUser]);
+
+  // Эффективная цена оффера с учётом договорной цены (перебивает объёмные скидки).
+  const effPrice = (o: Offer | undefined, quantity: number): number | undefined => {
+    if (!o) return undefined;
+    return contractMap[o.id] != null ? contractMap[o.id] : unitPriceForQty(o, quantity);
+  };
+
   if (!product) return <div className="py-24 text-center text-ink-subtle">{t('common.loading')}</div>;
 
   const offers = product.offers ?? [];
@@ -63,7 +80,8 @@ export default function ProductPage() {
     offers.find((o) => o.id === selectedOfferId) ?? offers[0];
 
   // Эффективная цена/минимум/наличие: из выбранного оффера, иначе — базовый товар (легаси).
-  const unitPrice = unitPriceForQty(selectedOffer, qty) ?? product.price;
+  const unitPrice = effPrice(selectedOffer, qty) ?? product.price;
+  const hasContract = selectedOffer ? contractMap[selectedOffer.id] != null : false;
   const effMinOrder = selectedOffer?.minOrder ?? product.minOrder;
   const effInStock = selectedOffer ? selectedOffer.inStock : product.inStock;
   const sellerName = selectedOffer?.seller?.company ?? product.seller?.company ?? undefined;
@@ -198,7 +216,12 @@ export default function ProductPage() {
                 {offers.length > 1 && ` · всего ${offers.length} поставщиков`}
               </div>
             )}
-            <div className="font-heading text-4xl font-extrabold text-gradient">{formatMoney(unitPrice)}</div>
+            <div className="flex items-center gap-2">
+              <div className="font-heading text-4xl font-extrabold text-gradient">{formatMoney(unitPrice)}</div>
+              {hasContract && (
+                <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">по договору</span>
+              )}
+            </div>
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-subtle">
               <span>{t('product.minOrder')}: {effMinOrder}</span>
               <span>·</span>
@@ -295,13 +318,23 @@ export default function ProductPage() {
                         )}
                       </td>
                       <td className="px-4 py-3">
-                        <span className="font-heading font-bold">{formatMoney(o.price)}</span>
-                        {isCheapest && offers.length > 1 && (
-                          <span className="ml-2 rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">мин. цена</span>
+                        {contractMap[o.id] != null ? (
+                          <>
+                            <span className="font-heading font-bold text-emerald-700">{formatMoney(contractMap[o.id])}</span>
+                            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">по договору</span>
+                            <div className="text-xs text-ink-subtle line-through">{formatMoney(o.price)}</div>
+                          </>
+                        ) : (
+                          <>
+                            <span className="font-heading font-bold">{formatMoney(o.price)}</span>
+                            {isCheapest && offers.length > 1 && (
+                              <span className="ml-2 rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">мин. цена</span>
+                            )}
+                            {o.netTermDays ? (
+                              <div className="text-xs text-ink-subtle">отсрочка {o.netTermDays} дн.</div>
+                            ) : null}
+                          </>
                         )}
-                        {o.netTermDays ? (
-                          <div className="text-xs text-ink-subtle">отсрочка {o.netTermDays} дн.</div>
-                        ) : null}
                       </td>
                       <td className="px-4 py-3">
                         {o.inStock ? (
@@ -334,7 +367,7 @@ export default function ProductPage() {
                                   offerId: o.id,
                                   sellerName: o.seller?.company ?? undefined,
                                   name: product.name,
-                                  price: unitPriceForQty(o, o.minOrder) ?? o.price,
+                                  price: effPrice(o, o.minOrder) ?? o.price,
                                   minOrder: o.minOrder,
                                   image: images[0],
                                 },

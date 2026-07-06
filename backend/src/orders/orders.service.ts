@@ -38,6 +38,19 @@ export class OrdersService {
       : [];
     const offerMap = new Map(offers.map((o) => [o.id, o]));
 
+    // Контрактные (персональные) цены покупателя для этих офферов.
+    const contractMap = new Map<string, number>();
+    if (user && offerIds.length) {
+      const contracts = await this.prisma.contractPrice.findMany({
+        where: {
+          buyerId: user.id,
+          offerId: { in: offerIds },
+          OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }],
+        },
+      });
+      for (const c of contracts) contractMap.set(c.offerId, Number(c.price));
+    }
+
     const items = dto.items.map((i) => {
       const p = products.find((x) => x.id === i.productId)!;
 
@@ -57,7 +70,9 @@ export class OrdersService {
         }
         sellerId = o.sellerId;
         minOrder = o.minOrder;
-        unitPrice = unitPriceForQty(o, i.quantity);
+        // Договорная цена перебивает прайс и объёмные скидки; иначе — цена оффера.
+        const contract = contractMap.get(o.id);
+        unitPrice = contract != null ? contract : unitPriceForQty(o, i.quantity);
         offerId = o.id;
       }
 

@@ -24,6 +24,7 @@ import { RfqModule } from './rfq/rfq.module';
 import { BrandsModule } from './brands/brands.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { SubscriptionsModule } from './subscriptions/subscriptions.module';
+import { ContractPricesModule } from './contract-prices/contract-prices.module';
 import { OrdersModule } from './orders/orders.module';
 import { VetpointsModule } from './vetpoints/vetpoints.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -59,6 +60,7 @@ import { AppController } from './app.controller';
     BrandsModule,
     OrganizationsModule,
     SubscriptionsModule,
+    ContractPricesModule,
     OrdersModule,
     VetpointsModule,
     ReviewsModule,
