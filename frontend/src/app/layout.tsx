@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   description:
     'Оптовые закупки ветеринарных препаратов, вакцин, кормов и добавок напрямую от проверенных поставщиков. Прозрачно, удобно, безопасно.',
   appleWebApp: { capable: true, title: 'VetGlobal', statusBarStyle: 'default' },
-  icons: { icon: '/icon.svg', apple: '/icon.svg' },
+  icons: { icon: '/icon.svg', apple: '/icon-192.png' },
 };
 
 export const viewport: Viewport = {
