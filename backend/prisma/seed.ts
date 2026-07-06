@@ -246,11 +246,27 @@ async function main() {
     ['Перчатки ректальные (уп. 50 шт)', 'other', 38000, null, 'Mercator Medical', 'Полиэтилен', AnimalType.CATTLE, 10, false, false],
   ];
 
-  // Миграция переименованных товаров (без удаления — сохраняет ссылки заказов).
+  // Миграция переименованных товаров + схлопывание дубликатов.
   await prisma.product.updateMany({
     where: { name: 'Пробиотик Ветом 1.1' },
     data: { name: 'Пробиотик для птицы' },
   });
+  {
+    const dups = await prisma.product.findMany({
+      where: { name: 'Пробиотик для птицы' },
+      orderBy: { createdAt: 'asc' },
+    });
+    // Удаляем лишние дубли, если на них нет позиций заказов (офферы удалятся каскадно).
+    for (const d of dups.slice(1)) {
+      const used = await prisma.orderItem.count({ where: { productId: d.id } });
+      if (used === 0) await prisma.product.delete({ where: { id: d.id } });
+    }
+    // Гарантируем корректное фото/бренд у оставшихся одноимённых.
+    await prisma.product.updateMany({
+      where: { name: 'Пробиотик для птицы' },
+      data: { images: ['/products/feed.jpg'], manufacturer: 'Alltech' },
+    });
+  }
 
   let extra = 0;
   for (const [name, slug, price, sub, man, form, animal, mo, promo, isNewFlag] of EXTRA) {
