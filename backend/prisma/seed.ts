@@ -216,6 +216,12 @@ async function main() {
     ['Перчатки смотровые (100шт)', 'other', 42000, null, 'Mercator Medical', 'Нитрил', AnimalType.OTHER, 5, false, false],
   ];
 
+  // Миграция переименованных товаров (без удаления — сохраняет ссылки заказов).
+  await prisma.product.updateMany({
+    where: { name: 'Пробиотик Ветом 1.1' },
+    data: { name: 'Пробиотик для птицы' },
+  });
+
   let extra = 0;
   for (const [name, slug, price, sub, man, form, animal, mo, promo, isNewFlag] of EXTRA) {
     if (!catMap[slug]) continue;
