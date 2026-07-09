@@ -28,6 +28,7 @@ import { ContractPricesModule } from './contract-prices/contract-prices.module';
 import { MarketModule } from './market/market.module';
 import { PushModule } from './push/push.module';
 import { AlertsModule } from './alerts/alerts.module';
+import { MaintenanceModule } from './maintenance/maintenance.module';
 import { OrdersModule } from './orders/orders.module';
 import { VetpointsModule } from './vetpoints/vetpoints.module';
 import { ReviewsModule } from './reviews/reviews.module';
@@ -67,6 +68,7 @@ import { AppController } from './app.controller';
     MarketModule,
     PushModule,
     AlertsModule,
+    MaintenanceModule,
     OrdersModule,
     VetpointsModule,
     ReviewsModule,

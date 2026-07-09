@@ -46,6 +46,14 @@ async function main() {
   });
   console.log(`✓ admin: ${adminEmail} / ${adminPassword}`);
 
+  // Прод-режим: категории + админ уже созданы. Демо-данные не генерируем,
+  // если явно не задан SEED_DEMO=true (иначе платформа реального клиента
+  // засорялась бы демо-товарами при каждом рестарте).
+  if (process.env.SEED_DEMO !== 'true') {
+    console.log('SEED_DEMO не задан — прод-режим: демо-данные пропущены.');
+    return;
+  }
+
   // ── Demo sellers (products are distributed across them) ──
   // Демо-дистрибьюторы (вымышленные компании; распространяют реальные мировые бренды).
   const SELLERS = [
