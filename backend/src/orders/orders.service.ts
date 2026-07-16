@@ -7,6 +7,7 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PdfService } from '../documents/pdf.service';
 import { NotificationsService } from '../mail/notifications.service';
 import { AlertsService } from '../alerts/alerts.service';
+import { unitPriceForQty } from '../common/pricing';
 
 @Injectable()
 export class OrdersService {
@@ -396,13 +397,3 @@ const ORDER_STATUS_RU: Record<string, string> = {
   CANCELLED: 'Отменён',
 };
 
-// Цена за единицу с учётом объёмных скидок оффера (price breaks).
-export function unitPriceForQty(offer: any, qty: number): number {
-  const base = Number(offer.price);
-  const breaks = Array.isArray(offer.priceBreaks) ? offer.priceBreaks : [];
-  let price = base;
-  for (const b of [...breaks].sort((a, b) => Number(a.minQty) - Number(b.minQty))) {
-    if (b && qty >= Number(b.minQty)) price = Number(b.price);
-  }
-  return price;
-}

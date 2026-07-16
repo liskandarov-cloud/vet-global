@@ -3,6 +3,7 @@ import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOfferDto, UpdateOfferDto } from './dto/offer.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { packPriceOf } from '../common/pricing';
 
 @Injectable()
 export class OffersService {
@@ -95,17 +96,18 @@ export class OffersService {
   }
 
   // Пересчёт денормализованных агрегатов товара (minPrice / offersCount).
+  // minPrice — минимальная цена ЕДИНИЦЫ ЗАКАЗА (упаковки/флакона) с учётом фасовки,
+  // поэтому считаем в JS: SQL-агрегат не умеет price * packSize / priceUnitQty.
   async recalcProduct(productId: string) {
-    const agg = await this.prisma.offer.aggregate({
+    const offers = await this.prisma.offer.findMany({
       where: { productId, isActive: true, inStock: true },
-      _min: { price: true },
-      _count: { _all: true },
     });
+    const prices = offers.map((o) => packPriceOf(o));
     await this.prisma.product.update({
       where: { id: productId },
       data: {
-        minPrice: agg._min.price ?? null,
-        offersCount: agg._count._all,
+        minPrice: prices.length ? Math.min(...prices) : null,
+        offersCount: offers.length,
       },
     });
   }
@@ -118,6 +120,10 @@ export class OffersService {
     if (dto.stockQty !== undefined) d.stockQty = dto.stockQty;
     if (dto.minOrder != null) d.minOrder = dto.minOrder;
     if (dto.leadTimeDays !== undefined) d.leadTimeDays = dto.leadTimeDays;
+    if (dto.priceUnit !== undefined) d.priceUnit = dto.priceUnit;
+    if (dto.priceUnitQty != null) d.priceUnitQty = dto.priceUnitQty;
+    if (dto.packSize != null) d.packSize = dto.packSize;
+    if (dto.packUnit !== undefined) d.packUnit = dto.packUnit;
     if (dto.priceBreaks !== undefined)
       d.priceBreaks = (dto.priceBreaks as unknown as Prisma.InputJsonValue) ?? Prisma.JsonNull;
     if (dto.netTermDays !== undefined) d.netTermDays = dto.netTermDays;

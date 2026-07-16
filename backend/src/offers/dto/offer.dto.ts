@@ -56,6 +56,29 @@ export class CreateOfferDto {
   @Min(0)
   leadTimeDays?: number;
 
+  // ── Фасовка ──
+  @ApiPropertyOptional({ description: 'За что указана цена: «1000 доз», «1 л»' })
+  @IsOptional()
+  @IsString()
+  priceUnit?: string;
+
+  @ApiPropertyOptional({ description: 'Числовой размер единицы цены (1000 для «за 1000 доз»)' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  priceUnitQty?: number;
+
+  @ApiPropertyOptional({ description: 'Сколько базовых единиц в упаковке (доз во флаконе)' })
+  @IsOptional()
+  @IsInt()
+  @Min(1)
+  packSize?: number;
+
+  @ApiPropertyOptional({ description: 'Единица заказа: «флакон», «канистра», «шт»' })
+  @IsOptional()
+  @IsString()
+  packUnit?: string;
+
   // Блок 2 — оптовые механики
   @ApiPropertyOptional({ type: [PriceBreakDto] })
   @IsOptional()

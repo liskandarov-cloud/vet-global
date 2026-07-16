@@ -218,10 +218,14 @@ export default function ProductPage() {
             )}
             <div className="flex items-center gap-2">
               <div className="font-heading text-4xl font-extrabold text-gradient">{formatMoney(unitPrice)}</div>
+              {selectedOffer?.packUnit && <span className="text-sm text-ink-subtle">/ {selectedOffer.packUnit}</span>}
               {hasContract && (
                 <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">{tt('по договору', 'shartnoma boʻyicha')}</span>
               )}
             </div>
+            {selectedOffer && packNote(selectedOffer) && !hasContract && (
+              <div className="mt-1 text-xs text-ink-subtle">{packNote(selectedOffer)}</div>
+            )}
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-subtle">
               <span>{t('product.minOrder')}: {effMinOrder}</span>
               <span>·</span>
@@ -322,14 +326,16 @@ export default function ProductPage() {
                           <>
                             <span className="font-heading font-bold text-emerald-700">{formatMoney(contractMap[o.id])}</span>
                             <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">{tt('по договору', 'shartnoma boʻyicha')}</span>
-                            <div className="text-xs text-ink-subtle line-through">{formatMoney(o.price)}</div>
+                            <div className="text-xs text-ink-subtle line-through">{formatMoney(o.packPrice ?? o.price)}</div>
                           </>
                         ) : (
                           <>
-                            <span className="font-heading font-bold">{formatMoney(o.price)}</span>
+                            <span className="font-heading font-bold">{formatMoney(o.packPrice ?? o.price)}</span>
+                            {o.packUnit && <span className="ml-1 text-xs text-ink-subtle">/ {o.packUnit}</span>}
                             {isCheapest && offers.length > 1 && (
                               <span className="ml-2 rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">{tt('мин. цена', 'min. narx')}</span>
                             )}
+                            {packNote(o) && <div className="text-xs text-ink-subtle">{packNote(o)}</div>}
                             {o.netTermDays ? (
                               <div className="text-xs text-ink-subtle">{tt('отсрочка', 'toʻlov muddati')} {o.netTermDays} {tt('дн.', 'kun')}</div>
                             ) : null}
@@ -505,13 +511,25 @@ function Detail({
   );
 }
 
-// Цена за единицу выбранного оффера с учётом объёмных скидок (price breaks).
+// Цена за ЕДИНИЦУ ЗАКАЗА (флакон/канистра) с учётом фасовки и объёмных скидок.
+// packPrice приходит с бэкенда: price * packSize / priceUnitQty.
 function unitPriceForQty(offer: Offer | undefined, qty: number): number | undefined {
   if (!offer) return undefined;
-  let price = offer.price;
+  let price = offer.packPrice ?? offer.price;
   const breaks = [...(offer.priceBreaks ?? [])].sort((a, b) => a.minQty - b.minQty);
   for (const b of breaks) if (qty >= b.minQty) price = b.price;
   return price;
+}
+
+// Подпись-расшифровка фасовки: «22 400 сум за 1000 доз · флакон 5000 доз».
+function packNote(o: Offer): string | null {
+  const qty = o.priceUnitQty ?? 1;
+  const size = o.packSize ?? 1;
+  if (qty === 1 && size === 1) return null;
+  const noun = (o.priceUnit ?? '').replace(/^[\d\s]+/, '').trim(); // «1000 доз» → «доз»
+  const base = `${Math.round(o.price).toLocaleString('ru-RU')} сум${o.priceUnit ? ` за ${o.priceUnit}` : ''}`;
+  const pack = [o.packUnit, size.toLocaleString('ru-RU'), noun].filter(Boolean).join(' ');
+  return pack ? `${base} · ${pack}` : base;
 }
 
 function Row({ label, value }: { label: string; value: string }) {

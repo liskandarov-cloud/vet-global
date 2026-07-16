@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Plus, Pencil, Trash2, Search, X, ShieldCheck } from 'lucide-react';
+import { Plus, Pencil, Trash2, Search, X, ShieldCheck, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { formatMoney } from '@/lib/utils';
@@ -21,6 +21,10 @@ interface MyOffer {
   regNumber?: string | null;
   isRx: boolean;
   certVerified: boolean;
+  priceUnit?: string | null;
+  priceUnitQty?: number;
+  packSize?: number;
+  packUnit?: string | null;
   product?: { id: string; name: string; images?: string[] };
 }
 
@@ -36,6 +40,11 @@ const EMPTY = {
   expiryDate: '',
   regNumber: '',
   isRx: false,
+  // Фасовка: по умолчанию 1:1 — цена как есть за единицу заказа.
+  priceUnit: '',
+  priceUnitQty: 1,
+  packSize: 1,
+  packUnit: '',
 };
 
 export function SellerOffersPanel() {
@@ -61,6 +70,10 @@ export function SellerOffersPanel() {
       expiryDate: o.expiryDate ? o.expiryDate.slice(0, 10) : '',
       regNumber: o.regNumber ?? '',
       isRx: o.isRx,
+      priceUnit: o.priceUnit ?? '',
+      priceUnitQty: o.priceUnitQty ?? 1,
+      packSize: o.packSize ?? 1,
+      packUnit: o.packUnit ?? '',
     });
     setProductName(o.product?.name ?? '');
   };
@@ -87,6 +100,10 @@ export function SellerOffersPanel() {
       expiryDate: editing.expiryDate || undefined,
       regNumber: editing.regNumber || undefined,
       isRx: editing.isRx,
+      priceUnit: editing.priceUnit || undefined,
+      priceUnitQty: Number(editing.priceUnitQty) || 1,
+      packSize: Number(editing.packSize) || 1,
+      packUnit: editing.packUnit || undefined,
     };
     try {
       if (editing.id) await api.put(`/offers/${editing.id}`, payload);
@@ -198,6 +215,38 @@ function OfferEditor({ editing, setEditing, productName, setProductName, onClose
             {editing.productId && <div className="mt-1 text-xs text-teal-700">{tt('Выбрано', 'Tanlandi')}: {productName}</div>}
           </div>
         )}
+
+        {/* Фасовка: для вакцин цена в прайсе за 1000 доз, а продаётся флакон на 3000/5000 доз. */}
+        <div className="mb-3 rounded-lg border border-amber-200 bg-amber-50/60 p-3">
+          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-amber-800">
+            <Package size={14} /> {tt('Фасовка (для вакцин и мерных товаров)', 'Qadoqlash (vaksinalar va oʻlchov mahsulotlari uchun)')}
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={tt('Цена указана за', 'Narx koʻrsatilgan')}>
+              <input className="input" placeholder={tt('напр. 1000 доз', 'masalan, 1000 doza')} value={editing.priceUnit} onChange={(e) => set('priceUnit', e.target.value)} />
+            </Field>
+            <Field label={tt('Это скольких единиц', 'Bu necha birlik')}>
+              <input className="input" type="number" min={1} value={editing.priceUnitQty} onChange={(e) => set('priceUnitQty', e.target.value)} />
+            </Field>
+            <Field label={tt('Единица заказа', 'Buyurtma birligi')}>
+              <input className="input" placeholder={tt('напр. флакон', 'masalan, flakon')} value={editing.packUnit} onChange={(e) => set('packUnit', e.target.value)} />
+            </Field>
+            <Field label={tt('Единиц в упаковке', 'Qadoqdagi birliklar')}>
+              <input className="input" type="number" min={1} value={editing.packSize} onChange={(e) => set('packSize', e.target.value)} />
+            </Field>
+          </div>
+          <div className="mt-2 text-xs text-amber-900">
+            {Number(editing.priceUnitQty) > 1 || Number(editing.packSize) > 1 ? (
+              <>
+                {tt('Покупатель увидит', 'Xaridor koʻradi')}:{' '}
+                <b>{formatMoney(Math.round((Number(editing.price) * (Number(editing.packSize) || 1)) / (Number(editing.priceUnitQty) || 1)))}</b>
+                {editing.packUnit ? ` / ${editing.packUnit}` : ''} — {tt('заказ считается в этих единицах', 'buyurtma shu birliklarda hisoblanadi')}
+              </>
+            ) : (
+              tt('Оставьте 1 и 1, если цена уже за единицу заказа (канистра, литр, упаковка).', 'Agar narx allaqachon buyurtma birligi uchun boʻlsa, 1 va 1 qoldiring.')
+            )}
+          </div>
+        </div>
 
         <div className="grid grid-cols-2 gap-3">
           <Field label={tt('Цена, сум', 'Narx, soʻm')}><input className="input" type="number" value={editing.price} onChange={(e) => set('price', e.target.value)} /></Field>

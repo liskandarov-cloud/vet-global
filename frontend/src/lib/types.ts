@@ -26,6 +26,12 @@ export interface Offer {
   productId: string;
   sellerId: string;
   price: number;
+  // Фасовка: цена может быть за базовую единицу («1000 доз»), а продаётся упаковка (флакон).
+  priceUnit?: string | null;
+  priceUnitQty?: number;
+  packSize?: number;
+  packUnit?: string | null;
+  packPrice?: number; // цена единицы заказа с учётом фасовки (считает бэкенд)
   inStock: boolean;
   stockQty?: number | null;
   minOrder: number;
