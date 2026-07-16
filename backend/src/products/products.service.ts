@@ -3,7 +3,7 @@ import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
-import { packPriceOf } from '../common/pricing';
+import { serializeOffer } from '../common/pricing';
 
 @Injectable()
 export class ProductsService {
@@ -196,15 +196,4 @@ export class ProductsService {
       ...(Array.isArray(p.offers) ? { offers: p.offers.map((o: any) => serializeOffer(o)) } : {}),
     };
   }
-}
-
-// Приведение Decimal-полей оффера к number для клиента.
-// packPrice — цена единицы заказа (флакон/канистра) с учётом фасовки.
-export function serializeOffer(o: any) {
-  return {
-    ...o,
-    price: Number(o.price),
-    packPrice: packPriceOf(o),
-    ...(o.seller ? { seller: { ...o.seller, rating: Number(o.seller.rating ?? 0) } } : {}),
-  };
 }

@@ -12,6 +12,18 @@ export function packPriceOf(offer: any): number {
   return Math.round((base * packSize) / unitQty);
 }
 
+// Приведение оффера к виду для клиента: Decimal → number, packPrice — цена
+// единицы заказа с учётом фасовки. Живёт здесь, а не в products.service,
+// чтобы все эндпоинты отдавали офферы одинаково.
+export function serializeOffer(o: any) {
+  return {
+    ...o,
+    price: Number(o.price),
+    packPrice: packPriceOf(o),
+    ...(o.seller ? { seller: { ...o.seller, rating: Number(o.seller.rating ?? 0) } } : {}),
+  };
+}
+
 // Цена за единицу заказа с учётом объёмных скидок (price breaks).
 // Скидки задаются абсолютной ценой за единицу заказа и перебивают расчёт фасовки.
 export function unitPriceForQty(offer: any, qty: number): number {

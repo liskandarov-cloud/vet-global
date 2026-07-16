@@ -3,7 +3,7 @@ import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOfferDto, UpdateOfferDto } from './dto/offer.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
-import { packPriceOf } from '../common/pricing';
+import { packPriceOf, serializeOffer } from '../common/pricing';
 
 @Injectable()
 export class OffersService {
@@ -28,16 +28,18 @@ export class OffersService {
         },
       },
     });
-    return offers;
+    // Сортируем по цене единицы заказа: при разной фасовке порядок по price из БД неверен.
+    return offers.map(serializeOffer).sort((a, b) => a.packPrice - b.packPrice);
   }
 
   // Предложения текущего продавца (кабинет).
-  listMine(user: AuthUser) {
-    return this.prisma.offer.findMany({
+  async listMine(user: AuthUser) {
+    const offers = await this.prisma.offer.findMany({
       where: { sellerId: user.id },
       orderBy: { updatedAt: 'desc' },
       include: { product: { select: { id: true, name: true, images: true } } },
     });
+    return offers.map(serializeOffer);
   }
 
   async create(dto: CreateOfferDto, user: AuthUser) {
@@ -57,7 +59,7 @@ export class OffersService {
     });
 
     await this.recalcProduct(dto.productId);
-    return offer;
+    return serializeOffer(offer);
   }
 
   async update(id: string, dto: UpdateOfferDto, user: AuthUser) {
@@ -71,7 +73,7 @@ export class OffersService {
       data: this.toData(dto) as Prisma.OfferUncheckedUpdateInput,
     });
     await this.recalcProduct(offer.productId);
-    return updated;
+    return serializeOffer(updated);
   }
 
   async remove(id: string, user: AuthUser) {
