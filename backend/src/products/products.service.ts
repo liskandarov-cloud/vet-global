@@ -108,7 +108,31 @@ export class ProductsService {
     const product = await this.prisma.product.create({
       data: { ...dto, sellerId: user.id },
     });
+    await this.upsertBrand(product.manufacturer);
     return this.serialize(product);
+  }
+
+  // Бренд-производитель заводится автоматически из поля manufacturer товара,
+  // чтобы страница «Бренды» наполнялась без ручного администрирования.
+  async upsertBrand(manufacturer?: string | null) {
+    const name = manufacturer?.trim();
+    if (!name) return;
+    const slug =
+      name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') ||
+      `brand-${name.length}`;
+    const existing = await this.prisma.brand.findUnique({ where: { name } });
+    if (existing) return;
+    // На случай коллизии слага добавляем суффикс.
+    const slugTaken = await this.prisma.brand.findUnique({ where: { slug } });
+    await this.prisma.brand
+      .create({
+        data: {
+          name,
+          slug: slugTaken ? `${slug}-${Date.now().toString(36).slice(-4)}` : slug,
+          description: `${name} — производитель ветеринарной продукции.`,
+        },
+      })
+      .catch(() => undefined);
   }
 
   async update(id: string, dto: UpdateProductDto, user: AuthUser) {
@@ -117,6 +141,7 @@ export class ProductsService {
     this.assertOwnership(existing.sellerId, user);
     await this.assertCategory(dto.categoryId);
     const product = await this.prisma.product.update({ where: { id }, data: dto });
+    await this.upsertBrand(product.manufacturer);
     return this.serialize(product);
   }
 

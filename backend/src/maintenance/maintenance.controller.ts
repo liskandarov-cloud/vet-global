@@ -25,4 +25,10 @@ export class MaintenanceController {
   provisionUser(@Body() dto: ProvisionUserDto) {
     return this.maintenance.provisionUser(dto);
   }
+
+  // Синхронизация брендов с производителями товаров.
+  @Post('sync-brands')
+  syncBrands() {
+    return this.maintenance.syncBrands();
+  }
 }

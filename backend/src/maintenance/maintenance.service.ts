@@ -50,6 +50,38 @@ export class MaintenanceService {
     return { id: user.id, email: user.email, role: user.role, fullName: user.fullName };
   }
 
+  // Синхронизация брендов с производителями товаров: создаёт недостающие,
+  // удаляет бренды, у которых не осталось товаров.
+  async syncBrands() {
+    const mans = await this.prisma.product.findMany({
+      where: { manufacturer: { not: null } },
+      distinct: ['manufacturer'],
+      select: { manufacturer: true },
+    });
+    const names = mans.map((m) => m.manufacturer!).filter(Boolean);
+    await this.prisma.brand.deleteMany({ where: { name: { notIn: names } } });
+
+    let created = 0;
+    for (const name of names) {
+      const exists = await this.prisma.brand.findUnique({ where: { name } });
+      if (exists) continue;
+      const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'brand';
+      const taken = await this.prisma.brand.findUnique({ where: { slug: base } });
+      await this.prisma.brand
+        .create({
+          data: {
+            name,
+            slug: taken ? `${base}-${created}` : base,
+            description: `${name} — производитель ветеринарной продукции.`,
+          },
+        })
+        .catch(() => undefined);
+      created++;
+    }
+    const total = await this.prisma.brand.count();
+    return { ok: true, created, total, manufacturers: names };
+  }
+
   // Полная очистка демо/операционных данных. Сохраняются: категории (таксономия)
   // и учётные записи администраторов. Требуется точная фраза подтверждения.
   async reset(confirm: string) {
