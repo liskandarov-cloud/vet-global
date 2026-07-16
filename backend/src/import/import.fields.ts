@@ -169,6 +169,15 @@ export const IMPORT_FIELDS: ImportField[] = [
     synonyms: ['рецептурный', 'порецепту', 'рецепт', 'retsept', 'isrx', 'rx', 'prescription'],
   },
   {
+    key: 'images',
+    label: 'Ссылки на фото',
+    labelUz: 'Foto havolalari',
+    type: 'string',
+    hint: 'Через запятую, http(s)://… Пусто — фото не трогаем',
+    hintUz: 'Vergul bilan, http(s)://… Boʻsh — foto oʻzgarmaydi',
+    synonyms: ['ссылканафото', 'фото', 'фотография', 'изображение', 'картинка', 'foto', 'rasm', 'image', 'images', 'photo', 'picture'],
+  },
+  {
     key: 'externalId',
     label: 'Код (1С / ERP)',
     labelUz: 'Kod (1C / ERP)',

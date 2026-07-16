@@ -46,6 +46,17 @@ export class ImportController {
     res.send(buf);
   }
 
+  // Выгрузка своего прайса (заполненный, в формате импорта): скачал → поправил → залил.
+  @Get('export')
+  async exportMine(@CurrentUser() user: AuthUser, @Res() res: Response) {
+    const buf = await this.service.exportMine(user);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': 'attachment; filename="vetglobal-my-price.xlsx"',
+    });
+    res.send(buf);
+  }
+
   // Шаг 1 — разбор файла и автосопоставление колонок.
   @Post('parse')
   @ApiConsumes('multipart/form-data')

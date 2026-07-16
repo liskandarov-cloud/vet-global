@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import {
-  Upload, FileSpreadsheet, Download, CheckCircle2, AlertTriangle, Loader2, ArrowLeft, Package,
+  Upload, FileSpreadsheet, Download, FileDown, CheckCircle2, AlertTriangle, Loader2, ArrowLeft, Package,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -105,19 +105,25 @@ export function SellerImportPanel({ onDone }: { onDone?: () => void }) {
     }
   };
 
-  const downloadTemplate = async () => {
+  const downloadFile = async (path: string, filename: string, errRu: string, errUz: string) => {
     try {
-      const { data } = await api.get('/import/template', { responseType: 'blob' });
+      const { data } = await api.get(path, { responseType: 'blob' });
       const url = URL.createObjectURL(data as Blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'vetglobal-price-template.xlsx';
+      a.download = filename;
       a.click();
       URL.revokeObjectURL(url);
     } catch {
-      toast.error(tt('Не удалось скачать шаблон', 'Shablonni yuklab boʻlmadi'));
+      toast.error(tt(errRu, errUz));
     }
   };
+
+  const downloadTemplate = () =>
+    downloadFile('/import/template', 'vetglobal-price-template.xlsx', 'Не удалось скачать шаблон', 'Shablonni yuklab boʻlmadi');
+
+  const exportMine = () =>
+    downloadFile('/import/export', 'vetglobal-my-price.xlsx', 'Не удалось выгрузить прайс', 'Narxnomani yuklab boʻlmadi');
 
   const run = async (dryRun: boolean) => {
     if (!parsed) return;
@@ -169,9 +175,14 @@ export function SellerImportPanel({ onDone }: { onDone?: () => void }) {
               )}
             </p>
           </div>
-          <button className="btn-ghost shrink-0" onClick={downloadTemplate}>
-            <Download size={16} /> {tt('Шаблон', 'Shablon')}
-          </button>
+          <div className="flex shrink-0 gap-2">
+            <button className="btn-ghost" onClick={exportMine}>
+              <FileDown size={16} /> {tt('Мой прайс', 'Mening narxnomam')}
+            </button>
+            <button className="btn-ghost" onClick={downloadTemplate}>
+              <Download size={16} /> {tt('Шаблон', 'Shablon')}
+            </button>
+          </div>
         </div>
 
         <label className="flex cursor-pointer flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50/50 px-6 py-12 text-center transition hover:border-teal-400 hover:bg-teal-50/40">

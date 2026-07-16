@@ -183,11 +183,15 @@ export class ImportService {
           });
         }
 
+        // Пустая колонка фото не должна стирать уже загруженные снимки.
+        const images = this.parseImages(at('images'));
+
         const productData: Record<string, unknown> = {
           name,
           description: at('description') || product?.description || name,
           categoryId,
           price,
+          ...(images.length ? { images } : {}),
           ...(manufacturer ? { manufacturer } : {}),
           ...(at('activeSubstance') ? { activeSubstance: at('activeSubstance') } : {}),
           ...(at('form') ? { form: at('form') } : {}),
@@ -303,6 +307,15 @@ export class ImportService {
     return Number.isFinite(n) ? n : null;
   }
 
+  // Ссылки на фото: через запятую/перенос строки, только http(s) и относительные /uploads.
+  private parseImages(v: string): string[] {
+    if (!v) return [];
+    return v
+      .split(/[,\n;]+/)
+      .map((s) => s.trim())
+      .filter((s) => /^https?:\/\//i.test(s) || s.startsWith('/'));
+  }
+
   private parseBool(v: string): boolean | null {
     if (!v) return null;
     return ['да', 'ha', 'yes', 'true', '1', '+', 'rx'].includes(v.toLowerCase().trim());
@@ -330,6 +343,61 @@ export class ImportService {
     if (/лошад|конь|horse|ot\b/.test(s)) return AnimalType.HORSES;
     if (/собак|кошк|пит[оo]мц|pet|dog|cat|it\b|mushuk/.test(s)) return AnimalType.PETS;
     return AnimalType.OTHER;
+  }
+
+  // Выгрузка своего прайса в том же формате, что принимает импорт:
+  // продавец скачивает, правит цены/остатки и заливает обратно.
+  async exportMine(user: AuthUser): Promise<Buffer> {
+    const offers = await this.prisma.offer.findMany({
+      where: { sellerId: user.id },
+      include: { product: { include: { category: true } } },
+      orderBy: { updatedAt: 'desc' },
+    });
+
+    const wb = new ExcelJS.Workbook();
+    const ws = wb.addWorksheet('Прайс');
+    ws.addRow(IMPORT_FIELDS.map((f) => f.label));
+    ws.getRow(1).font = { bold: true };
+    ws.getRow(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFE6F4F1' } };
+    IMPORT_FIELDS.forEach((f, i) => {
+      ws.getColumn(i + 1).width = Math.max(14, Math.min(28, f.label.length + 6));
+    });
+
+    const animalRu: Record<string, string> = {
+      POULTRY: 'птица', CATTLE: 'КРС', SMALL_RUMINANTS: 'МРС',
+      HORSES: 'лошади', PETS: 'питомцы', OTHER: 'другое',
+    };
+
+    for (const o of offers) {
+      const p: any = o.product;
+      const val: Record<string, any> = {
+        name: p.name,
+        description: p.description,
+        manufacturer: p.manufacturer ?? '',
+        activeSubstance: p.activeSubstance ?? '',
+        form: p.form ?? '',
+        animalType: p.animalType ? animalRu[p.animalType] ?? '' : '',
+        categoryName: p.category?.name ?? '',
+        price: Number(o.price),
+        priceUnit: o.priceUnit ?? '',
+        priceUnitQty: o.priceUnitQty ?? 1,
+        packUnit: o.packUnit ?? '',
+        packSize: o.packSize ?? 1,
+        minOrder: o.minOrder ?? 1,
+        stockQty: o.stockQty ?? '',
+        leadTimeDays: o.leadTimeDays ?? '',
+        batchNumber: o.batchNumber ?? '',
+        expiryDate: o.expiryDate ? new Date(o.expiryDate).toLocaleDateString('ru-RU') : '',
+        regNumber: o.regNumber ?? '',
+        isRx: o.isRx ? 'да' : '',
+        images: Array.isArray(p.images) ? p.images.join(', ') : '',
+        externalId: p.externalId ?? '',
+      };
+      ws.addRow(IMPORT_FIELDS.map((f) => val[f.key] ?? ''));
+    }
+
+    const buffer = await wb.xlsx.writeBuffer();
+    return Buffer.from(buffer as ArrayBuffer);
   }
 
   // Шаблон прайса с примером заполнения (включая фасовку).
@@ -370,6 +438,7 @@ export class ImportService {
       expiryDate: '31.12.2027',
       regNumber: 'UZ-VET-0001',
       isRx: 'да',
+      images: 'https://example.com/foto1.jpg, https://example.com/foto2.jpg',
       externalId: 'SKU-001',
     };
     ws.addRow(IMPORT_FIELDS.map((f) => example[f.key] ?? ''));
