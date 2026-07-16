@@ -1,12 +1,54 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+
+export interface ProvisionUserDto {
+  email: string;
+  password: string;
+  fullName: string;
+  phone?: string;
+  company?: string;
+  inn?: string;
+  description?: string;
+  role?: UserRole;
+}
 
 @Injectable()
 export class MaintenanceService {
   private readonly logger = new Logger(MaintenanceService.name);
 
   constructor(private readonly prisma: PrismaService) {}
+
+  // Провижининг учётной записи с заданной ролью (в т.ч. ADMIN).
+  // Регистрация через /auth/register роль ADMIN не выдаёт — это админ-инструмент.
+  async provisionUser(dto: ProvisionUserDto) {
+    if (!dto.email || !dto.password || !dto.fullName) {
+      throw new BadRequestException('Требуются email, password и fullName.');
+    }
+    if (dto.password.length < 8) {
+      throw new BadRequestException('Пароль должен быть не короче 8 символов.');
+    }
+    const passwordHash = await bcrypt.hash(dto.password, 10);
+    const data = {
+      passwordHash,
+      fullName: dto.fullName,
+      phone: dto.phone ?? '',
+      company: dto.company ?? null,
+      inn: dto.inn ?? null,
+      description: dto.description ?? null,
+      role: dto.role ?? UserRole.BUYER,
+      isVerified: true,
+      isBanned: false,
+    };
+    const user = await this.prisma.user.upsert({
+      where: { email: dto.email },
+      create: { email: dto.email, ...data },
+      update: data,
+    });
+    this.logger.warn(`Provisioned user ${user.email} role=${user.role}`);
+    return { id: user.id, email: user.email, role: user.role, fullName: user.fullName };
+  }
 
   // Полная очистка демо/операционных данных. Сохраняются: категории (таксономия)
   // и учётные записи администраторов. Требуется точная фраза подтверждения.

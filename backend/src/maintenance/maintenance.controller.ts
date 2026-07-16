@@ -1,7 +1,7 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
-import { MaintenanceService } from './maintenance.service';
+import { MaintenanceService, ProvisionUserDto } from './maintenance.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -18,5 +18,11 @@ export class MaintenanceController {
   @Post('reset')
   reset(@Body('confirm') confirm: string) {
     return this.maintenance.reset(confirm);
+  }
+
+  // Создание/обновление учётной записи с ролью (в т.ч. ADMIN).
+  @Post('user')
+  provisionUser(@Body() dto: ProvisionUserDto) {
+    return this.maintenance.provisionUser(dto);
   }
 }
