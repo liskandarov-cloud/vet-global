@@ -19,6 +19,7 @@ import { UsersModule } from './users/users.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductsModule } from './products/products.module';
 import { OffersModule } from './offers/offers.module';
+import { ImportModule } from './import/import.module';
 import { FinancingModule } from './financing/financing.module';
 import { RfqModule } from './rfq/rfq.module';
 import { BrandsModule } from './brands/brands.module';
@@ -59,6 +60,7 @@ import { AppController } from './app.controller';
     CategoriesModule,
     ProductsModule,
     OffersModule,
+    ImportModule,
     FinancingModule,
     RfqModule,
     BrandsModule,

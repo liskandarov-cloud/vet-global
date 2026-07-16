@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { RoleGuard, StatCard } from '@/components/RoleGuard';
 import { SellerOffersPanel } from '@/components/SellerOffersPanel';
 import { SellerContractsPanel } from '@/components/SellerContractsPanel';
+import { SellerImportPanel } from '@/components/SellerImportPanel';
 import { TopProductsBar, WeeklyBars } from '@/components/Charts';
 import { Category, Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
@@ -35,7 +36,7 @@ function SellerContent() {
     PROCESSING: tt('В обработке', 'Qayta ishlanmoqda'), SHIPPED: tt('Отгружен', 'Joʻnatildi'),
     DELIVERED: tt('Доставлен', 'Yetkazildi'), CANCELLED: tt('Отменён', 'Bekor qilindi'),
   };
-  const [tab, setTab] = useState<'products' | 'offers' | 'contracts' | 'orders' | 'promotions'>('products');
+  const [tab, setTab] = useState<'products' | 'import' | 'offers' | 'contracts' | 'orders' | 'promotions'>('products');
   const [stats, setStats] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -125,7 +126,7 @@ function SellerContent() {
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['products', tt('Товары', 'Mahsulotlar')], ['offers', tt('Мои офферы', 'Mening takliflarim')], ['contracts', tt('Договорные цены', 'Shartnoma narxlari')], ['orders', tt('Заказы', 'Buyurtmalar')], ['promotions', `${tt('Акции', 'Aksiyalar')}${promotions.length ? ` (${promotions.length})` : ''}`]].map(([k, l]) => (
+        {[['products', tt('Товары', 'Mahsulotlar')], ['import', tt('Импорт прайса', 'Narxnoma importi')], ['offers', tt('Мои офферы', 'Mening takliflarim')], ['contracts', tt('Договорные цены', 'Shartnoma narxlari')], ['orders', tt('Заказы', 'Buyurtmalar')], ['promotions', `${tt('Акции', 'Aksiyalar')}${promotions.length ? ` (${promotions.length})` : ''}`]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>
             {l}
@@ -159,6 +160,8 @@ function SellerContent() {
           </div>
         </div>
       )}
+
+      {tab === 'import' && <SellerImportPanel onDone={load} />}
 
       {tab === 'offers' && <SellerOffersPanel />}
 
