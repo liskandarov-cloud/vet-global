@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   Patch,
@@ -92,6 +93,15 @@ export class OrdersController {
   @Roles(UserRole.SELLER, UserRole.ADMIN)
   updateStatus(@Param('id') id: string, @Body() dto: UpdateStatusDto, @CurrentUser() user: AuthUser) {
     return this.orders.updateStatus(id, dto.status, user);
+  }
+
+  // Удаление заказа (только админ) — чистка тестовых/ошибочных заказов.
+  @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  remove(@Param('id') id: string) {
+    return this.orders.remove(id);
   }
 
   // Streams the invoice PDF (счёт на оплату).

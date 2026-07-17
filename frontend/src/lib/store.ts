@@ -131,9 +131,12 @@ export const useCart = create<CartState>()(
           }
           return { items: [...s.items, { ...item, quantity: addQty }] };
         }),
+      // Кламп к минимальному заказу: иначе сервер отобьёт оформление в самом конце.
       setQty: (key, qty) =>
         set((s) => ({
-          items: s.items.map((i) => (cartKey(i) === key ? { ...i, quantity: Math.max(1, qty) } : i)),
+          items: s.items.map((i) =>
+            cartKey(i) === key ? { ...i, quantity: Math.max(i.minOrder || 1, qty) } : i,
+          ),
         })),
       remove: (key) => set((s) => ({ items: s.items.filter((i) => cartKey(i) !== key) })),
       clear: () => set({ items: [] }),

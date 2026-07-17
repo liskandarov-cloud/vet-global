@@ -20,7 +20,7 @@ interface Order {
   status: string;
   total: number;
   subtotal: number;
-  items: { productId: string; productName: string; quantity: number; price: number }[];
+  items: { productId: string; offerId?: string | null; productName: string; quantity: number; price: number }[];
 }
 interface Tx { id: string; amount: number; type: string; description: string; createdAt: string }
 
@@ -52,7 +52,7 @@ function BuyerContent() {
 
   const repeat = (o: Order) => {
     o.items.forEach((it) =>
-      addToCart({ productId: it.productId, name: it.productName, price: it.price, minOrder: 1 }, it.quantity),
+      addToCart({ productId: it.productId, offerId: it.offerId ?? undefined, name: it.productName, price: it.price, minOrder: 1 }, it.quantity),
     );
     toast.success(tt('Товары добавлены в корзину', 'Mahsulotlar savatga qoʻshildi'));
   };

@@ -101,8 +101,14 @@ export default function CartPage() {
             const key = cartKey(i);
             return (
             <div key={key} className="card flex items-center gap-4 p-4">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={i.image} alt={i.name} className="h-20 w-20 rounded-lg object-cover" />
+              {i.image ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={i.image} alt={i.name} className="h-20 w-20 rounded-lg object-cover" />
+              ) : (
+                <div className="grid h-20 w-20 shrink-0 place-items-center rounded-lg bg-slate-100">
+                  <ShoppingBag size={24} className="text-ink-subtle" />
+                </div>
+              )}
               <div className="flex-1">
                 <div className="font-medium">{i.name}</div>
                 {i.sellerName && <div className="text-xs text-teal-700">{i.sellerName}</div>}

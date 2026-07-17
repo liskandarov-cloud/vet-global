@@ -7,7 +7,7 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PdfService } from '../documents/pdf.service';
 import { NotificationsService } from '../mail/notifications.service';
 import { AlertsService } from '../alerts/alerts.service';
-import { unitPriceForQty } from '../common/pricing';
+import { packPriceOf, unitPriceForQty } from '../common/pricing';
 
 @Injectable()
 export class OrdersService {
@@ -41,13 +41,32 @@ export class OrdersService {
       : [];
     const offerMap = new Map(offers.map((o) => [o.id, o]));
 
-    // Контрактные (персональные) цены покупателя для этих офферов.
+    // Позиции без offerId (карточка каталога): подбираем лучший активный оффер товара,
+    // иначе цена заказа разойдётся с витриной — там показывается minPrice с учётом
+    // фасовки, а Number(p.price) — сырая цена прайса (за 1000 доз, не за флакон).
+    const noOfferPids = dto.items.filter((i) => !i.offerId).map((i) => i.productId);
+    const bestOfferByProduct = new Map<string, (typeof offers)[number]>();
+    if (noOfferPids.length) {
+      const candidates = await this.prisma.offer.findMany({
+        where: { productId: { in: noOfferPids }, isActive: true, inStock: true },
+      });
+      for (const o of candidates) {
+        const cur = bestOfferByProduct.get(o.productId);
+        if (!cur || packPriceOf(o) < packPriceOf(cur)) bestOfferByProduct.set(o.productId, o);
+      }
+    }
+
+    // Контрактные (персональные) цены покупателя — для явных и подобранных офферов.
     const contractMap = new Map<string, number>();
-    if (user && offerIds.length) {
+    const allOfferIds = [
+      ...offerIds,
+      ...[...bestOfferByProduct.values()].map((o) => o.id),
+    ];
+    if (user && allOfferIds.length) {
       const contracts = await this.prisma.contractPrice.findMany({
         where: {
           buyerId: user.id,
-          offerId: { in: offerIds },
+          offerId: { in: allOfferIds },
           OR: [{ validUntil: null }, { validUntil: { gte: new Date() } }],
         },
       });
@@ -57,15 +76,19 @@ export class OrdersService {
     const items = dto.items.map((i) => {
       const p = products.find((x) => x.id === i.productId)!;
 
-      // По умолчанию — базовый товар (легаси). Если выбран оффер — цена/продавец/квант из него.
+      // По умолчанию — базовый товар (легаси, когда офферов нет вовсе).
       let sellerId = p.sellerId;
       let minOrder = p.minOrder;
       let unitPrice = Number(p.price);
       let offerId: string | null = null;
 
-      if (i.offerId) {
-        const o = offerMap.get(i.offerId);
-        if (!o || o.productId !== p.id) {
+      if (i.offerId && !offerMap.get(i.offerId)) {
+        throw new BadRequestException(`Предложение для «${p.name}» не найдено`);
+      }
+      const o = i.offerId ? offerMap.get(i.offerId) : bestOfferByProduct.get(i.productId);
+
+      if (o) {
+        if (o.productId !== p.id) {
           throw new BadRequestException(`Предложение для «${p.name}» не найдено`);
         }
         if (!o.isActive || !o.inStock) {
@@ -273,6 +296,15 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
     return this.serialize(order);
+  }
+
+  // Удаление заказа (админ): позиции/платежи/накладные каскадом (onDelete: Cascade).
+  // Начисленные VetPoints не откатываем — для тестовых заказов несущественно.
+  async remove(id: string) {
+    const order = await this.prisma.order.findUnique({ where: { id } });
+    if (!order) throw new NotFoundException('Заказ не найден');
+    await this.prisma.order.delete({ where: { id } });
+    return { ok: true };
   }
 
   async updateStatus(id: string, status: OrderStatus, user: AuthUser) {
