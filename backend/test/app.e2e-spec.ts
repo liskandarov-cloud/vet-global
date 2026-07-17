@@ -114,7 +114,27 @@ describe('VetGlobal API (e2e)', () => {
     expect(r.body.id).toBeTruthy();
     expect(r.body.commission).toBeGreaterThan(0);
     expect(r.body.vetPointsEarned).toBeGreaterThan(0);
-    expect(r.body.total).toBe(p.price * p.minOrder);
+    // Цена заказа обязана совпадать с ценой на витрине: если у товара есть
+    // предложения продавцов, показывается minPrice (лучшее из них) — его и
+    // должен платить покупатель. Раньше заказ без offerId считался по
+    // product.price, и списывалось не то, что видел покупатель.
+    const shownUnitPrice = p.minPrice ?? p.price;
+    expect(r.body.total).toBe(shownUnitPrice * p.minOrder);
+  });
+
+  it('never grants ADMIN through public registration', async () => {
+    const r = await req('/auth/register', {
+      method: 'POST',
+      body: {
+        email: `escalation-${Date.now()}@example.com`,
+        password: 'StrongPass123',
+        fullName: 'Escalation Probe',
+        phone: '+998900000000',
+        role: 'ADMIN',
+      },
+    });
+    expect(r.status).toBe(400);
+    expect(r.body.token).toBeUndefined();
   });
 
   it('rejects an order below minimum quantity', async () => {

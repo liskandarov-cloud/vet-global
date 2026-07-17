@@ -37,3 +37,8 @@ yarn-error.log*
 legacy/**/node_modules/
 legacy/**/__pycache__/
 legacy/**/*.pyc
+
+# Кэш инкрементальной сборки TypeScript. Коммитить нельзя: прогон
+# `tsc --noEmit` помечает файлы проверенными, после чего `npm run build`
+# считает вывод готовым и молча не создаёт dist, возвращая при этом успех.
+*.tsbuildinfo
