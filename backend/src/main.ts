@@ -41,17 +41,25 @@ async function bootstrap() {
     credentials: !allowAll,
   });
 
-  const config = new DocumentBuilder()
-    .setTitle('VetGlobal API')
-    .setDescription('B2B veterinary marketplace API')
-    .setVersion('0.1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document);
+  // Swagger публикует карту всех ~114 эндпоинтов. Сами данные она не отдаёт
+  // (всё под авторизацией), но для атакующего это готовая разведка. На время
+  // показа и интеграций удобно держать включённой; выключается SWAGGER_ENABLED=false.
+  const swaggerEnabled = process.env.SWAGGER_ENABLED !== 'false';
+  if (swaggerEnabled) {
+    const config = new DocumentBuilder()
+      .setTitle('VetGlobal API')
+      .setDescription('B2B veterinary marketplace API')
+      .setVersion('0.1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+    SwaggerModule.setup('api/docs', app, document);
+  }
 
   const port = Number(process.env.PORT ?? 8000);
   await app.listen(port, '0.0.0.0');
-  console.log(`VetGlobal API listening on :${port} (docs at /api/docs)`);
+  console.log(
+    `VetGlobal API listening on :${port}` + (swaggerEnabled ? ' (docs at /api/docs)' : ' (docs disabled)'),
+  );
 }
 bootstrap();
