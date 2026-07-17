@@ -37,8 +37,11 @@ services:
         value: mock
       - key: ADMIN_EMAIL
         value: admin@vetglobal.com
+      # Пароль НЕ коммитим: в репозитории он означает открытый доступ к
+      # админке прода. Render генерирует значение сам (один раз); сменить
+      # пароль можно через POST /api/maintenance/user под другим админом.
       - key: ADMIN_PASSWORD
-        value: admin123
+        generateValue: true
       - key: CORS_ORIGINS
         value: "*"
       - key: FRONTEND_URL

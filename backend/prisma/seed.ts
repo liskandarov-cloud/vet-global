@@ -5,6 +5,7 @@ import {
   OrgRole, ApprovalStatus, PaymentTerm,
 } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
+import { randomBytes } from 'crypto';
 
 const prisma = new PrismaClient();
 
@@ -30,11 +31,21 @@ async function main() {
   console.log(`✓ categories: ${CATEGORIES.length}`);
 
   // ── Admin ──
+  // Пароль по умолчанию («admin123») означал бы админа прода с паролем,
+  // лежащим в открытом виде в репозитории. Если ADMIN_PASSWORD не задан —
+  // генерируем случайный: аккаунт создаётся, но войти в него нельзя,
+  // пока владелец не задаст пароль сам.
   const adminEmail = process.env.ADMIN_EMAIL ?? 'admin@vetglobal.com';
-  const adminPassword = process.env.ADMIN_PASSWORD ?? 'admin123';
+  const adminPassword = process.env.ADMIN_PASSWORD || randomBytes(24).toString('base64url');
+  if (!process.env.ADMIN_PASSWORD) {
+    console.warn(
+      '⚠ ADMIN_PASSWORD не задан — сгенерирован случайный пароль. ' +
+        'Задайте ADMIN_PASSWORD в окружении или заведите админа через POST /api/maintenance/user.',
+    );
+  }
   await prisma.user.upsert({
     where: { email: adminEmail },
-    update: {},
+    update: {}, // пароль существующего админа не трогаем
     create: {
       email: adminEmail,
       passwordHash: await bcrypt.hash(adminPassword, 10),
@@ -44,7 +55,7 @@ async function main() {
       isVerified: true,
     },
   });
-  console.log(`✓ admin: ${adminEmail} / ${adminPassword}`);
+  console.log(`✓ admin: ${adminEmail}`); // пароль в логи не пишем
 
   // Прод-режим: категории + админ уже созданы. Демо-данные не генерируем,
   // если явно не задан SEED_DEMO=true (иначе платформа реального клиента
