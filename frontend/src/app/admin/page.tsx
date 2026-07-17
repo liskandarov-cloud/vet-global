@@ -347,7 +347,7 @@ function AdminContent() {
 
       {tab === 'blog' && (
         <div className="mt-6">
-          <button className="btn-primary mb-4" onClick={() => setEditingPost({ title: '', titleUz: '', content: '', contentUz: '', excerpt: '', image: '', published: true })}>
+          <button className="btn-primary mb-4" onClick={() => setEditingPost({ title: '', titleUz: '', content: '', contentUz: '', excerpt: '', excerptUz: '', image: '', published: true })}>
             <Plus size={16} /> {tt('Новая публикация', 'Yangi nashr')}
           </button>
           <div className="space-y-2">
@@ -390,6 +390,7 @@ function BlogForm({ initial, onClose, onSaved }: any) {
       content: form.content,
       contentUz: form.contentUz || undefined,
       excerpt: form.excerpt || undefined,
+      excerptUz: form.excerptUz || undefined,
       image: form.image || undefined,
       published: form.published,
     };
@@ -415,7 +416,8 @@ function BlogForm({ initial, onClose, onSaved }: any) {
         <div className="space-y-3">
           <input className="input" placeholder={tt('Заголовок (RU)', 'Sarlavha (RU)')} value={form.title} onChange={(e) => upd('title', e.target.value)} />
           <input className="input" placeholder={tt('Заголовок (UZ)', 'Sarlavha (UZ)')} value={form.titleUz} onChange={(e) => upd('titleUz', e.target.value)} />
-          <input className="input" placeholder={tt('Краткое описание (excerpt)', 'Qisqacha tavsif (excerpt)')} value={form.excerpt} onChange={(e) => upd('excerpt', e.target.value)} />
+          <input className="input" placeholder={tt('Краткое описание (RU)', 'Qisqacha tavsif (RU)')} value={form.excerpt} onChange={(e) => upd('excerpt', e.target.value)} />
+          <input className="input" placeholder={tt('Краткое описание (UZ)', 'Qisqacha tavsif (UZ)')} value={form.excerptUz ?? ''} onChange={(e) => upd('excerptUz', e.target.value)} />
           <input className="input" placeholder={tt('URL картинки', 'Rasm URL')} value={form.image} onChange={(e) => upd('image', e.target.value)} />
           <textarea className="input !h-auto py-2" rows={6} placeholder={tt('Текст (RU)', 'Matn (RU)')} value={form.content} onChange={(e) => upd('content', e.target.value)} />
           <textarea className="input !h-auto py-2" rows={4} placeholder={tt('Текст (UZ)', 'Matn (UZ)')} value={form.contentUz} onChange={(e) => upd('contentUz', e.target.value)} />

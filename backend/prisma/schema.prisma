@@ -760,6 +760,7 @@ model BlogPost {
   contentUz  String?
   slug       String   @unique
   excerpt    String?
+  excerptUz  String?
   metaTitle  String?
   metaDesc   String?
   image      String?

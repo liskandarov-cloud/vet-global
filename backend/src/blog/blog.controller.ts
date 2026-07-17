@@ -25,6 +25,7 @@ class BlogPostDto {
   @IsString() content: string;
   @IsOptional() @IsString() contentUz?: string;
   @IsOptional() @IsString() excerpt?: string;
+  @IsOptional() @IsString() excerptUz?: string;
   @IsOptional() @IsString() image?: string;
   @IsOptional() @IsString() metaTitle?: string;
   @IsOptional() @IsString() metaDesc?: string;

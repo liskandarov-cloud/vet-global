@@ -20,7 +20,7 @@ const CAT_ICON: Record<string, any> = {
 };
 
 interface Seller { id: string; company?: string; rating: number; productsCount: number; isVerified: boolean }
-interface Post { id: string; title: string; slug: string; excerpt?: string; createdAt: string }
+interface Post { id: string; title: string; titleUz?: string | null; slug: string; excerpt?: string; excerptUz?: string | null; createdAt: string }
 
 export default function HomePage() {
   const { t, tt, lang } = useI18n();
@@ -201,9 +201,11 @@ export default function HomePage() {
           <div className="grid gap-4 md:grid-cols-3">
             {posts.map((p) => (
               <Link key={p.id} href={`/blog/${p.slug}`} className="card card-hover p-6">
-                <div className="text-xs text-ink-subtle">{new Date(p.createdAt).toLocaleDateString('ru-RU')}</div>
-                <h3 className="mt-2 font-heading text-lg font-bold leading-snug">{p.title}</h3>
-                {p.excerpt && <p className="mt-2 line-clamp-3 text-sm text-ink-muted">{p.excerpt}</p>}
+                <div className="text-xs text-ink-subtle">{new Date(p.createdAt).toLocaleDateString(lang === 'uz' ? 'uz-UZ' : 'ru-RU')}</div>
+                <h3 className="mt-2 font-heading text-lg font-bold leading-snug">{(lang === 'uz' && p.titleUz) || p.title}</h3>
+                {((lang === 'uz' && p.excerptUz) || p.excerpt) && (
+                  <p className="mt-2 line-clamp-3 text-sm text-ink-muted">{(lang === 'uz' && p.excerptUz) || p.excerpt}</p>
+                )}
                 <span className="mt-3 inline-flex items-center gap-1 text-sm font-medium text-teal-700">{tt('Читать', 'Oʻqish')} <ArrowRight size={14} /></span>
               </Link>
             ))}

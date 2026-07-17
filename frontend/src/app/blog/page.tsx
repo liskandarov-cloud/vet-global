@@ -8,14 +8,16 @@ import { useI18n } from '@/lib/i18n';
 interface Post {
   id: string;
   title: string;
+  titleUz?: string | null;
   slug: string;
   excerpt?: string;
+  excerptUz?: string | null;
   image?: string;
   createdAt: string;
 }
 
 export default function BlogPage() {
-  const { tt } = useI18n();
+  const { tt, lang } = useI18n();
   const [posts, setPosts] = useState<Post[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -40,21 +42,26 @@ export default function BlogPage() {
         <div className="py-20 text-center text-ink-subtle">{tt('Публикаций пока нет', 'Hozircha eʼlonlar yoʻq')}</div>
       ) : (
         <div className="grid gap-6 md:grid-cols-2">
-          {posts.map((p) => (
+          {posts.map((p) => {
+            // Узбекская версия, если переведена; иначе — русский оригинал.
+            const title = (lang === 'uz' && p.titleUz) || p.title;
+            const excerpt = (lang === 'uz' && p.excerptUz) || p.excerpt;
+            return (
             <Link key={p.id} href={`/blog/${p.slug}`} className="card card-hover overflow-hidden">
               {p.image && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={p.image} alt={p.title} className="aspect-video w-full object-cover" />
+                <img src={p.image} alt={title} className="aspect-video w-full object-cover" />
               )}
               <div className="p-5">
                 <div className="text-xs text-ink-subtle">
-                  {new Date(p.createdAt).toLocaleDateString('ru-RU')}
+                  {new Date(p.createdAt).toLocaleDateString(lang === 'uz' ? 'uz-UZ' : 'ru-RU')}
                 </div>
-                <h2 className="mt-1 font-heading text-lg font-bold">{p.title}</h2>
-                {p.excerpt && <p className="mt-2 line-clamp-2 text-sm text-ink-muted">{p.excerpt}</p>}
+                <h2 className="mt-1 font-heading text-lg font-bold">{title}</h2>
+                {excerpt && <p className="mt-2 line-clamp-2 text-sm text-ink-muted">{excerpt}</p>}
               </div>
             </Link>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
