@@ -42,8 +42,10 @@ services:
       # пароль можно через POST /api/maintenance/user под другим админом.
       - key: ADMIN_PASSWORD
         generateValue: true
+      # Только собственный фронтенд: «*» вместе с credentials отражал любой
+      # Origin, т.е. API мог дёргать любой сторонний сайт. Домены — через запятую.
       - key: CORS_ORIGINS
-        value: "*"
+        value: "https://vet-global.vercel.app"
       - key: FRONTEND_URL
         value: "https://vet-global.vercel.app"
       # Демо-данные генерируются ТОЛЬКО при SEED_DEMO=true. На реальном клиенте — false.

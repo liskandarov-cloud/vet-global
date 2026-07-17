@@ -1,11 +1,17 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { text } from 'express';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+
+  // Приложение живёт за прокси (Render / Caddy). Без доверия к прокси req.ip
+  // у всех запросов равен адресу прокси — ограничитель частоты считал бы всех
+  // пользователей одним клиентом и лимит на вход блокировал бы всех разом.
+  app.set('trust proxy', 1);
 
   // Accept raw CommerceML/XML bodies (1C sync endpoint) as text.
   app.use(text({ type: ['application/xml', 'text/xml'], limit: '10mb' }));
@@ -21,12 +27,18 @@ async function bootstrap() {
     }),
   );
 
-  const corsOrigins = (process.env.CORS_ORIGINS ?? '*')
+  // CORS. По умолчанию — только собственный фронтенд: значение «*» вместе с
+  // credentials:true отражало любой Origin (проверено: evil-example.com получал
+  // access-control-allow-origin на себя). Явная звёздочка в CORS_ORIGINS всё ещё
+  // возможна для локальной отладки, но тогда отключаем credentials.
+  const corsEnv = (process.env.CORS_ORIGINS ?? process.env.FRONTEND_URL ?? '')
     .split(',')
-    .map((s) => s.trim());
+    .map((s) => s.trim())
+    .filter(Boolean);
+  const allowAll = corsEnv.includes('*');
   app.enableCors({
-    origin: corsOrigins.includes('*') ? true : corsOrigins,
-    credentials: true,
+    origin: allowAll ? true : corsEnv.length ? corsEnv : [process.env.FRONTEND_URL ?? ''],
+    credentials: !allowAll,
   });
 
   const config = new DocumentBuilder()
