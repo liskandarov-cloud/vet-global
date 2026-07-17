@@ -65,6 +65,17 @@ function AdminContent() {
   };
 
   const verify = async (id: string) => { await api.patch(`/admin/users/${id}/verify`, { isVerified: true }); toast.success(tt('Подтверждён', 'Tasdiqlandi')); load(); };
+  const delUser = async (id: string, email: string) => {
+    if (!confirm(tt(`Удалить пользователя ${email}? Его заказы и данные будут удалены безвозвратно.`,
+                    `${email} foydalanuvchisi oʻchirilsinmi? Buyurtmalari va maʼlumotlari butunlay oʻchiriladi.`))) return;
+    try {
+      await api.delete(`/admin/users/${id}`);
+      toast.success(tt('Пользователь удалён', 'Foydalanuvchi oʻchirildi'));
+      load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
+    }
+  };
   const ban = async (id: string, isBanned: boolean) => { await api.patch(`/admin/users/${id}/ban`, { isBanned }); toast.success(isBanned ? tt('Заблокирован', 'Bloklandi') : tt('Разблокирован', 'Blokdan chiqarildi')); load(); };
   const approve = async (id: string) => { await api.patch(`/reviews/${id}/approve`, { isApproved: true }); toast.success(tt('Опубликован', 'Chop etildi')); load(); };
   const setLeadStatus = async (id: string, status: string) => { await api.patch(`/leads/${id}`, { status }); load(); };
@@ -272,7 +283,8 @@ function AdminContent() {
                   </td>
                   <td className="flex gap-2 py-2">
                     {!u.isVerified && u.role === 'SELLER' && <button className="btn-ghost !px-2 !py-1 text-teal-700" onClick={() => verify(u.id)}><Check size={15} /></button>}
-                    {u.role !== 'ADMIN' && <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => ban(u.id, !u.isBanned)}><Ban size={15} /></button>}
+                    {u.role !== 'ADMIN' && <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => ban(u.id, !u.isBanned)} title={u.isBanned ? tt('Разблокировать', 'Blokdan chiqarish') : tt('Заблокировать', 'Bloklash')}><Ban size={15} /></button>}
+                    {u.role !== 'ADMIN' && <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => delUser(u.id, u.email)} title={tt('Удалить', 'Oʻchirish')}><Trash2 size={15} /></button>}
                   </td>
                 </tr>
               ))}

@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/commo
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CounterpartyDto, SellerDocumentDto, UpdateProfileDto } from './dto/user.dto';
+import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class UsersService {
@@ -109,6 +110,17 @@ export class UsersService {
     if (target.role === UserRole.ADMIN) throw new ForbiddenException('Cannot ban an admin');
     const user = await this.prisma.user.update({ where: { id: userId }, data: { isBanned } });
     return this.sanitize(user);
+  }
+
+  // Удаление пользователя. Ограничения те же, что у бана (админа не трогаем),
+  // плюс запрет удалять самого себя — иначе можно остаться без администратора.
+  async adminRemove(userId: string, me: AuthUser) {
+    const target = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!target) throw new NotFoundException('User not found');
+    if (target.id === me.id) throw new ForbiddenException('Cannot delete your own account');
+    if (target.role === UserRole.ADMIN) throw new ForbiddenException('Cannot delete an admin');
+    await this.prisma.user.delete({ where: { id: userId } });
+    return { ok: true };
   }
 
   private sanitize(u: any) {

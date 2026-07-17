@@ -105,4 +105,15 @@ export class UsersController {
   adminBan(@Param('id') id: string, @Body('isBanned') isBanned = true) {
     return this.users.adminBan(id, isBanned);
   }
+
+  // Удаление пользователя (админ) — чистка тестовых аккаунтов.
+  // Заказы и связанные записи уходят каскадом, поэтому удалять стоит только
+  // тех, у кого нет реальной истории; иначе безопаснее бан.
+  @Delete('admin/users/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  adminRemove(@Param('id') id: string, @CurrentUser() me: AuthUser) {
+    return this.users.adminRemove(id, me);
+  }
 }
