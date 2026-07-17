@@ -774,3 +774,14 @@ model BlogPost {
   @@index([slug])
   @@index([published])
 }
+
+// Файлы (фото товаров, сертификаты) при работе без S3/MinIO — прод на Render.
+// Байты живут в Postgres и переживают редеплой; отдаются через GET /api/files/:id.
+model StoredFile {
+  id        String   @id @default(uuid())
+  mime      String
+  name      String
+  size      Int
+  data      Bytes
+  createdAt DateTime @default(now())
+}

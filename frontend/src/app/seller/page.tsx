@@ -8,6 +8,7 @@ import { RoleGuard, StatCard } from '@/components/RoleGuard';
 import { SellerOffersPanel } from '@/components/SellerOffersPanel';
 import { SellerContractsPanel } from '@/components/SellerContractsPanel';
 import { SellerImportPanel } from '@/components/SellerImportPanel';
+import { SellerBulkPhotos } from '@/components/SellerBulkPhotos';
 import { TopProductsBar, WeeklyBars } from '@/components/Charts';
 import { Category, Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
@@ -45,6 +46,7 @@ function SellerContent() {
   const [editing, setEditing] = useState<any | null>(null);
   const [deliveryOrder, setDeliveryOrder] = useState<any | null>(null);
   const [editingPromo, setEditingPromo] = useState<any | null>(null);
+  const [bulkPhotos, setBulkPhotos] = useState(false);
 
   const load = () => {
     api.get('/seller/stats').then((r) => setStats(r.data)).catch(() => {});
@@ -137,7 +139,10 @@ function SellerContent() {
       {tab === 'products' && (
         <div className="mt-6">
           <SyncPanel />
-          <button className="btn-primary mb-4" onClick={() => setEditing({ ...EMPTY })}><Plus size={16} /> {tt('Добавить товар', 'Mahsulot qoʻshish')}</button>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <button className="btn-primary" onClick={() => setEditing({ ...EMPTY })}><Plus size={16} /> {tt('Добавить товар', 'Mahsulot qoʻshish')}</button>
+            <button className="btn-secondary" onClick={() => setBulkPhotos(true)}><Upload size={16} /> {tt('Фото пачкой', 'Fotolar toʻplami')}</button>
+          </div>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-ink-subtle">
@@ -160,6 +165,8 @@ function SellerContent() {
           </div>
         </div>
       )}
+
+      {bulkPhotos && <SellerBulkPhotos products={products} onClose={() => setBulkPhotos(false)} onSaved={() => { setBulkPhotos(false); load(); }} />}
 
       {tab === 'import' && <SellerImportPanel onDone={load} />}
 
