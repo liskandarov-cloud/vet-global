@@ -3,7 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
-import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, SELF_SIGNUP_ROLES } from './dto/auth.dto';
 
 @Injectable()
 export class AuthService {
@@ -30,6 +30,12 @@ export class AuthService {
   }
 
   async register(dto: RegisterDto) {
+    // Второй рубеж после DTO: привилегированную роль через публичную
+    // регистрацию не выдаём ни при каких обстоятельствах.
+    if (!SELF_SIGNUP_ROLES.includes(dto.role as (typeof SELF_SIGNUP_ROLES)[number])) {
+      throw new BadRequestException('role must be one of the following values: BUYER, SELLER');
+    }
+
     const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (existing) {
       throw new BadRequestException('Email already registered');

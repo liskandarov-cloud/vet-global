@@ -1,5 +1,10 @@
-import { IsEmail, IsEnum, IsOptional, IsString, MinLength } from 'class-validator';
+import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 import { UserRole } from '@prisma/client';
+
+// Роли, доступные при публичной регистрации. ADMIN сюда не входит:
+// иначе любой, отправив {"role":"ADMIN"}, получал бы права администратора.
+// Админа заводят через POST /api/maintenance/user (под другим админом).
+export const SELF_SIGNUP_ROLES = [UserRole.BUYER, UserRole.SELLER] as const;
 
 export class RegisterDto {
   @IsEmail()
@@ -23,7 +28,9 @@ export class RegisterDto {
   @IsString()
   inn?: string;
 
-  @IsEnum(UserRole)
+  @IsIn(SELF_SIGNUP_ROLES as unknown as UserRole[], {
+    message: 'role must be one of the following values: BUYER, SELLER',
+  })
   role: UserRole;
 }
 
