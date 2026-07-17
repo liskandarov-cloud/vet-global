@@ -31,14 +31,17 @@ export function Header() {
     { href: '/blog', label: t('nav.blog') },
   ];
   // B2B-инструменты сгруппированы в выпадающее меню, чтобы не раздувать хедер.
-  const b2bNav = [
-    { href: '/rfq', label: tt('Запрос цен (RFQ)', 'Narx soʻrovi (RFQ)') },
-    { href: '/org', label: tt('Организация', 'Tashkilot') },
-    { href: '/subscriptions', label: tt('Подписки', 'Obunalar') },
-    { href: '/financing', label: tt('Финансирование', 'Moliyalashtirish') },
-    { href: '/market', label: tt('Аналитика рынка', 'Bozor tahlili') },
+  // roles — кому пункт реально доступен на бэкенде; undefined = всем.
+  // Показывать пункт, который вернёт 403, значит вести пользователя в пустую страницу.
+  const b2bNavAll = [
+    { href: '/rfq', label: tt('Запрос цен (RFQ)', 'Narx soʻrovi (RFQ)'), roles: ['BUYER', 'SELLER', 'ADMIN'] },
+    { href: '/org', label: tt('Организация', 'Tashkilot'), roles: ['BUYER', 'ADMIN'] },
+    { href: '/subscriptions', label: tt('Подписки', 'Obunalar'), roles: ['BUYER', 'ADMIN'] },
+    { href: '/financing', label: tt('Финансирование', 'Moliyalashtirish'), roles: ['BUYER', 'ADMIN'] },
+    { href: '/market', label: tt('Аналитика рынка', 'Bozor tahlili'), roles: ['SELLER', 'ADMIN'] },
     { href: '/consult', label: tt('Консультация', 'Konsultatsiya') },
   ];
+  const b2bNav = b2bNavAll.filter((n) => !n.roles || (user && n.roles.includes(user.role)));
   const nav = [...primaryNav, ...b2bNav]; // плоский список для мобильного меню
 
   return (

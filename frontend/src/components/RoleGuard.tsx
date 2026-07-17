@@ -3,8 +3,19 @@
 import { useEffect, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import type { LucideIcon } from 'lucide-react';
+import { toast } from 'sonner';
 import { useAuth } from '@/lib/store';
 import { useI18n } from '@/lib/i18n';
+
+const ROLE_NAMES: Record<string, [string, string]> = {
+  BUYER: ['покупателя', 'xaridor'],
+  SELLER: ['продавца', 'sotuvchi'],
+  ADMIN: ['администратора', 'administrator'],
+};
+
+// Кабинет, соответствующий роли пользователя.
+export const cabinetOf = (role?: string) =>
+  role === 'ADMIN' ? '/admin' : role === 'SELLER' ? '/seller' : '/dashboard';
 
 export function RoleGuard({ role, children }: { role: 'BUYER' | 'SELLER' | 'ADMIN'; children: ReactNode }) {
   const { user, ready } = useAuth();
@@ -12,10 +23,19 @@ export function RoleGuard({ role, children }: { role: 'BUYER' | 'SELLER' | 'ADMI
   const router = useRouter();
 
   useEffect(() => {
-    if (ready && (!user || user.role !== role)) {
+    if (!ready) return;
+    if (!user) {
       router.replace('/login');
+      return;
     }
-  }, [ready, user, role, router]);
+    if (user.role !== role) {
+      // На /login не отправляем: пользователь уже вошёл, повторный вход не поможет.
+      // Уводим в его собственный кабинет и объясняем причину.
+      const [ru, uz] = ROLE_NAMES[role] ?? ['другой роли', 'boshqa rol'];
+      toast.error(tt(`Раздел доступен только в кабинете ${ru}`, `Boʻlim faqat ${uz} kabinetida mavjud`));
+      router.replace(cabinetOf(user.role));
+    }
+  }, [ready, user, role, router, tt]);
 
   if (!ready || !user || user.role !== role) {
     return <div className="py-24 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>;
