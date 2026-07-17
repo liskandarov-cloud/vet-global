@@ -45,9 +45,9 @@ docker compose up --build
 
 | Роль | Email | Пароль |
 |------|-------|--------|
-| Админ | admin@vetglobal.com | admin123 |
+| Админ | значение `ADMIN_EMAIL` | значение `ADMIN_PASSWORD` (задаётся в окружении) |
 | Поставщик | seller@vetglobal.com | seller123 |
-| Покупатель | buyer@vetglobal.com | buyer123 |
+| Покупатель | buyer@vetglobal.com | buyer123 | (только при `SEED_DEMO=true`)
 
 ## Возможности
 

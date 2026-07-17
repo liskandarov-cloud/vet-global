@@ -34,6 +34,10 @@ async function req(
 const login = async (email: string, password: string) =>
   (await req('/auth/login', { method: 'POST', body: { email, password } })).body.token as string;
 
+// Пароль админа берётся из окружения: seed больше не задаёт «admin123»
+// по умолчанию (иначе прод получал бы админа с паролем из репозитория).
+const ADMIN_PW = process.env.ADMIN_PASSWORD ?? 'admin123';
+
 describe('VetGlobal API (e2e)', () => {
   let buyer: string;
   let seller: string;
@@ -42,7 +46,7 @@ describe('VetGlobal API (e2e)', () => {
   beforeAll(async () => {
     buyer = await login('buyer@vetglobal.com', 'buyer123');
     seller = await login('seller@vetglobal.com', 'seller123');
-    admin = await login('admin@vetglobal.com', 'admin123');
+    admin = await login('admin@vetglobal.com', ADMIN_PW);
   });
 
   it('health check responds ok', async () => {

@@ -50,9 +50,6 @@ export default function LoginPage() {
         <p className="mt-4 text-center text-sm text-ink-muted">
           {tt('Нет аккаунта?', 'Hisob yoʻqmi?')} <Link href="/register" className="font-medium text-teal-700 hover:underline">{tt('Регистрация', 'Roʻyxatdan oʻtish')}</Link>
         </p>
-        <p className="mt-4 rounded-lg bg-slate-50 p-3 text-xs text-ink-subtle">
-          {tt('Демо:', 'Demo:')} admin@vetglobal.com / admin123 · seller@vetglobal.com / seller123 · buyer@vetglobal.com / buyer123
-        </p>
       </div>
       </div>
     </div>
