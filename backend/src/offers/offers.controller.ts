@@ -51,6 +51,15 @@ export class OffersController {
     return this.offers.remove(id, user);
   }
 
+  // Очередь верификации (админ): офферы с документами, ещё не проверенные платформой.
+  @Get('offers/verification-queue')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  verificationQueue() {
+    return this.offers.verificationQueue();
+  }
+
   // Верификация подлинности (админ): сертификаты/партия проверены.
   @Post('offers/:id/verify')
   @ApiBearerAuth()

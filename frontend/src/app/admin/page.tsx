@@ -13,7 +13,7 @@ function AdminContent() {
   const { tt } = useI18n();
   const LEAD_STATUS: Record<string, string> = { NEW: tt('Новая', 'Yangi'), CONTACTED: tt('В работе', 'Jarayonda'), CLOSED: tt('Закрыта', 'Yopilgan') };
   const CONSULT_STATUS: Record<string, string> = { NEW: tt('Новая', 'Yangi'), IN_PROGRESS: tt('В работе', 'Jarayonda'), ANSWERED: tt('Отвечено', 'Javob berildi'), CLOSED: tt('Закрыта', 'Yopilgan') };
-  const [tab, setTab] = useState<'overview' | 'billing' | 'users' | 'reviews' | 'leads' | 'consults' | 'blog'>('overview');
+  const [tab, setTab] = useState<'overview' | 'billing' | 'orders' | 'certs' | 'users' | 'reviews' | 'leads' | 'consults' | 'blog'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -21,6 +21,8 @@ function AdminContent() {
   const [consults, setConsults] = useState<any[]>([]);
   const [billing, setBilling] = useState<any>(null);
   const [posts, setPosts] = useState<any[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
+  const [certQueue, setCertQueue] = useState<any[]>([]);
   const [editingPost, setEditingPost] = useState<any | null>(null);
 
   const load = () => {
@@ -31,6 +33,8 @@ function AdminContent() {
     api.get('/consultations').then((r) => setConsults(r.data)).catch(() => {});
     api.get('/admin/billing').then((r) => setBilling(r.data)).catch(() => {});
     api.get('/blog', { params: { all: true, limit: 100 } }).then((r) => setPosts(r.data.posts)).catch(() => {});
+    api.get('/orders').then((r) => setOrders(r.data)).catch(() => {});
+    api.get('/offers/verification-queue').then((r) => setCertQueue(r.data)).catch(() => {});
   };
 
   const delPost = async (id: string) => {
@@ -64,6 +68,31 @@ function AdminContent() {
   const ban = async (id: string, isBanned: boolean) => { await api.patch(`/admin/users/${id}/ban`, { isBanned }); toast.success(isBanned ? tt('Заблокирован', 'Bloklandi') : tt('Разблокирован', 'Blokdan chiqarildi')); load(); };
   const approve = async (id: string) => { await api.patch(`/reviews/${id}/approve`, { isApproved: true }); toast.success(tt('Опубликован', 'Chop etildi')); load(); };
   const setLeadStatus = async (id: string, status: string) => { await api.patch(`/leads/${id}`, { status }); load(); };
+  const ORDER_STATUS: Record<string, string> = {
+    PENDING: tt('Новый', 'Yangi'), CONFIRMED: tt('Подтверждён', 'Tasdiqlangan'), PROCESSING: tt('В обработке', 'Qayta ishlanmoqda'),
+    SHIPPED: tt('Отгружен', 'Joʻnatildi'), DELIVERED: tt('Доставлен', 'Yetkazildi'), CANCELLED: tt('Отменён', 'Bekor qilindi'),
+  };
+  const setOrderStatus = async (id: string, status: string) => {
+    try { await api.patch(`/orders/${id}/status`, { status }); toast.success(tt('Статус обновлён', 'Holat yangilandi')); load(); }
+    catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
+  };
+  const delOrder = async (id: string) => {
+    if (!confirm(tt('Удалить заказ безвозвратно?', 'Buyurtma butunlay oʻchirilsinmi?'))) return;
+    await api.delete(`/orders/${id}`);
+    toast.success(tt('Заказ удалён', 'Buyurtma oʻchirildi'));
+    load();
+  };
+  const orderInvoice = async (id: string) => {
+    const { data } = await api.get(`/orders/${id}/invoice`, { responseType: 'blob' });
+    const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
+    const a = document.createElement('a'); a.href = url; a.download = `invoice-${id.slice(0, 8)}.pdf`; a.click();
+    URL.revokeObjectURL(url);
+  };
+  const verifyOffer = async (id: string) => {
+    await api.post(`/offers/${id}/verify`, { verified: true });
+    toast.success(tt('Подлинность подтверждена', 'Haqiqiyligi tasdiqlandi'));
+    load();
+  };
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
@@ -80,7 +109,7 @@ function AdminContent() {
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['overview', tt('Обзор', 'Umumiy')], ['billing', tt('Биллинг', 'Billing')], ['leads', `${tt('Заявки', 'Arizalar')}${newLeads ? ` (${newLeads})` : ''}`], ['consults', `${tt('Консультации', 'Konsultatsiyalar')}${newConsults ? ` (${newConsults})` : ''}`], ['users', `${tt('Пользователи', 'Foydalanuvchilar')}${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `${tt('Отзывы', 'Sharhlar')}${reviews.length ? ` (${reviews.length})` : ''}`], ['blog', tt('Блог', 'Blog')]].map(([k, l]) => (
+        {[['overview', tt('Обзор', 'Umumiy')], ['billing', tt('Биллинг', 'Billing')], ['orders', `${tt('Заказы', 'Buyurtmalar')}${orders.length ? ` (${orders.length})` : ''}`], ['certs', `${tt('Сертификаты', 'Sertifikatlar')}${certQueue.length ? ` (${certQueue.length})` : ''}`], ['leads', `${tt('Заявки', 'Arizalar')}${newLeads ? ` (${newLeads})` : ''}`], ['consults', `${tt('Консультации', 'Konsultatsiyalar')}${newConsults ? ` (${newConsults})` : ''}`], ['users', `${tt('Пользователи', 'Foydalanuvchilar')}${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `${tt('Отзывы', 'Sharhlar')}${reviews.length ? ` (${reviews.length})` : ''}`], ['blog', tt('Блог', 'Blog')]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>{l}</button>
         ))}
@@ -150,6 +179,76 @@ function AdminContent() {
               </tbody>
             </table>
             {!billing?.rows?.length && <div className="py-10 text-center text-ink-subtle">{tt('Нет данных', 'Maʼlumot yoʻq')}</div>}
+          </div>
+        </div>
+      )}
+
+      {tab === 'orders' && (
+        <div className="mt-6 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-ink-muted">
+              <tr className="border-b border-slate-100">
+                <th className="py-2 pr-3">№</th><th className="py-2 pr-3">{tt('Дата', 'Sana')}</th>
+                <th className="py-2 pr-3">{tt('Покупатель', 'Xaridor')}</th><th className="py-2 pr-3">{tt('Позиций', 'Pozitsiyalar')}</th>
+                <th className="py-2 pr-3">{tt('Сумма', 'Summa')}</th><th className="py-2 pr-3">{tt('Статус', 'Holat')}</th><th className="py-2"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {orders.map((o) => (
+                <tr key={o.id} className="border-b border-slate-50">
+                  <td className="py-2 pr-3 font-mono text-xs">{o.id.slice(0, 8)}</td>
+                  <td className="py-2 pr-3 whitespace-nowrap">{new Date(o.createdAt).toLocaleDateString('ru-RU')}</td>
+                  <td className="py-2 pr-3">{o.buyerName}{o.buyerCompany ? ` · ${o.buyerCompany}` : ''}</td>
+                  <td className="py-2 pr-3">{o.items?.length ?? 0}</td>
+                  <td className="py-2 pr-3 font-semibold whitespace-nowrap">{formatMoney(o.total)}</td>
+                  <td className="py-2 pr-3">
+                    <select className="input !h-8 !py-0 text-xs" value={o.status} onChange={(e) => setOrderStatus(o.id, e.target.value)}>
+                      {Object.entries(ORDER_STATUS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                    </select>
+                  </td>
+                  <td className="py-2 whitespace-nowrap">
+                    <button className="btn-ghost !px-2 !py-1" onClick={() => orderInvoice(o.id)} title={tt('Счёт PDF', 'Hisob PDF')}><Download size={15} /></button>
+                    <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => delOrder(o.id)} title={tt('Удалить', 'Oʻchirish')}><Trash2 size={15} /></button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {orders.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Заказов пока нет', 'Hozircha buyurtmalar yoʻq')}</div>}
+        </div>
+      )}
+
+      {tab === 'certs' && (
+        <div className="mt-6">
+          <p className="mb-4 text-sm text-ink-muted">
+            {tt('Анти-фальсификат: офферы с документами, ожидающие проверки платформой. После подтверждения покупатель видит значок «Проверено платформой».',
+                'Anti-kontrafakt: platforma tekshiruvini kutayotgan hujjatli takliflar. Tasdiqdan soʻng xaridor «Platforma tekshirgan» belgisini koʻradi.')}
+          </p>
+          <div className="space-y-3">
+            {certQueue.map((o) => (
+              <div key={o.id} className="card flex flex-wrap items-center gap-4 p-4">
+                <div className="min-w-0 flex-1">
+                  <div className="font-medium">{o.product?.name}</div>
+                  <div className="text-xs text-ink-muted">
+                    {o.seller?.company ?? o.seller?.fullName}
+                    {o.product?.manufacturer ? ` · ${o.product.manufacturer}` : ''}
+                    {o.regNumber ? ` · ${tt('рег. №', 'roʻyx. №')} ${o.regNumber}` : ''}
+                    {o.batchNumber ? ` · ${tt('партия', 'partiya')} ${o.batchNumber}` : ''}
+                  </div>
+                  {(o.certificates ?? []).length > 0 && (
+                    <div className="mt-1 flex flex-wrap gap-2">
+                      {o.certificates.map((c: string, i: number) => (
+                        <a key={i} href={c} target="_blank" rel="noreferrer" className="text-xs text-teal-700 underline">{tt('сертификат', 'sertifikat')} {i + 1}</a>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <button className="btn-primary !px-3 !py-2" onClick={() => verifyOffer(o.id)}>
+                  <ShieldCheck size={15} /> {tt('Подтвердить', 'Tasdiqlash')}
+                </button>
+              </div>
+            ))}
+            {certQueue.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Очередь пуста — все офферы проверены', 'Navbat boʻsh — barcha takliflar tekshirilgan')}</div>}
           </div>
         </div>
       )}

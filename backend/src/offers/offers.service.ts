@@ -87,6 +87,24 @@ export class OffersService {
     return { ok: true };
   }
 
+  // Очередь верификации для админки: офферы с документами (сертификаты/рег. номер),
+  // ещё не подтверждённые платформой. Анти-фальсификат.
+  async verificationQueue() {
+    const offers = await this.prisma.offer.findMany({
+      where: {
+        certVerified: false,
+        isActive: true,
+        OR: [{ certificates: { isEmpty: false } }, { regNumber: { not: null } }],
+      },
+      orderBy: { updatedAt: 'desc' },
+      include: {
+        product: { select: { id: true, name: true, manufacturer: true } },
+        seller: { select: { id: true, company: true, fullName: true } },
+      },
+    });
+    return offers.map(serializeOffer);
+  }
+
   // Верификация сертификатов/партии платформой (админ). Анти-фальсификат.
   async setVerified(id: string, verified: boolean) {
     const offer = await this.prisma.offer.findUnique({ where: { id } });
