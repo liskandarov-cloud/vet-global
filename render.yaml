@@ -57,3 +57,11 @@ services:
         sync: false
       - key: TELEGRAM_ADMIN_CHAT_ID
         sync: false
+      # Оповещения о серверных ошибках (5xx). Не задано — ошибки только в логах.
+      # Значение задать в дашборде Render: URL вебхука (Telegram Bot API
+      # sendMessage, Slack или Discord). Для Telegram укажите ещё
+      # ERROR_WEBHOOK_CHAT_ID. Ключи не коммитим.
+      - key: ERROR_WEBHOOK_URL
+        sync: false
+      - key: ERROR_WEBHOOK_CHAT_ID
+        sync: false

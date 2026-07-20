@@ -4,6 +4,7 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { text } from 'express';
 import { AppModule } from './app.module';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -26,6 +27,10 @@ async function bootstrap() {
       forbidNonWhitelisted: false,
     }),
   );
+
+  // Единый обработчик ошибок: структурный лог + оповещение о 5xx (если задан
+  // ERROR_WEBHOOK_URL). Без него сбой на демо виден только зрителю.
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   // CORS. По умолчанию — только собственный фронтенд: значение «*» вместе с
   // credentials:true отражало любой Origin (проверено: evil-example.com получал
