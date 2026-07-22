@@ -54,7 +54,7 @@ function BuyerRfq() {
   const [rfqs, setRfqs] = useState<any[]>([]);
   const [title, setTitle] = useState('');
   const [note, setNote] = useState('');
-  const [items, setItems] = useState<{ name: string; quantity: number }[]>([{ name: '', quantity: 1 }]);
+  const [items, setItems] = useState<{ name: string; quantity: number; unit: string }[]>([{ name: '', quantity: 1, unit: 'шт' }]);
   const [submitting, setSubmitting] = useState(false);
 
   const load = () => api.get('/rfq/mine').then((r) => setRfqs(r.data)).catch(() => {});
@@ -66,8 +66,8 @@ function BuyerRfq() {
     setSubmitting(true);
     try {
       await api.post('/rfq', { title, note, items: valid });
-      toast.success(tt('Запрос опубликован', 'Soʻrov eʼlon qilindi'));
-      setTitle(''); setNote(''); setItems([{ name: '', quantity: 1 }]);
+      toast.success(tt('Запрос опубликован — он ниже в списке «Мои запросы»', 'Soʻrov eʼlon qilindi — u «Mening soʻrovlarim» roʻyxatida'));
+      setTitle(''); setNote(''); setItems([{ name: '', quantity: 1, unit: 'шт' }]);
       load();
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
@@ -81,33 +81,52 @@ function BuyerRfq() {
         <input className="input" placeholder={tt('Название (напр. «Вакцины для птицефабрики, Q3»)', 'Nomi (masalan, «Parranda fabrikasi uchun vaksinalar, Q3»)')} value={title} onChange={(e) => setTitle(e.target.value)} />
         <textarea className="input" rows={2} placeholder={tt('Комментарий (условия, сроки) — необязательно', 'Izoh (shartlar, muddatlar) — ixtiyoriy')} value={note} onChange={(e) => setNote(e.target.value)} />
         <div className="space-y-2">
+          <div className="flex gap-2 text-xs font-medium text-ink-subtle">
+            <span className="flex-1">{tt('Наименование', 'Nomi')}</span>
+            <span className="w-20 text-center">{tt('Кол-во', 'Miqdor')}</span>
+            <span className="w-24 text-center">{tt('Ед. изм.', 'Oʻlchov')}</span>
+            {items.length > 1 && <span className="w-10" />}
+          </div>
           {items.map((it, i) => (
             <div key={i} className="flex gap-2">
-              <input className="input flex-1" placeholder={tt('Позиция', 'Pozitsiya')} value={it.name} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
-              <input className="input w-24" type="number" min={1} value={it.quantity} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, quantity: Number(e.target.value) || 1 } : x))} />
+              <input className="input flex-1" placeholder={tt('напр. Вакцина НБ Ла-Сота', 'masalan, NB La-Sota vaksinasi')} value={it.name} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
+              <input className="input w-20 text-center" type="number" min={1} value={it.quantity} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, quantity: Number(e.target.value) || 1 } : x))} />
+              <select className="input w-24" value={it.unit} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))}>
+                {['шт', 'флакон', 'доз', 'л', 'мл', 'кг', 'г', 'уп'].map((u) => <option key={u} value={u}>{u}</option>)}
+              </select>
               {items.length > 1 && (
                 <button className="grid w-10 place-items-center rounded-lg text-ink-subtle hover:text-red-500" onClick={() => setItems(items.filter((_, j) => j !== i))}><Trash2 size={16} /></button>
               )}
             </div>
           ))}
-          <button className="btn-ghost text-sm" onClick={() => setItems([...items, { name: '', quantity: 1 }])}><Plus size={14} /> {tt('Добавить позицию', 'Pozitsiya qoʻshish')}</button>
+          <button className="btn-ghost text-sm" onClick={() => setItems([...items, { name: '', quantity: 1, unit: 'шт' }])}><Plus size={14} /> {tt('Добавить позицию', 'Pozitsiya qoʻshish')}</button>
         </div>
         <button className="btn-primary w-full" disabled={submitting} onClick={submit}>{submitting ? '…' : tt('Опубликовать запрос', 'Soʻrovni eʼlon qilish')}</button>
       </div>
 
-      <div className="mt-6 space-y-2">
-        {rfqs.map((r) => (
-          <Link key={r.id} href={`/rfq/${r.id}`} className="card card-hover flex items-center justify-between p-4">
-            <div>
-              <div className="font-medium">{r.title}</div>
-              <div className="text-xs text-ink-subtle">{r.items?.length ?? 0} {tt('позиций', 'pozitsiya')} · {new Date(r.createdAt).toLocaleDateString('ru-RU')}</div>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="inline-flex items-center gap-1 text-sm text-teal-700"><Gavel size={14} /> {r._count?.quotes ?? 0} {tt('котировок', 'kotirovka')}</span>
-              <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[r.status]?.cls}`}>{tt(STATUS[r.status]?.label, STATUS_UZ[r.status])}</span>
-            </div>
-          </Link>
-        ))}
+      <div className="mt-8">
+        <h2 className="mb-3 font-heading text-lg font-bold">{tt('Мои запросы', 'Mening soʻrovlarim')}</h2>
+        {rfqs.length === 0 ? (
+          <div className="card p-6 text-center text-sm text-ink-subtle">
+            {tt('Пока нет запросов. Заполните форму выше и опубликуйте — запрос появится здесь, а поставщики предложат цены.',
+                'Hozircha soʻrovlar yoʻq. Yuqoridagi shaklni toʻldiring va eʼlon qiling — soʻrov shu yerda paydo boʻladi.')}
+          </div>
+        ) : (
+          <div className="space-y-2">
+            {rfqs.map((r) => (
+              <Link key={r.id} href={`/rfq/${r.id}`} className="card card-hover flex items-center justify-between p-4">
+                <div>
+                  <div className="font-medium">{r.title}</div>
+                  <div className="text-xs text-ink-subtle">{r.items?.length ?? 0} {tt('позиций', 'pozitsiya')} · {new Date(r.createdAt).toLocaleDateString('ru-RU')}</div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <span className="inline-flex items-center gap-1 text-sm text-teal-700"><Gavel size={14} /> {r._count?.quotes ?? 0} {tt('котировок', 'kotirovka')}</span>
+                  <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[r.status]?.cls}`}>{tt(STATUS[r.status]?.label, STATUS_UZ[r.status])}</span>
+                </div>
+              </Link>
+            ))}
+          </div>
+        )}
       </div>
     </>
   );

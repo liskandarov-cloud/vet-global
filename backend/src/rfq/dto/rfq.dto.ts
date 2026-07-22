@@ -25,6 +25,11 @@ export class RfqItemInput {
   @IsInt()
   @Min(1)
   quantity!: number;
+
+  @ApiProperty({ required: false })
+  @IsOptional()
+  @IsString()
+  unit?: string;
 }
 
 export class CreateRfqDto {

@@ -19,11 +19,24 @@ export class RfqService {
           create: dto.items.map((i) => ({
             productId: i.productId ?? null,
             name: i.name,
+            unit: i.unit ?? null,
             quantity: i.quantity,
           })),
         },
       },
       include: { items: true },
+    });
+  }
+
+  // Все запросы платформы (админ): кто создал + число позиций и котировок.
+  async listAll() {
+    return this.prisma.rfq.findMany({
+      orderBy: { createdAt: 'desc' },
+      include: {
+        items: true,
+        _count: { select: { quotes: true } },
+        buyer: { select: { id: true, fullName: true, company: true } },
+      },
     });
   }
 

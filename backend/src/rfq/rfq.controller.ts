@@ -27,6 +27,14 @@ export class RfqController {
     return this.rfq.listMine(user);
   }
 
+  // Все запросы платформы — для админки (мониторинг тендеров).
+  @Get('all')
+  @UseGuards(RolesGuard)
+  @Roles(UserRole.ADMIN)
+  listAll() {
+    return this.rfq.listAll();
+  }
+
   @Get('open')
   @UseGuards(RolesGuard)
   @Roles(UserRole.SELLER, UserRole.ADMIN)

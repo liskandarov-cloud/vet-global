@@ -46,8 +46,8 @@ export function Header() {
 
   return (
     <header className="sticky top-0 z-40 glass shadow-sm">
-      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4">
-        <Link href="/" className="flex items-center gap-2">
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4">
+        <Link href="/" className="flex shrink-0 items-center gap-2 lg:mr-4">
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-r from-teal-600 to-emerald-500 text-white shadow-md shadow-teal-900/20">
             <Sprout size={20} />
           </span>

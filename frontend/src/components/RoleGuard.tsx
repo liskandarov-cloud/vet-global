@@ -57,20 +57,26 @@ export function StatCard({
   return (
     <div
       className={`relative overflow-hidden rounded-xl border p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md ${
-        accent ? 'border-teal-100 bg-gradient-to-br from-teal-50 to-emerald-50' : 'border-slate-100 bg-white'
+        accent
+          ? 'border-teal-100 bg-gradient-to-br from-teal-50 to-emerald-50 dark:border-teal-900/50 dark:from-teal-950/40 dark:to-emerald-950/30'
+          : 'border-slate-100 bg-white dark:border-slate-800 dark:bg-slate-900'
       }`}
     >
       {Icon && (
         <span
           className={`absolute right-3 top-3 grid h-9 w-9 place-items-center rounded-lg ${
-            accent ? 'bg-white/70 text-teal-700' : 'bg-teal-50 text-teal-700'
+            accent
+              ? 'bg-white/70 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
+              : 'bg-teal-50 text-teal-700 dark:bg-teal-900/40 dark:text-teal-300'
           }`}
         >
           <Icon size={18} />
         </span>
       )}
       <div className="text-sm text-ink-subtle">{label}</div>
-      <div className="mt-1 font-heading text-2xl font-bold">{value}</div>
+      {/* Явный цвет текста: без него значение наследует светлый ink и на
+          акцентной карточке в тёмной теме становится нечитаемым. */}
+      <div className="mt-1 font-heading text-2xl font-bold text-ink">{value}</div>
     </div>
   );
 }

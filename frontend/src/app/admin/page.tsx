@@ -13,7 +13,7 @@ function AdminContent() {
   const { tt } = useI18n();
   const LEAD_STATUS: Record<string, string> = { NEW: tt('Новая', 'Yangi'), CONTACTED: tt('В работе', 'Jarayonda'), CLOSED: tt('Закрыта', 'Yopilgan') };
   const CONSULT_STATUS: Record<string, string> = { NEW: tt('Новая', 'Yangi'), IN_PROGRESS: tt('В работе', 'Jarayonda'), ANSWERED: tt('Отвечено', 'Javob berildi'), CLOSED: tt('Закрыта', 'Yopilgan') };
-  const [tab, setTab] = useState<'overview' | 'billing' | 'orders' | 'certs' | 'users' | 'reviews' | 'leads' | 'consults' | 'blog'>('overview');
+  const [tab, setTab] = useState<'overview' | 'billing' | 'orders' | 'rfq' | 'certs' | 'users' | 'reviews' | 'leads' | 'consults' | 'blog'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   const [reviews, setReviews] = useState<any[]>([]);
@@ -23,6 +23,7 @@ function AdminContent() {
   const [posts, setPosts] = useState<any[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
   const [certQueue, setCertQueue] = useState<any[]>([]);
+  const [rfqs, setRfqs] = useState<any[]>([]);
   const [editingPost, setEditingPost] = useState<any | null>(null);
 
   const load = () => {
@@ -35,6 +36,7 @@ function AdminContent() {
     api.get('/blog', { params: { all: true, limit: 100 } }).then((r) => setPosts(r.data.posts)).catch(() => {});
     api.get('/orders').then((r) => setOrders(r.data)).catch(() => {});
     api.get('/offers/verification-queue').then((r) => setCertQueue(r.data)).catch(() => {});
+    api.get('/rfq/all').then((r) => setRfqs(r.data)).catch(() => {});
   };
 
   const delPost = async (id: string) => {
@@ -120,7 +122,7 @@ function AdminContent() {
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['overview', tt('Обзор', 'Umumiy')], ['billing', tt('Биллинг', 'Billing')], ['orders', `${tt('Заказы', 'Buyurtmalar')}${orders.length ? ` (${orders.length})` : ''}`], ['certs', `${tt('Сертификаты', 'Sertifikatlar')}${certQueue.length ? ` (${certQueue.length})` : ''}`], ['leads', `${tt('Заявки', 'Arizalar')}${newLeads ? ` (${newLeads})` : ''}`], ['consults', `${tt('Консультации', 'Konsultatsiyalar')}${newConsults ? ` (${newConsults})` : ''}`], ['users', `${tt('Пользователи', 'Foydalanuvchilar')}${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `${tt('Отзывы', 'Sharhlar')}${reviews.length ? ` (${reviews.length})` : ''}`], ['blog', tt('Блог', 'Blog')]].map(([k, l]) => (
+        {[['overview', tt('Обзор', 'Umumiy')], ['billing', tt('Биллинг', 'Billing')], ['orders', `${tt('Заказы', 'Buyurtmalar')}${orders.length ? ` (${orders.length})` : ''}`], ['rfq', `${tt('Запросы цен', 'Narx soʻrovlari')}${rfqs.length ? ` (${rfqs.length})` : ''}`], ['certs', `${tt('Сертификаты', 'Sertifikatlar')}${certQueue.length ? ` (${certQueue.length})` : ''}`], ['leads', `${tt('Заявки', 'Arizalar')}${newLeads ? ` (${newLeads})` : ''}`], ['consults', `${tt('Консультации', 'Konsultatsiyalar')}${newConsults ? ` (${newConsults})` : ''}`], ['users', `${tt('Пользователи', 'Foydalanuvchilar')}${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `${tt('Отзывы', 'Sharhlar')}${reviews.length ? ` (${reviews.length})` : ''}`], ['blog', tt('Блог', 'Blog')]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>{l}</button>
         ))}
@@ -226,6 +228,33 @@ function AdminContent() {
             </tbody>
           </table>
           {orders.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Заказов пока нет', 'Hozircha buyurtmalar yoʻq')}</div>}
+        </div>
+      )}
+
+      {tab === 'rfq' && (
+        <div className="mt-6 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="text-left text-ink-muted">
+              <tr className="border-b border-slate-100 dark:border-slate-800">
+                <th className="py-2 pr-3">{tt('Дата', 'Sana')}</th><th className="py-2 pr-3">{tt('Название', 'Nomi')}</th>
+                <th className="py-2 pr-3">{tt('Покупатель', 'Xaridor')}</th><th className="py-2 pr-3">{tt('Позиций', 'Pozitsiyalar')}</th>
+                <th className="py-2 pr-3">{tt('Котировок', 'Kotirovkalar')}</th><th className="py-2">{tt('Статус', 'Holat')}</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rfqs.map((r) => (
+                <tr key={r.id} className="border-b border-slate-50 dark:border-slate-800/60">
+                  <td className="py-2 pr-3 whitespace-nowrap">{new Date(r.createdAt).toLocaleDateString('ru-RU')}</td>
+                  <td className="py-2 pr-3 font-medium">{r.title}</td>
+                  <td className="py-2 pr-3">{r.buyer?.company || r.buyer?.fullName || '—'}</td>
+                  <td className="py-2 pr-3">{r.items?.length ?? 0}</td>
+                  <td className="py-2 pr-3">{r._count?.quotes ?? 0}</td>
+                  <td className="py-2">{r.status}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {rfqs.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Запросов пока нет', 'Hozircha soʻrovlar yoʻq')}</div>}
         </div>
       )}
 

@@ -226,6 +226,7 @@ model RfqItem {
   productId String? // если позиция привязана к товару каталога
   name      String
   quantity  Int
+  unit      String? // единица измерения: шт, л, доз, флакон и т.п.
 
   rfq Rfq @relation(fields: [rfqId], references: [id], onDelete: Cascade)
 
