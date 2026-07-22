@@ -12,6 +12,7 @@ export interface ProvisionUserDto {
   inn?: string;
   description?: string;
   role?: UserRole;
+  isDemo?: boolean;
 }
 
 @Injectable()
@@ -40,6 +41,7 @@ export class MaintenanceService {
       role: dto.role ?? UserRole.BUYER,
       isVerified: true,
       isBanned: false,
+      isDemo: dto.isDemo ?? false,
     };
     const user = await this.prisma.user.upsert({
       where: { email: dto.email },

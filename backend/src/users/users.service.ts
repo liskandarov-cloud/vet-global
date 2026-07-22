@@ -69,6 +69,7 @@ export class UsersService {
       description: s.description,
       logoUrl: s.logoUrl,
       isVerified: s.isVerified,
+      isDemo: s.isDemo,
       rating: Number(s.rating),
       reviewsCount: s.reviewsCount,
       productsCount,

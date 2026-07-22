@@ -11,6 +11,7 @@ interface Seller {
   company?: string;
   description?: string;
   isVerified: boolean;
+  isDemo?: boolean;
   rating: number;
   reviewsCount: number;
   productsCount: number;
@@ -45,6 +46,11 @@ export default function SuppliersPage() {
                 <div className="flex items-center gap-1 font-heading text-lg font-bold">
                   <span className="line-clamp-1">{s.company ?? tt('Поставщик', 'Yetkazib beruvchi')}</span>
                   {s.isVerified && <ShieldCheck size={18} className="shrink-0 text-teal-700" />}
+                  {s.isDemo && (
+                    <span className="shrink-0 rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                      {tt('демо', 'demo')}
+                    </span>
+                  )}
                 </div>
               </div>
               {s.description && <p className="mt-3 line-clamp-2 text-sm text-ink-muted">{s.description}</p>}

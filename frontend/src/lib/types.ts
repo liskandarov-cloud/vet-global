@@ -11,6 +11,7 @@ export interface SellerBrief {
   company?: string | null;
   fullName?: string;
   isVerified?: boolean;
+  isDemo?: boolean;
   rating?: number;
   reviewsCount?: number;
   logoUrl?: string | null;

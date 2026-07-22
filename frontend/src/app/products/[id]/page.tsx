@@ -314,6 +314,11 @@ export default function ProductPage() {
                             {o.seller?.company ?? tt('Поставщик', 'Yetkazib beruvchi')}
                           </Link>
                           {o.seller?.isVerified && <ShieldCheck size={14} className="text-teal-700" />}
+                          {o.seller?.isDemo && (
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                              {tt('демо', 'demo')}
+                            </span>
+                          )}
                         </div>
                         {o.seller && (o.seller.rating ?? 0) > 0 && (
                           <div className="mt-0.5 flex items-center gap-0.5 text-xs text-ink-subtle">

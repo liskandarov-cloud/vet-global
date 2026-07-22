@@ -21,6 +21,7 @@ export class OffersService {
             company: true,
             fullName: true,
             isVerified: true,
+            isDemo: true,
             rating: true,
             reviewsCount: true,
             logoUrl: true,

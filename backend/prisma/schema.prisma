@@ -138,6 +138,7 @@ model User {
   role            UserRole @default(BUYER)
   isVerified      Boolean  @default(false) // продавец подтверждён админом
   isBanned        Boolean  @default(false)
+  isDemo          Boolean  @default(false) // демо-поставщик: показываем пометку на витрине
   vetPointsBalance Decimal @default(0) @db.Decimal(12, 2)
 
   // Seller-facing aggregates
