@@ -146,6 +146,11 @@ model User {
   reviewsCount Int     @default(0)
   description  String? // о компании-поставщике
   logoUrl      String?
+  // Банковские реквизиты поставщика для счёта на оплату.
+  bankName     String? // название банка
+  bankAccount  String? // расчётный счёт (р/с)
+  bankMfo      String? // МФО банка
+  vatPayer     Boolean @default(false) // плательщик НДС (ҚҚС 12%) — показывать в счёте
   syncApiKey   String? @unique // ключ интеграции 1С/ERP (по нему сопоставляется поставщик)
 
   // Финансирование закупок (блок 2)

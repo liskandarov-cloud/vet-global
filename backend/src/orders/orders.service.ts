@@ -372,13 +372,23 @@ export class OrdersService {
 
     const seller = await this.prisma.user.findFirst({
       where: { id: order.items[0]?.sellerId },
-      select: { company: true, inn: true },
+      select: {
+        company: true, inn: true,
+        bankName: true, bankAccount: true, bankMfo: true, vatPayer: true,
+      },
     });
 
     const buffer = await this.pdf.invoice({
       number,
       date: order.createdAt,
-      seller: { company: seller?.company, inn: seller?.inn },
+      seller: {
+        company: seller?.company,
+        inn: seller?.inn,
+        bankName: seller?.bankName,
+        bankAccount: seller?.bankAccount,
+        bankMfo: seller?.bankMfo,
+        vatPayer: seller?.vatPayer,
+      },
       buyer: {
         name: order.buyerName,
         company: order.buyerCompany,

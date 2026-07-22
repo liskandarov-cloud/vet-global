@@ -7,6 +7,10 @@ export class UpdateProfileDto {
   @IsOptional() @IsString() inn?: string;
   @IsOptional() @IsString() description?: string; // о поставщике
   @IsOptional() @IsString() logoUrl?: string;
+  @IsOptional() @IsString() bankName?: string;
+  @IsOptional() @IsString() bankAccount?: string;
+  @IsOptional() @IsString() bankMfo?: string;
+  @IsOptional() @IsBoolean() vatPayer?: boolean;
 }
 
 export class CounterpartyDto {
