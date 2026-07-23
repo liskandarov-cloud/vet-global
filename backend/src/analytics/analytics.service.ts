@@ -113,10 +113,12 @@ export class AnalyticsService {
 
     const byProduct = new Map<string, { name: string; qty: number; revenue: number }>();
     for (const it of items) {
-      const cur = byProduct.get(it.productId) ?? { name: it.productName, qty: 0, revenue: 0 };
+      // У позиции сделки по тендеру нет товара каталога — группируем по названию.
+      const key = it.productId ?? `name:${it.productName}`;
+      const cur = byProduct.get(key) ?? { name: it.productName, qty: 0, revenue: 0 };
       cur.qty += it.quantity;
       cur.revenue += Number(it.price) * it.quantity;
-      byProduct.set(it.productId, cur);
+      byProduct.set(key, cur);
     }
     const topProducts = [...byProduct.values()].sort((a, b) => b.revenue - a.revenue).slice(0, 5);
 
@@ -141,7 +143,10 @@ export class AnalyticsService {
     const totalSpent = orders.reduce((s, o) => s + Number(o.total), 0);
 
     // Category breakdown by spend.
-    const productIds = orders.flatMap((o) => o.items.map((it) => it.productId));
+    // Позиции сделок по тендеру не привязаны к товару — их из выборки исключаем.
+    const productIds = orders
+      .flatMap((o) => o.items.map((it) => it.productId))
+      .filter((id): id is string => !!id);
     const products = await this.prisma.product.findMany({
       where: { id: { in: productIds } },
       include: { category: { select: { name: true } } },
@@ -150,7 +155,8 @@ export class AnalyticsService {
     const byCategory = new Map<string, number>();
     for (const o of orders) {
       for (const it of o.items) {
-        const cat = catOf.get(it.productId) ?? 'Прочее';
+        // Сделки по тендеру без товара каталога попадают в «Прочее».
+        const cat = (it.productId ? catOf.get(it.productId) : undefined) ?? 'Прочее';
         byCategory.set(cat, (byCategory.get(cat) ?? 0) + Number(it.price) * it.quantity);
       }
     }

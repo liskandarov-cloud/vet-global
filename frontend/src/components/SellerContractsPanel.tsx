@@ -71,7 +71,9 @@ export function SellerContractsPanel() {
           </div>
           <div>
             <label className="mb-1 block text-xs text-ink-muted">{tt('Договорная цена, сум', 'Shartnoma narxi, soʻm')}</label>
-            <input className="input" type="number" value={form.price} onChange={(e) => setForm({ ...form, price: Number(e.target.value) })} />
+            <input className="input" type="number" min={0} placeholder={tt('напр. 480000', 'masalan, 480000')}
+              value={form.price || ''}
+              onChange={(e) => setForm({ ...form, price: e.target.value === '' ? 0 : Number(e.target.value) })} />
           </div>
           <div>
             <label className="mb-1 block text-xs text-ink-muted">{tt('Действует до (необязательно)', 'Amal qilish muddati (ixtiyoriy)')}</label>

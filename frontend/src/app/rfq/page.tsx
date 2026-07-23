@@ -137,7 +137,7 @@ function SellerRfq() {
   const [rfqs, setRfqs] = useState<any[]>([]);
   useEffect(() => { api.get('/rfq/open').then((r) => setRfqs(r.data)).catch(() => {}); }, []);
 
-  if (rfqs.length === 0) return <div className="py-16 text-center text-ink-subtle">{tt('Открытых запросов нет', 'Ochiq soʻrovlar yoʻq')}</div>;
+  if (rfqs.length === 0) return <div className="py-16 text-center text-ink-subtle">{tt('Запросов пока нет', 'Hozircha soʻrovlar yoʻq')}</div>;
   return (
     <div className="space-y-2">
       {rfqs.map((r) => (
@@ -146,11 +146,15 @@ function SellerRfq() {
             <div className="font-medium">{r.title}</div>
             <div className="text-xs text-ink-subtle">{r.buyer?.company ?? r.buyer?.fullName} · {r.items?.length ?? 0} {tt('позиций', 'pozitsiya')}</div>
           </div>
+          <div className="flex items-center gap-2">
+          {/* Список теперь включает и завершённые тендеры — показываем статус. */}
+          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS[r.status]?.cls}`}>{tt(STATUS[r.status]?.label, STATUS_UZ[r.status])}</span>
           {r.myQuote ? (
             <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700">{tt('Ваша ставка', 'Sizning taklifingiz')}: {r.myQuote.totalPrice.toLocaleString('ru-RU')}</span>
           ) : (
-            <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{tt('Дать котировку', 'Kotirovka berish')}</span>
+            r.status === 'OPEN' && <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700">{tt('Дать котировку', 'Kotirovka berish')}</span>
           )}
+          </div>
         </Link>
       ))}
     </div>

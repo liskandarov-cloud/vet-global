@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Param, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { RfqService } from './rfq.service';
@@ -40,6 +40,12 @@ export class RfqController {
   @Roles(UserRole.SELLER, UserRole.ADMIN)
   listOpen(@CurrentUser() user: AuthUser) {
     return this.rfq.listOpen(user);
+  }
+
+  // Удаление: админ — модерация; покупатель — свой запрос без сделки.
+  @Delete(':id')
+  remove(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.rfq.remove(id, user);
   }
 
   @Get(':id')

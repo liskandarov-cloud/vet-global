@@ -328,7 +328,7 @@ function PromotionForm({ initial, products, onClose, onSaved }: any) {
             {products.map((p: Product) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
           <div className="grid grid-cols-2 gap-3">
-            <input className="input" type="number" placeholder={tt('Скидка %', 'Chegirma %')} value={form.discountPercent} onChange={(e) => upd('discountPercent', e.target.value)} />
+            <input className="input" type="number" placeholder={tt('Скидка %', 'Chegirma %')} value={form.discountPercent || ''} onChange={(e) => upd('discountPercent', e.target.value)} />
             <input className="input" type="date" value={form.endsAt ? String(form.endsAt).slice(0, 10) : ''} onChange={(e) => upd('endsAt', e.target.value)} />
           </div>
           <label className="flex items-center gap-2 text-sm">
@@ -432,7 +432,7 @@ function DeliveryForm({ order, onClose, onSaved }: any) {
           <input className="input" placeholder={tt('Телефон получателя', 'Qabul qiluvchi telefoni')} value={form.recipientPhone} onChange={(e) => upd('recipientPhone', e.target.value)} />
           <input className="input" placeholder={tt('Перевозчик / ТК', 'Tashuvchi / Transport kompaniyasi')} value={form.carrier} onChange={(e) => upd('carrier', e.target.value)} />
           <input className="input" placeholder={tt('Трек-номер', 'Trek raqami')} value={form.trackingNumber} onChange={(e) => upd('trackingNumber', e.target.value)} />
-          <input className="input" type="number" placeholder={tt('Стоимость доставки', 'Yetkazib berish narxi')} value={form.cost} onChange={(e) => upd('cost', e.target.value)} />
+          <input className="input" type="number" placeholder={tt('Стоимость доставки', 'Yetkazib berish narxi')} value={form.cost || ''} onChange={(e) => upd('cost', e.target.value)} />
           <input className="input" type="date" value={form.estimatedDate} onChange={(e) => upd('estimatedDate', e.target.value)} />
         </div>
         <div className="mt-6 flex justify-end gap-2">
@@ -503,15 +503,22 @@ function ProductForm({ initial, categories, onClose, onSaved }: any) {
             <option value="">{tt('Категория…', 'Kategoriya…')}</option>
             {categories.map((c: Category) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
-          <input className="input" type="number" placeholder={tt('Цена', 'Narx')} value={form.price} onChange={(e) => upd('price', e.target.value)} />
+          <input className="input" type="number" placeholder={tt('Цена, сум', 'Narx, soʻm')} value={form.price || ''} onChange={(e) => upd('price', e.target.value)} />
           <input className="input" placeholder={tt('Активное вещество', 'Faol modda')} value={form.activeSubstance} onChange={(e) => upd('activeSubstance', e.target.value)} />
           <input className="input" placeholder={tt('Производитель', 'Ishlab chiqaruvchi')} value={form.manufacturer} onChange={(e) => upd('manufacturer', e.target.value)} />
           <input className="input" placeholder={tt('Форма выпуска', 'Chiqarish shakli')} value={form.form} onChange={(e) => upd('form', e.target.value)} />
           <select className="input" value={form.animalType} onChange={(e) => upd('animalType', e.target.value)}>
             <option value="">{tt('Животное…', 'Hayvon…')}</option>
-            {['POULTRY', 'CATTLE', 'SMALL_RUMINANTS', 'HORSES', 'PETS', 'OTHER'].map((a) => <option key={a} value={a}>{a}</option>)}
+            {([
+              ['POULTRY', 'Птица', 'Parranda'],
+              ['CATTLE', 'КРС (крупный рогатый скот)', 'Qoramol'],
+              ['SMALL_RUMINANTS', 'МРС (овцы, козы)', 'Mayda mol (qoʻy, echki)'],
+              ['HORSES', 'Лошади', 'Otlar'],
+              ['PETS', 'Домашние животные', 'Uy hayvonlari'],
+              ['OTHER', 'Другое', 'Boshqa'],
+            ] as const).map(([v, ru, uz]) => <option key={v} value={v}>{tt(ru, uz)}</option>)}
           </select>
-          <input className="input" type="number" placeholder={tt('Мин. заказ', 'Min. buyurtma')} value={form.minOrder} onChange={(e) => upd('minOrder', e.target.value)} />
+          <input className="input" type="number" placeholder={tt('Мин. заказ, шт', 'Min. buyurtma, dona')} value={form.minOrder || ''} onChange={(e) => upd('minOrder', e.target.value)} />
           <input className="input" placeholder={tt('Код в 1С (externalId)', '1C kodi (externalId)')} value={form.externalId} onChange={(e) => upd('externalId', e.target.value)} />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.inStock} onChange={(e) => upd('inStock', e.target.checked)} className="h-4 w-4 accent-teal-600" /> {tt('В наличии', 'Mavjud')}</label>
         </div>

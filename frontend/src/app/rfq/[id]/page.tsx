@@ -1,9 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { ArrowLeft, ShieldCheck, Trophy, Truck } from 'lucide-react';
+import { ArrowLeft, ShieldCheck, Trophy, Truck, Trash2, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
@@ -26,6 +26,7 @@ export default function RfqDetailPage() {
   const params = useParams();
   const id = Array.isArray(params?.id) ? params.id[0] : (params?.id as string);
   const { user } = useAuth();
+  const router = useRouter();
   const { tt } = useI18n();
   const [rfq, setRfq] = useState<any>(null);
   const [price, setPrice] = useState(0);
@@ -47,8 +48,19 @@ export default function RfqDetailPage() {
     } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
   };
   const award = async (quoteId: string) => {
-    try { await api.post(`/rfq/${id}/award/${quoteId}`); toast.success(tt('Поставщик выбран', 'Yetkazib beruvchi tanlandi')); load(); }
-    catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
+    try {
+      await api.post(`/rfq/${id}/award/${quoteId}`);
+      toast.success(tt('Поставщик выбран — сделка оформлена заказом', 'Yetkazib beruvchi tanlandi — buyurtma rasmiylashtirildi'));
+      load();
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
+  };
+  const removeRfq = async () => {
+    if (!confirm(tt('Удалить запрос безвозвратно?', 'Soʻrov butunlay oʻchirilsinmi?'))) return;
+    try {
+      await api.delete(`/rfq/${id}`);
+      toast.success(tt('Запрос удалён', 'Soʻrov oʻchirildi'));
+      router.push('/rfq');
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
   };
   const close = async () => {
     try { await api.post(`/rfq/${id}/close`); toast.success(tt('Запрос закрыт', 'Soʻrov yopildi')); load(); }
@@ -80,12 +92,14 @@ export default function RfqDetailPage() {
           <div className="font-medium">{tt('Ваша котировка', 'Sizning kotirovkangiz')}</div>
           <div className="flex gap-2">
             <div className="flex-1">
-              <label className="mb-1 block text-xs text-ink-muted">{tt('Итоговая цена, сум', 'Yakuniy narx, soʻm')}</label>
-              <input className="input" type="number" min={0} value={price} onChange={(e) => setPrice(Number(e.target.value))} />
+              <label className="mb-1 block text-xs text-ink-muted">{tt('Итоговая цена за весь запрос, сум', 'Butun soʻrov uchun yakuniy narx, soʻm')}</label>
+              <input className="input" type="number" min={0} placeholder={tt('напр. 1200000', 'masalan, 1200000')}
+                value={price || ''} onChange={(e) => setPrice(e.target.value === '' ? 0 : Number(e.target.value))} />
             </div>
-            <div className="w-28">
-              <label className="mb-1 block text-xs text-ink-muted">{tt('Срок, дней', 'Muddat, kun')}</label>
-              <input className="input" type="number" min={0} value={lead} onChange={(e) => setLead(Number(e.target.value))} />
+            <div className="w-36">
+              <label className="mb-1 block text-xs text-ink-muted">{tt('Срок поставки, дней', 'Yetkazib berish, kun')}</label>
+              <input className="input" type="number" min={0} placeholder={tt('напр. 3', 'masalan, 3')}
+                value={lead || ''} onChange={(e) => setLead(e.target.value === '' ? 0 : Number(e.target.value))} />
             </div>
           </div>
           <textarea className="input" rows={2} placeholder={tt('Комментарий (необязательно)', 'Izoh (ixtiyoriy)')} value={qnote} onChange={(e) => setQnote(e.target.value)} />
@@ -93,11 +107,35 @@ export default function RfqDetailPage() {
         </div>
       )}
 
+      {/* Сделка по тендеру */}
+      {rfq.order && (
+        <div className="card mt-4 flex flex-wrap items-center justify-between gap-3 border-emerald-200 bg-emerald-50/50 p-4 dark:bg-emerald-950/20">
+          <div>
+            <div className="flex items-center gap-2 font-medium text-emerald-800 dark:text-emerald-300">
+              <Package size={16} /> {tt('Сделка заключена — оформлен заказ', 'Bitim tuzildi — buyurtma rasmiylashtirildi')}
+            </div>
+            <div className="mt-0.5 text-xs text-ink-muted">
+              № {rfq.order.id.slice(0, 8)} · {formatMoney(rfq.order.total)}
+            </div>
+          </div>
+          <Link href={isBuyer ? '/dashboard' : '/seller'} className="btn-primary !px-3 !py-2 text-sm">
+            {tt('Открыть в заказах', 'Buyurtmalarda ochish')}
+          </Link>
+        </div>
+      )}
+
       {/* Котировки */}
       <div className="mt-6">
         <div className="mb-2 flex items-center justify-between">
           <h2 className="font-heading text-lg font-bold">{tt('Котировки', 'Kotirovkalar')} · {rfq.quotes.length}</h2>
-          {isBuyer && rfq.status === 'OPEN' && <button className="btn-ghost text-sm" onClick={close}>{tt('Закрыть запрос', 'Soʻrovni yopish')}</button>}
+          <div className="flex items-center gap-2">
+            {isBuyer && rfq.status === 'OPEN' && <button className="btn-ghost text-sm" onClick={close}>{tt('Закрыть запрос', 'Soʻrovni yopish')}</button>}
+            {(user?.role === 'ADMIN' || (isBuyer && !rfq.order)) && (
+              <button className="btn-ghost text-sm text-red-500" onClick={removeRfq}>
+                <Trash2 size={14} /> {tt('Удалить', 'Oʻchirish')}
+              </button>
+            )}
+          </div>
         </div>
         {rfq.quotes.length === 0 ? (
           <div className="py-8 text-center text-ink-subtle">{tt('Котировок пока нет', 'Hozircha kotirovkalar yoʻq')}</div>

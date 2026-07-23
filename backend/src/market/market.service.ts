@@ -40,6 +40,9 @@ export class MarketService {
     // Топ-товары.
     const byProduct = new Map<string, { name: string; units: number; revenue: number }>();
     for (const it of items) {
+      // Позиции сделок по тендеру не привязаны к товару каталога — в рыночную
+      // аналитику по категориям они не попадают (категории у них нет).
+      if (!it.product || !it.productId) continue;
       const cid = it.product.categoryId;
       const rev = Number(it.price) * it.quantity;
       const d = demandByCat.get(cid) ?? { units: 0, revenue: 0 };
@@ -101,6 +104,7 @@ export class MarketService {
     // Выручка по категориям: моя vs рынок.
     const mine = new Map<string, { name: string; revenue: number }>();
     for (const it of myItems) {
+      if (!it.product) continue; // позиция сделки по тендеру — без категории
       const cid = it.product.categoryId;
       const m = mine.get(cid) ?? { name: it.product.category.name, revenue: 0 };
       m.revenue += Number(it.price) * it.quantity;
@@ -108,6 +112,7 @@ export class MarketService {
     }
     const market = new Map<string, number>();
     for (const it of allItems) {
+      if (!it.product) continue;
       const cid = it.product.categoryId;
       market.set(cid, (market.get(cid) ?? 0) + Number(it.price) * it.quantity);
     }

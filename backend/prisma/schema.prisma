@@ -539,6 +539,9 @@ model Order {
   installments    Int? // число платежей для INSTALLMENT
   paymentSchedule Json? // график: [{ n, dueDate, amount }]
 
+  // Сделка заключена по запросу цен (RFQ) — для прослеживаемости тендера.
+  rfqId          String?
+
   // Организация-покупатель и согласование (P2)
   orgId          String?
   approvalStatus ApprovalStatus @default(NONE)
@@ -564,15 +567,16 @@ model Order {
 model OrderItem {
   id          String  @id @default(uuid())
   orderId     String
-  productId   String
+  // Необязателен: позиция сделки по тендеру (RFQ) может не быть товаром каталога.
+  productId   String?
   offerId     String? // выбранный оффер продавца (снимок; null = легаси/базовый товар)
   productName String // снимок названия на момент заказа
   sellerId    String // для маршрутизации заказа продавцу
   quantity    Int
   price       Decimal @db.Decimal(12, 2)
 
-  order   Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product Product @relation(fields: [productId], references: [id])
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product Product? @relation(fields: [productId], references: [id])
 
   @@index([orderId])
   @@index([sellerId])
