@@ -38,17 +38,8 @@ h1, h2, h3, h4, h5 {
   letter-spacing: -0.02em;
 }
 
-.btn-primary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-teal-600 to-emerald-500 px-5 py-2.5 font-semibold text-white shadow-lg shadow-teal-900/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-teal-900/30 disabled:opacity-50 disabled:hover:translate-y-0;
-}
 
-.btn-secondary {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-2.5 font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50;
-}
 
-.btn-ghost {
-  @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700;
-}
 
 /* Компонентный класс объявлен вне @layer, поэтому его padding перебивал
    утилиты вроде `pl-10` — из-за этого иконка поиска налезала на текст.
@@ -71,28 +62,44 @@ h1, h2, h3, h4, h5 {
   }
 }
 
-.card {
-  @apply rounded-2xl border border-slate-100 bg-white shadow-soft;
+/* Компонентные классы обязаны жить в @layer components: объявленные
+   после утилит, они перебивали их по порядку каскада — из-за этого
+   `hidden sm:inline-flex` не скрывал кнопки на мобильном, а `pl-10`
+   не давал отступ под иконку. */
+@layer components {
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-teal-600 to-emerald-500 px-5 py-2.5 font-semibold text-white shadow-lg shadow-teal-900/20 transition-all duration-300 hover:-translate-y-0.5 hover:shadow-teal-900/30 disabled:opacity-50 disabled:hover:translate-y-0;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-5 py-2.5 font-medium text-slate-700 transition-all hover:border-slate-300 hover:bg-slate-50;
+  }
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-slate-600 transition-colors hover:bg-teal-50 hover:text-teal-700;
+  }
+  .card {
+    @apply rounded-2xl border border-slate-100 bg-white shadow-soft;
+  }
+  .card-hover {
+    @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/60;
+  }
+  .eyebrow {
+    @apply inline-flex items-center gap-2 rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-teal-700;
+  }
+  .section-title {
+    @apply font-heading text-3xl font-extrabold tracking-tight md:text-4xl;
+  }
+  .text-gradient {
+    @apply bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent;
+  }
+  .glass {
+    @apply border border-white/40 bg-white/70 backdrop-blur-xl;
+  }
 }
+
 
 /* ── Text & sections ── */
-.text-gradient {
-  @apply bg-gradient-to-r from-teal-600 to-emerald-500 bg-clip-text text-transparent;
-}
-.eyebrow {
-  @apply inline-flex items-center gap-2 rounded-full border border-teal-100 bg-teal-50 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-teal-700;
-}
-.section-title {
-  @apply font-heading text-3xl font-extrabold tracking-tight md:text-4xl;
-}
 
 /* ── Surfaces ── */
-.glass {
-  @apply border border-white/40 bg-white/70 backdrop-blur-xl;
-}
-.card-hover {
-  @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-xl hover:shadow-slate-200/60;
-}
 
 /* ── Backgrounds ── */
 .bg-grid {
