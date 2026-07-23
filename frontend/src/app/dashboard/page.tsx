@@ -97,7 +97,7 @@ function BuyerContent() {
       </div>
       <p className="mt-2 text-xs text-ink-subtle">
         {tt('VetPoints — кэшбэк 1% от суммы заказа. Баллы начисляются на баланс, когда заказ переходит в статус «Доставлен», и их можно потратить на следующие покупки (до 10% суммы).',
-            'VetPoints — buyurtma summasidan 1% keshbek. Ballar buyurtma «Yetkazildi» holatiga oʻtganda hisoblanadi va keyingi xaridlarga sarflash mumkin (summaning 10% gacha).')}
+            'VetPoints — buyurtma summasidan 1% keshbek. Ballar buyurtma «Yetkazilgan» holatiga oʻtganda hisoblanadi va keyingi xaridlarga sarflash mumkin (summaning 10% gacha).')}
       </p>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-2">

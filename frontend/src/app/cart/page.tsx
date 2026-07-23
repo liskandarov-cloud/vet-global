@@ -163,7 +163,7 @@ export default function CartPage() {
               <div className="grid grid-cols-3 gap-1.5 text-xs">
                 {([
                   ['PREPAY', 'Предоплата', 'Oldindan toʻlov'],
-                  ['NET_TERMS', 'Отсрочка', 'Toʻlov muddati'],
+                  ['NET_TERMS', 'Отсрочка', 'Muddatli toʻlov'],
                   ['INSTALLMENT', 'Рассрочка', 'Boʻlib toʻlash'],
                 ] as const).map(([val, label, labelUz]) => (
                   <button

@@ -42,7 +42,7 @@ export default function ConsultPage() {
       <div className="mb-6 flex items-center gap-3">
         <span className="grid h-11 w-11 place-items-center rounded-xl bg-teal-50 text-teal-700"><Stethoscope size={22} /></span>
         <div>
-          <h1 className="font-heading text-2xl font-extrabold">{tt('Ветеринарная консультация', 'Vet-konsultatsiya')}</h1>
+          <h1 className="font-heading text-2xl font-extrabold">{tt('Ветеринарная консультация', 'Veterinar maslahat')}</h1>
           <p className="text-sm text-ink-muted">{tt('Задайте вопрос — наш специалист свяжется с вами.', 'Savol bering — mutaxassisimiz siz bilan bogʻlanadi.')}</p>
         </div>
       </div>

@@ -253,7 +253,7 @@ function OfferEditor({ editing, setEditing, productName, setProductName, onClose
           <Field label={tt('Остаток, шт', 'Qoldiq, dona')}><input className="input" type="number" value={editing.stockQty} onChange={(e) => set('stockQty', e.target.value)} /></Field>
           <Field label={tt('Мин. заказ', 'Min. buyurtma')}><input className="input" type="number" value={editing.minOrder} onChange={(e) => set('minOrder', e.target.value)} /></Field>
           <Field label={tt('Срок поставки, дн', 'Yetkazib berish muddati, kun')}><input className="input" type="number" value={editing.leadTimeDays} onChange={(e) => set('leadTimeDays', e.target.value)} /></Field>
-          <Field label={tt('Отсрочка, дн (net)', 'Kechiktirish, kun (net)')}><input className="input" type="number" value={editing.netTermDays} onChange={(e) => set('netTermDays', e.target.value)} /></Field>
+          <Field label={tt('Отсрочка, дн (net)', 'Muddatli toʻlov, kun (net)')}><input className="input" type="number" value={editing.netTermDays} onChange={(e) => set('netTermDays', e.target.value)} /></Field>
           <Field label={tt('Срок годности', 'Yaroqlilik muddati')}><input className="input" type="date" value={editing.expiryDate} onChange={(e) => set('expiryDate', e.target.value)} /></Field>
           <Field label={tt('Партия №', 'Partiya №')}><input className="input" value={editing.batchNumber} onChange={(e) => set('batchNumber', e.target.value)} /></Field>
           <Field label={tt('Госреестр №', 'Davlat reestri №')}><input className="input" value={editing.regNumber} onChange={(e) => set('regNumber', e.target.value)} /></Field>

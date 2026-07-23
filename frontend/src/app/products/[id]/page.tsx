@@ -342,7 +342,7 @@ export default function ProductPage() {
                             )}
                             {packNote(o) && <div className="text-xs text-ink-subtle">{packNote(o)}</div>}
                             {o.netTermDays ? (
-                              <div className="text-xs text-ink-subtle">{tt('отсрочка', 'toʻlov muddati')} {o.netTermDays} {tt('дн.', 'kun')}</div>
+                              <div className="text-xs text-ink-subtle">{tt('отсрочка', 'muddatli toʻlov')} {o.netTermDays} {tt('дн.', 'kun')}</div>
                             ) : null}
                           </>
                         )}

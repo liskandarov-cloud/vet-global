@@ -30,13 +30,13 @@ function SellerContent() {
   };
   const shipLabels: Record<string, string> = {
     PENDING: tt('Ожидает', 'Kutilmoqda'), ASSIGNED: tt('Назначен', 'Tayinlangan'),
-    IN_TRANSIT: tt('В пути', 'Yoʻlda'), DELIVERED: tt('Доставлено', 'Yetkazildi'),
-    RETURNED: tt('Возврат', 'Qaytarildi'),
+    IN_TRANSIT: tt('В пути', 'Yoʻlda'), DELIVERED: tt('Доставлено', 'Yetkazilgan'),
+    RETURNED: tt('Возврат', 'Qaytarilgan'),
   };
   const statusLabels: Record<string, string> = {
     PENDING: tt('Новый', 'Yangi'), CONFIRMED: tt('Подтверждён', 'Tasdiqlangan'),
-    PROCESSING: tt('В обработке', 'Qayta ishlanmoqda'), SHIPPED: tt('Отгружен', 'Joʻnatildi'),
-    DELIVERED: tt('Доставлен', 'Yetkazildi'), CANCELLED: tt('Отменён', 'Bekor qilindi'),
+    PROCESSING: tt('В обработке', 'Qayta ishlanmoqda'), SHIPPED: tt('Отгружен', 'Joʻnatilgan'),
+    DELIVERED: tt('Доставлен', 'Yetkazilgan'), CANCELLED: tt('Отменён', 'Bekor qilindi'),
   };
   const [tab, setTab] = useState<'products' | 'import' | 'offers' | 'contracts' | 'orders' | 'promotions' | 'requisites'>('products');
   const [stats, setStats] = useState<any>(null);
@@ -382,8 +382,8 @@ function DeliveryForm({ order, onClose, onSaved }: any) {
   };
   const shipLabels: Record<string, string> = {
     PENDING: tt('Ожидает', 'Kutilmoqda'), ASSIGNED: tt('Назначен', 'Tayinlangan'),
-    IN_TRANSIT: tt('В пути', 'Yoʻlda'), DELIVERED: tt('Доставлено', 'Yetkazildi'),
-    RETURNED: tt('Возврат', 'Qaytarildi'),
+    IN_TRANSIT: tt('В пути', 'Yoʻlda'), DELIVERED: tt('Доставлено', 'Yetkazilgan'),
+    RETURNED: tt('Возврат', 'Qaytarilgan'),
   };
   const s = order.shipment ?? {};
   const [form, setForm] = useState<any>({

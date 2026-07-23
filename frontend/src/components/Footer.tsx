@@ -26,7 +26,7 @@ export function Footer() {
           <div className="mb-3 font-semibold">{tt('Информация', 'Maʼlumot')}</div>
           <ul className="space-y-2 text-sm text-ink-muted">
             <li><Link href="/blog" className="hover:text-teal-700">{tt('Блог', 'Blog')}</Link></li>
-            <li><Link href="/consult" className="hover:text-teal-700">{tt('Ветконсультация', 'Vet-konsultatsiya')}</Link></li>
+            <li><Link href="/consult" className="hover:text-teal-700">{tt('Ветконсультация', 'Vet maslahat')}</Link></li>
           </ul>
         </div>
         <div>

@@ -83,7 +83,7 @@ function AdminContent() {
   const setLeadStatus = async (id: string, status: string) => { await api.patch(`/leads/${id}`, { status }); load(); };
   const ORDER_STATUS: Record<string, string> = {
     PENDING: tt('Новый', 'Yangi'), CONFIRMED: tt('Подтверждён', 'Tasdiqlangan'), PROCESSING: tt('В обработке', 'Qayta ishlanmoqda'),
-    SHIPPED: tt('Отгружен', 'Joʻnatildi'), DELIVERED: tt('Доставлен', 'Yetkazildi'), CANCELLED: tt('Отменён', 'Bekor qilindi'),
+    SHIPPED: tt('Отгружен', 'Joʻnatilgan'), DELIVERED: tt('Доставлен', 'Yetkazilgan'), CANCELLED: tt('Отменён', 'Bekor qilindi'),
   };
   const setOrderStatus = async (id: string, status: string) => {
     try { await api.patch(`/orders/${id}/status`, { status }); toast.success(tt('Статус обновлён', 'Holat yangilandi')); load(); }

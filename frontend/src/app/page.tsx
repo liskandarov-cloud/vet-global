@@ -87,7 +87,7 @@ export default function HomePage() {
             </div>
             <div className="glass absolute -bottom-4 right-6 hidden items-center gap-2 rounded-xl px-3 py-2 shadow-soft sm:flex">
               <span className="grid h-8 w-8 place-items-center rounded-lg bg-secondary text-white"><FileText size={16} /></span>
-              <div className="text-xs"><div className="font-semibold">{tt('Сертификат', 'Sertifikat')}</div><div className="text-ink-subtle">{tt('качества PDF', 'sifat PDF')}</div></div>
+              <div className="text-xs"><div className="font-semibold">{tt('Сертификат', 'Sertifikat')}</div><div className="text-ink-subtle">{tt('качества PDF', 'sifat sertifikati')}</div></div>
             </div>
           </div>
         </div>
