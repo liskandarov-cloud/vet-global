@@ -89,15 +89,15 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
-        <div className="mt-3 flex items-center justify-between">
-          <div>
+        <div className="mt-3 flex items-center justify-between gap-2">
+          <div className="min-w-0">
             {product.offersCount && product.offersCount > 0 && product.minPrice != null ? (
               <>
                 <div className="text-[11px] leading-none text-ink-subtle">{tt('от', 'dan')}</div>
-                <div className="font-heading text-lg font-bold text-ink">{formatMoney(product.minPrice)}</div>
+                <div className="whitespace-nowrap font-heading text-lg font-bold text-ink">{formatMoney(product.minPrice)}</div>
               </>
             ) : (
-              <div className="font-heading text-lg font-bold text-ink">{formatMoney(product.price)}</div>
+              <div className="whitespace-nowrap font-heading text-lg font-bold text-ink">{formatMoney(product.price)}</div>
             )}
             {product.offersCount && product.offersCount > 1 ? (
               <div className="text-xs font-medium text-teal-700">{product.offersCount} {tt('предложений', 'taklif')}</div>
@@ -106,12 +106,12 @@ export function ProductCard({ product }: { product: Product }) {
             )}
           </div>
           {product.offersCount && product.offersCount > 1 ? (
-            <Link href={`/products/${product.id}`} className="btn-primary !px-3 !py-2" aria-label={tt('Сравнить цены', 'Narxlarni solishtirish')}>
+            <Link href={`/products/${product.id}`} className="btn-primary shrink-0 !px-3 !py-2" aria-label={tt('Сравнить цены', 'Narxlarni solishtirish')}>
               <Scale size={16} />
             </Link>
           ) : (
             <button
-              className="btn-primary !px-3 !py-2"
+              className="btn-primary shrink-0 !px-3 !py-2"
               onClick={() => {
                 add(
                   {
