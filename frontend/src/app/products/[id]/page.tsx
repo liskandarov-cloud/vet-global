@@ -148,7 +148,7 @@ export default function ProductPage() {
         <Link href="/catalog" className="hover:text-teal-700">{t('nav.catalog')}</Link>
         {product.category && (<><span>/</span><span className="text-ink-muted">{product.category.name}</span></>)}
       </nav>
-      <div className="grid gap-10 md:grid-cols-2">
+      <div className="grid gap-10 md:grid-cols-2 [&>*]:min-w-0">
         {/* Gallery */}
         <div className="md:sticky md:top-20 md:self-start">
           <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft">
@@ -255,7 +255,7 @@ export default function ProductPage() {
             </div>
 
             {/* Автопополнение */}
-            <div className="mt-3 flex items-center gap-2 border-t border-teal-100 pt-3 text-sm">
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-teal-100 pt-3 text-sm">
               <Repeat size={15} className="text-teal-700" />
               <span className="text-ink-muted">{tt('Автопополнение каждые', 'Avto toʻldirish har')}</span>
               <select className="rounded-md border border-slate-200 px-2 py-1 text-sm outline-none" value={subInterval} onChange={(e) => setSubInterval(Number(e.target.value))}>
