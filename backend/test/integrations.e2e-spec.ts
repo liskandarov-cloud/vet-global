@@ -161,4 +161,48 @@ describe('VetGlobal integrations (e2e)', () => {
     const bad = await req('/payments/click/prepare', { form: true, body: { click_trans_id: ct, service_id: CLICK_SERVICE, merchant_trans_id: pay.id, amount: order.total, action: 0, sign_time: st, sign_string: 'bad' } });
     expect(bad.body.error).toBe(-1);
   });
+  // Тендер должен заканчиваться сделкой, а не пометкой «выбран»: выбор
+  // победителя создаёт обычный заказ (счёт, ЭДО и доставка работают дальше).
+  it('rfq: buyer requests → seller quotes → award creates a real order', async () => {
+    const rfq = (await req('/rfq', {
+      method: 'POST',
+      token: buyer,
+      body: {
+        title: `E2E тендер ${Date.now()}`,
+        items: [{ name: 'Вакцина НБ', quantity: 10, unit: 'флакон' }],
+      },
+    })).body;
+    expect(rfq.id).toBeTruthy();
+
+    // покупатель видит свой запрос сразу, до всяких котировок
+    const mine = (await req('/rfq/mine', { token: buyer })).body;
+    expect(mine.some((r: any) => r.id === rfq.id)).toBe(true);
+
+    // продавец видит запрос и даёт котировку
+    const open = (await req('/rfq/open', { token: seller })).body;
+    expect(open.some((r: any) => r.id === rfq.id)).toBe(true);
+    const quote = (await req(`/rfq/${rfq.id}/quote`, {
+      method: 'POST',
+      token: seller,
+      body: { totalPrice: 1850000, leadTimeDays: 4 },
+    })).body;
+
+    // выбор победителя → сделка
+    const awarded = (await req(`/rfq/${rfq.id}/award/${quote.id}`, { method: 'POST', token: buyer })).body;
+    expect(awarded.status).toBe('AWARDED');
+    expect(awarded.order).toBeTruthy();
+    expect(awarded.order.total).toBe(1850000);
+
+    // заказ виден покупателю и продавцу как обычный
+    const buyerOrders = (await req('/orders', { token: buyer })).body;
+    const deal = buyerOrders.find((o: any) => o.id === awarded.order.id);
+    expect(deal).toBeTruthy();
+    expect(Number(deal.total)).toBe(1850000);
+    const sellerOrders = (await req('/orders', { token: seller })).body;
+    expect(sellerOrders.some((o: any) => o.id === awarded.order.id)).toBe(true);
+
+    // и по нему выписывается счёт
+    const invoice = await req(`/orders/${awarded.order.id}/invoice`, { token: buyer });
+    expect(invoice.status).toBe(200);
+  });
 });
