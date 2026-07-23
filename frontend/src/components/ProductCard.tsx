@@ -89,7 +89,7 @@ export function ProductCard({ product }: { product: Product }) {
           )}
         </div>
 
-        <div className="mt-3 flex items-center justify-between gap-2">
+        <div className="mt-3 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
             {product.offersCount && product.offersCount > 0 && product.minPrice != null ? (
               <>
@@ -106,12 +106,12 @@ export function ProductCard({ product }: { product: Product }) {
             )}
           </div>
           {product.offersCount && product.offersCount > 1 ? (
-            <Link href={`/products/${product.id}`} className="btn-primary shrink-0 !px-3 !py-2" aria-label={tt('Сравнить цены', 'Narxlarni solishtirish')}>
+            <Link href={`/products/${product.id}`} className="btn-primary w-full shrink-0 sm:w-auto !px-3 !py-2" aria-label={tt('Сравнить цены', 'Narxlarni solishtirish')}>
               <Scale size={16} />
             </Link>
           ) : (
             <button
-              className="btn-primary shrink-0 !px-3 !py-2"
+              className="btn-primary w-full shrink-0 sm:w-auto !px-3 !py-2"
               onClick={() => {
                 add(
                   {
