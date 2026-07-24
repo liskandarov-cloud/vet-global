@@ -57,14 +57,14 @@ export function Header() {
         <nav className="hidden items-center gap-1 lg:flex">
           {primaryNav.map((n) => (
             <Link key={n.href} href={n.href}
-              className={cn('rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+              className={cn('rounded-lg px-2 py-2 text-sm font-medium transition-colors xl:px-3',
                 pathname === n.href ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-teal-50 hover:text-teal-700')}>
               {n.label}
             </Link>
           ))}
           {/* B2B-закупки — выпадающее меню (hover) */}
           <div className="group relative">
-            <button className={cn('flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+            <button className={cn('flex items-center gap-1 rounded-lg px-2 py-2 text-sm font-medium transition-colors xl:px-3',
               b2bNav.some((n) => n.href === pathname) ? 'bg-teal-50 text-teal-700' : 'text-slate-600 hover:bg-teal-50 hover:text-teal-700')}>
               {tt('B2B-закупки', 'B2B xaridlar')}
               <ChevronDown size={14} />
@@ -106,11 +106,15 @@ export function Header() {
 
           {user ? (
             <>
-              <Link href={dashboardHref} className="btn-secondary hidden lg:inline-flex"><LayoutDashboard size={16} />{t('nav.dashboard')}</Link>
+              <Link href={dashboardHref} className="btn-secondary hidden !px-3 lg:inline-flex xl:!px-5" aria-label={t('nav.dashboard')}>
+                <LayoutDashboard size={16} /><span className="hidden xl:inline">{t('nav.dashboard')}</span>
+              </Link>
               <button onClick={() => { logout(); clearFav(); router.push('/'); }} className="btn-ghost hidden !px-2 lg:inline-flex lg:!px-4" aria-label={t('nav.logout')}><LogOut size={18} /></button>
             </>
           ) : (
-            <Link href="/login" className="btn-primary hidden lg:inline-flex"><ShieldCheck size={16} />{t('nav.login')}</Link>
+            <Link href="/login" className="btn-primary hidden !px-3 lg:inline-flex xl:!px-5" aria-label={t('nav.login')}>
+              <ShieldCheck size={16} /><span className="hidden xl:inline">{t('nav.login')}</span>
+            </Link>
           )}
 
           <button className="btn-ghost !px-2 lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="menu">
