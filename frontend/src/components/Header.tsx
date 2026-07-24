@@ -85,7 +85,7 @@ export function Header() {
 
         <div className="flex items-center gap-2">
           <SearchBox className="hidden w-56 xl:block" />
-          <div className="hidden overflow-hidden rounded-lg border border-slate-200 text-sm sm:flex">
+          <div className="hidden overflow-hidden rounded-lg border border-slate-200 text-sm lg:flex">
             {(['ru', 'uz'] as Lang[]).map((l) => (
               <button key={l} onClick={() => setLang(l)}
                 className={cn('px-2.5 py-1 uppercase transition-colors', lang === l ? 'bg-teal-600 text-white' : 'text-slate-600 hover:bg-slate-50')}>
@@ -97,7 +97,7 @@ export function Header() {
           <NotificationBell />
           <ThemeToggle />
 
-          <Link href="/cart" className="relative btn-ghost !px-2 sm:!px-4" aria-label={t('nav.cart')}>
+          <Link href="/cart" className="relative btn-ghost !px-2 lg:!px-4" aria-label={t('nav.cart')}>
             <ShoppingCart size={20} />
             {count > 0 && (
               <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-secondary text-xs text-white">{count}</span>
@@ -106,14 +106,14 @@ export function Header() {
 
           {user ? (
             <>
-              <Link href={dashboardHref} className="btn-secondary hidden sm:inline-flex"><LayoutDashboard size={16} />{t('nav.dashboard')}</Link>
-              <button onClick={() => { logout(); clearFav(); router.push('/'); }} className="btn-ghost hidden !px-2 sm:inline-flex sm:!px-4" aria-label={t('nav.logout')}><LogOut size={18} /></button>
+              <Link href={dashboardHref} className="btn-secondary hidden lg:inline-flex"><LayoutDashboard size={16} />{t('nav.dashboard')}</Link>
+              <button onClick={() => { logout(); clearFav(); router.push('/'); }} className="btn-ghost hidden !px-2 lg:inline-flex lg:!px-4" aria-label={t('nav.logout')}><LogOut size={18} /></button>
             </>
           ) : (
-            <Link href="/login" className="btn-primary hidden sm:inline-flex"><ShieldCheck size={16} />{t('nav.login')}</Link>
+            <Link href="/login" className="btn-primary hidden lg:inline-flex"><ShieldCheck size={16} />{t('nav.login')}</Link>
           )}
 
-          <button className="btn-ghost !px-2 sm:!px-4 lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="menu">
+          <button className="btn-ghost !px-2 lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="menu">
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
@@ -136,7 +136,7 @@ export function Header() {
               {user && (
                 <button
                   onClick={() => { setOpen(false); logout(); clearFav(); router.push('/'); }}
-                  className="btn-ghost sm:hidden"
+                  className="btn-ghost"
                   aria-label={t('nav.logout')}
                 ><LogOut size={16} /></button>
               )}
