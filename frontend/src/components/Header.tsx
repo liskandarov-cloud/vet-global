@@ -84,7 +84,7 @@ export function Header() {
         </nav>
 
         <div className="flex items-center gap-2">
-          <SearchBox className="hidden w-56 xl:block" />
+          <SearchBox className="hidden xl:block xl:w-36 2xl:w-56" />
           <div className="hidden overflow-hidden rounded-lg border border-slate-200 text-sm lg:flex">
             {(['ru', 'uz'] as Lang[]).map((l) => (
               <button key={l} onClick={() => setLang(l)}
