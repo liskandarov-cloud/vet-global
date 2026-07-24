@@ -151,7 +151,7 @@ export function SellerBulkPhotos({
 
         {rows.length > 0 && (
           <>
-            <div className="mt-4 max-h-80 overflow-y-auto rounded-lg border border-slate-100">
+            <div className="mt-4 max-h-80 overflow-auto rounded-lg border border-slate-100">
               <table className="w-full text-xs">
                 <tbody>
                   {rows.map((r, i) => (
@@ -159,7 +159,7 @@ export function SellerBulkPhotos({
                       <td className="max-w-[160px] truncate px-2 py-1.5 font-medium">{r.file.name}</td>
                       <td className="px-2 py-1.5">
                         <select
-                          className="input !h-8 !py-0 text-xs"
+                          className="input !h-8 max-w-[150px] !py-0 text-xs"
                           value={r.productId}
                           disabled={r.status === 'done' || busy}
                           onChange={(e) =>

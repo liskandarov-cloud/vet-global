@@ -163,7 +163,7 @@ export function SellerImportPanel({ onDone }: { onDone?: () => void }) {
   if (!parsed) {
     return (
       <div className="mt-6">
-        <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h3 className="font-heading text-lg font-bold">
               {tt('Импорт прайса из Excel', 'Excel’dan narxnoma importi')}
@@ -175,7 +175,7 @@ export function SellerImportPanel({ onDone }: { onDone?: () => void }) {
               )}
             </p>
           </div>
-          <div className="flex shrink-0 gap-2">
+          <div className="flex shrink-0 flex-wrap gap-2">
             <button className="btn-ghost" onClick={exportMine}>
               <FileDown size={16} /> {tt('Мой прайс', 'Mening narxnomam')}
             </button>
@@ -371,7 +371,7 @@ export function SellerImportPanel({ onDone }: { onDone?: () => void }) {
             ))}
           </div>
 
-          <div className="mt-3 max-h-72 overflow-y-auto rounded-lg border border-slate-100">
+          <div className="mt-3 max-h-72 overflow-auto rounded-lg border border-slate-100">
             <table className="w-full text-xs">
               <tbody>
                 {result.results.map((r) => (

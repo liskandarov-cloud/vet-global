@@ -97,7 +97,7 @@ export function Header() {
           <NotificationBell />
           <ThemeToggle />
 
-          <Link href="/cart" className="relative btn-ghost" aria-label={t('nav.cart')}>
+          <Link href="/cart" className="relative btn-ghost !px-2 sm:!px-4" aria-label={t('nav.cart')}>
             <ShoppingCart size={20} />
             {count > 0 && (
               <span className="absolute -right-1 -top-1 grid h-5 w-5 place-items-center rounded-full bg-secondary text-xs text-white">{count}</span>
@@ -107,13 +107,13 @@ export function Header() {
           {user ? (
             <>
               <Link href={dashboardHref} className="btn-secondary hidden sm:inline-flex"><LayoutDashboard size={16} />{t('nav.dashboard')}</Link>
-              <button onClick={() => { logout(); clearFav(); router.push('/'); }} className="btn-ghost" aria-label={t('nav.logout')}><LogOut size={18} /></button>
+              <button onClick={() => { logout(); clearFav(); router.push('/'); }} className="btn-ghost hidden !px-2 sm:inline-flex sm:!px-4" aria-label={t('nav.logout')}><LogOut size={18} /></button>
             </>
           ) : (
             <Link href="/login" className="btn-primary hidden sm:inline-flex"><ShieldCheck size={16} />{t('nav.login')}</Link>
           )}
 
-          <button className="btn-ghost lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="menu">
+          <button className="btn-ghost !px-2 sm:!px-4 lg:hidden" onClick={() => setOpen((o) => !o)} aria-label="menu">
             {open ? <X size={20} /> : <Menu size={20} />}
           </button>
         </div>
@@ -133,6 +133,13 @@ export function Header() {
             <div className="mt-2 flex items-center gap-2">
               {!user && <Link href="/login" onClick={() => setOpen(false)} className="btn-primary flex-1"><ShieldCheck size={16} />{t('nav.login')}</Link>}
               {user && <Link href={dashboardHref} onClick={() => setOpen(false)} className="btn-secondary flex-1"><LayoutDashboard size={16} />{t('nav.dashboard')}</Link>}
+              {user && (
+                <button
+                  onClick={() => { setOpen(false); logout(); clearFav(); router.push('/'); }}
+                  className="btn-ghost sm:hidden"
+                  aria-label={t('nav.logout')}
+                ><LogOut size={16} /></button>
+              )}
               <div className="flex overflow-hidden rounded-lg border border-slate-200 text-sm">
                 {(['ru', 'uz'] as Lang[]).map((l) => (
                   <button key={l} onClick={() => setLang(l)} className={cn('px-3 py-2 uppercase', lang === l ? 'bg-teal-600 text-white' : 'text-slate-600')}>{l}</button>
