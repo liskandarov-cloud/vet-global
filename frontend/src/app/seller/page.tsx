@@ -10,6 +10,7 @@ import { SellerContractsPanel } from '@/components/SellerContractsPanel';
 import { SellerImportPanel } from '@/components/SellerImportPanel';
 import { SellerBulkPhotos } from '@/components/SellerBulkPhotos';
 import { SellerRequisitesPanel } from '@/components/SellerRequisitesPanel';
+import { ProfilePanel } from '@/components/ProfilePanel';
 import { TopProductsBar, WeeklyBars } from '@/components/Charts';
 import { Category, Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
@@ -38,10 +39,11 @@ function SellerContent() {
     PROCESSING: tt('В обработке', 'Qayta ishlanmoqda'), SHIPPED: tt('Отгружен', 'Joʻnatilgan'),
     DELIVERED: tt('Доставлен', 'Yetkazilgan'), CANCELLED: tt('Отменён', 'Bekor qilindi'),
   };
-  const [tab, setTab] = useState<'products' | 'import' | 'offers' | 'contracts' | 'orders' | 'promotions' | 'requisites'>('products');
+  const [tab, setTab] = useState<'products' | 'import' | 'offers' | 'contracts' | 'orders' | 'promotions' | 'requisites' | 'profile'>('products');
   const [stats, setStats] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
+  const [orderFilter, setOrderFilter] = useState<'all' | 'active' | 'SHIPPED' | 'DELIVERED'>('all');
   const [categories, setCategories] = useState<Category[]>([]);
   const [promotions, setPromotions] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
@@ -129,7 +131,7 @@ function SellerContent() {
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['products', tt('Товары', 'Mahsulotlar')], ['import', tt('Импорт прайса', 'Narxnoma importi')], ['offers', tt('Мои офферы', 'Mening takliflarim')], ['contracts', tt('Договорные цены', 'Shartnoma narxlari')], ['orders', tt('Заказы', 'Buyurtmalar')], ['promotions', `${tt('Акции', 'Aksiyalar')}${promotions.length ? ` (${promotions.length})` : ''}`], ['requisites', tt('Реквизиты', 'Rekvizitlar')]].map(([k, l]) => (
+        {[['products', tt('Товары', 'Mahsulotlar')], ['import', tt('Импорт прайса', 'Narxnoma importi')], ['offers', tt('Мои офферы', 'Mening takliflarim')], ['contracts', tt('Договорные цены', 'Shartnoma narxlari')], ['orders', tt('Заказы', 'Buyurtmalar')], ['promotions', `${tt('Акции', 'Aksiyalar')}${promotions.length ? ` (${promotions.length})` : ''}`], ['requisites', tt('Реквизиты', 'Rekvizitlar')], ['profile', tt('Профиль', 'Profil')]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>
             {l}
@@ -175,18 +177,50 @@ function SellerContent() {
 
       {tab === 'requisites' && <SellerRequisitesPanel />}
 
+      {tab === 'profile' && <ProfilePanel role="SELLER" />}
+
       {tab === 'contracts' && <SellerContractsPanel />}
 
       {tab === 'orders' && (
-        <div className="mt-6 overflow-x-auto">
+        <div className="mt-6">
+          {/* Фильтр по стадии: чтобы отделять новые/активные заказы от уже
+              отгруженных и закрытых — иначе список смешивает всё вперемешку. */}
+          <div className="mb-3 flex flex-wrap gap-1.5">
+            {([
+              ['all', tt('Все', 'Barchasi')],
+              ['active', tt('Активные', 'Faol')],
+              ['SHIPPED', tt('Отгружено', 'Joʻnatilgan')],
+              ['DELIVERED', tt('Завершённые', 'Yakunlangan')],
+            ] as const).map(([k, l]) => {
+              const cnt = k === 'all' ? orders.length
+                : k === 'active' ? orders.filter((o) => !['SHIPPED', 'DELIVERED', 'CANCELLED'].includes(o.status)).length
+                : orders.filter((o) => o.status === k).length;
+              return (
+                <button key={k} onClick={() => setOrderFilter(k)}
+                  className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${orderFilter === k ? 'border-teal-500 bg-teal-50 text-teal-700 dark:bg-teal-950/40' : 'border-slate-200 text-ink-muted hover:border-teal-200'}`}>
+                  {l}{cnt ? ` (${cnt})` : ''}
+                </button>
+              );
+            })}
+          </div>
+          <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="text-left text-ink-subtle">
-              <tr className="border-b border-slate-100"><th className="py-2">№</th><th>{tt('Покупатель', 'Xaridor')}</th><th>{tt('Сумма', 'Summa')}</th><th>{tt('Статус', 'Holat')}</th><th>{tt('ЭДО (Didox)', 'EDI (Didox)')}</th><th>{tt('Доставка', 'Yetkazib berish')}</th></tr>
+              <tr className="border-b border-slate-100"><th className="py-2">№</th><th>{tt('Дата', 'Sana')}</th><th>{tt('Покупатель', 'Xaridor')}</th><th>{tt('Сумма', 'Summa')}</th><th>{tt('Статус', 'Holat')}</th><th>{tt('ЭДО (Didox)', 'EDI (Didox)')}</th><th>{tt('Доставка', 'Yetkazib berish')}</th></tr>
             </thead>
             <tbody>
-              {orders.map((o) => (
+              {orders
+                .filter((o) =>
+                  orderFilter === 'all' ? true
+                  : orderFilter === 'active' ? !['SHIPPED', 'DELIVERED', 'CANCELLED'].includes(o.status)
+                  : o.status === orderFilter)
+                .map((o) => (
                 <tr key={o.id} className="border-b border-slate-50">
                   <td className="py-2 font-mono text-xs">{o.id.slice(0, 8)}</td>
+                  <td className="whitespace-nowrap text-xs text-ink-muted">
+                    {new Date(o.createdAt).toLocaleDateString('ru-RU')}
+                    <div className="text-ink-subtle">{new Date(o.createdAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+                  </td>
                   <td>{o.buyerName}<div className="text-xs text-ink-subtle">{o.buyerPhone}</div></td>
                   <td className="font-semibold">{formatMoney(o.total)}</td>
                   <td>
@@ -225,6 +259,7 @@ function SellerContent() {
             </tbody>
           </table>
           {orders.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Заказов пока нет', 'Hozircha buyurtmalar yoʻq')}</div>}
+          </div>
         </div>
       )}
 

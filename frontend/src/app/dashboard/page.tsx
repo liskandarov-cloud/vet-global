@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Download, FileText, RotateCcw, CreditCard, Gift, Wallet, Package } from 'lucide-react';
+import { Download, FileText, RotateCcw, CreditCard, Gift, Wallet, Package, User, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth, useCart } from '@/lib/store';
@@ -10,6 +10,7 @@ import { RoleGuard, StatCard, STATUS_LABELS } from '@/components/RoleGuard';
 import { SpendArea, CategoryPie } from '@/components/Charts';
 import { ProductCard } from '@/components/ProductCard';
 import { CounterpartiesPanel } from '@/components/CounterpartiesPanel';
+import { ProfilePanel } from '@/components/ProfilePanel';
 import { Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
@@ -41,6 +42,7 @@ function BuyerContent() {
   const [txs, setTxs] = useState<Tx[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [favorites, setFavorites] = useState<Product[]>([]);
+  const [showProfile, setShowProfile] = useState(false);
 
   const load = () => {
     api.get('/orders').then((r) => setOrders(r.data));
@@ -106,6 +108,15 @@ function BuyerContent() {
       </div>
 
       <CounterpartiesPanel />
+
+      <div className="mt-8">
+        <button onClick={() => setShowProfile((v) => !v)}
+          className="flex w-full items-center justify-between rounded-xl border border-slate-200 bg-white px-4 py-3 text-left font-medium transition-colors hover:border-teal-200 dark:border-slate-800 dark:bg-slate-900">
+          <span className="flex items-center gap-2"><User size={18} className="text-teal-700" /> {tt('Профиль и безопасность', 'Profil va xavfsizlik')}</span>
+          <ChevronDown size={18} className={`text-ink-subtle transition-transform ${showProfile ? 'rotate-180' : ''}`} />
+        </button>
+        {showProfile && <ProfilePanel role="BUYER" />}
+      </div>
 
       {favorites.length > 0 && (
         <div className="mt-8">

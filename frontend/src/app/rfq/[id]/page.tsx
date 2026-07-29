@@ -81,7 +81,7 @@ export default function RfqDetailPage() {
         <div className="mb-2 text-sm font-medium">{tt('Позиции запроса', 'Soʻrov pozitsiyalari')}</div>
         <ul className="divide-y divide-slate-100 text-sm">
           {rfq.items.map((it: any) => (
-            <li key={it.id} className="flex justify-between py-2"><span>{it.name}</span><span className="text-ink-subtle">{it.quantity} {tt('шт', 'dona')}</span></li>
+            <li key={it.id} className="flex justify-between py-2"><span>{it.name}</span><span className="text-ink-subtle">{it.quantity} {it.unit || tt('шт', 'dona')}</span></li>
           ))}
         </ul>
       </div>

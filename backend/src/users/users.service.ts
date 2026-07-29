@@ -1,7 +1,8 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
+import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
-import { CounterpartyDto, SellerDocumentDto, UpdateProfileDto } from './dto/user.dto';
+import { ChangePasswordDto, CounterpartyDto, SellerDocumentDto, UpdateProfileDto } from './dto/user.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
@@ -12,6 +13,21 @@ export class UsersService {
   async updateProfile(userId: string, dto: UpdateProfileDto) {
     const user = await this.prisma.user.update({ where: { id: userId }, data: dto });
     return this.sanitize(user);
+  }
+
+  // Смена пароля: требует текущий пароль — чтобы чужая открытая сессия
+  // не могла сменить его без подтверждения владельца.
+  async changePassword(userId: string, dto: ChangePasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('User not found');
+    const ok = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+    if (!ok) throw new BadRequestException('Текущий пароль неверен');
+    if (dto.newPassword.length < 6) throw new BadRequestException('Новый пароль слишком короткий');
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { passwordHash: await bcrypt.hash(dto.newPassword, 10) },
+    });
+    return { ok: true };
   }
 
   // ── Counterparties (buyer legal entities) ──
