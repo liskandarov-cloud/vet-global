@@ -19,6 +19,9 @@ export class ProductsService {
     if (q.form) where.form = { equals: q.form, mode: 'insensitive' };
     if (q.animalType) where.animalType = q.animalType;
     if (q.sellerId) where.sellerId = q.sellerId;
+    // Публичный каталог показывает только активные товары. Продавец, запрашивая
+    // свои (sellerId задан), видит и снятые с продажи — чтобы вернуть их в строй.
+    if (!q.sellerId) where.isActive = true;
     if (typeof q.inStock === 'boolean') where.inStock = q.inStock;
     if (typeof q.isPromotion === 'boolean') where.isPromotion = q.isPromotion;
     if (q.priceMin != null || q.priceMax != null) {

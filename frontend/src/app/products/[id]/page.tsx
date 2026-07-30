@@ -83,7 +83,9 @@ export default function ProductPage() {
   const unitPrice = effPrice(selectedOffer, qty) ?? product.price;
   const hasContract = selectedOffer ? contractMap[selectedOffer.id] != null : false;
   const effMinOrder = selectedOffer?.minOrder ?? product.minOrder;
-  const effInStock = selectedOffer ? selectedOffer.inStock : product.inStock;
+  // «Под заказ», если товар помечен продавцом как не в наличии ИЛИ выбранный
+  // оффер не в наличии. Товарный флаг перебивает оффер — это сигнал продавца.
+  const effInStock = product.inStock && (selectedOffer ? selectedOffer.inStock : true);
   const sellerName = selectedOffer?.seller?.company ?? product.seller?.company ?? undefined;
 
   const addToCart = () => {
@@ -229,10 +231,19 @@ export default function ProductPage() {
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-subtle">
               <span>{t('product.minOrder')}: {effMinOrder}</span>
               <span>·</span>
-              <span>{effInStock ? tt('В наличии', 'Mavjud') : tt('Под заказ', 'Buyurtma asosida')}</span>
+              <span className={`inline-flex items-center gap-1 font-medium ${effInStock ? 'text-teal-700' : 'text-amber-600'}`}>
+                <span className={`h-2 w-2 rounded-full ${effInStock ? 'bg-teal-500' : 'bg-amber-500'}`} />
+                {effInStock ? tt('В наличии', 'Mavjud') : tt('Под заказ', 'Buyurtma asosida')}
+              </span>
               {selectedOffer?.leadTimeDays != null && (<><span>·</span><span className="inline-flex items-center gap-1"><Truck size={13} /> {selectedOffer.leadTimeDays} {tt('дн.', 'kun')}</span></>)}
               {selectedOffer?.isRx && (<><span>·</span><span className="inline-flex items-center gap-1 text-amber-600"><Pill size={13} /> {tt('по рецепту', 'retsept boʻyicha')}</span></>)}
             </div>
+            {!effInStock && (
+              <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                <CalendarClock size={14} className="mt-0.5 shrink-0" />
+                <span>{tt('Товар под заказ. Оформить можно сейчас, но оплата станет доступна после подтверждения наличия продавцом.', 'Mahsulot buyurtma asosida. Hozir rasmiylashtirish mumkin, lekin toʻlov sotuvchi mavjudligini tasdiqlagach ochiladi.')}</span>
+              </div>
+            )}
             {selectedOffer?.priceBreaks && selectedOffer.priceBreaks.length > 0 && (
               <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
                 {selectedOffer.priceBreaks.map((b, i) => (
@@ -250,7 +261,7 @@ export default function ProductPage() {
                 <button className="p-2.5" onClick={() => setQty((q) => q + 1)}><Plus size={16} /></button>
               </div>
               <button className="btn-primary flex-1" onClick={addToCart}>
-                <ShoppingCart size={18} /> {t('product.addToCart')}
+                <ShoppingCart size={18} /> {effInStock ? t('product.addToCart') : tt('Оформить предзаказ', 'Buyurtma berish')}
               </button>
             </div>
 

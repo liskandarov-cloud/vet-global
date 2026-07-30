@@ -27,6 +27,7 @@ export class CreateProductDto {
   @IsOptional() @IsString() form?: string;
   @IsOptional() @IsEnum(AnimalType) animalType?: AnimalType;
   @IsOptional() @IsBoolean() inStock?: boolean;
+  @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsInt() @Min(1) minOrder?: number;
   @IsOptional() @IsArray() @IsString({ each: true }) images?: string[];
   @IsOptional() @IsArray() @IsString({ each: true }) certificates?: string[];
@@ -46,6 +47,7 @@ export class ProductQueryDto {
   @IsOptional() @IsString() form?: string;
   @IsOptional() @IsEnum(AnimalType) animalType?: AnimalType;
   @IsOptional() @Transform(toBool) @IsBoolean() inStock?: boolean;
+  @IsOptional() @Transform(toBool) @IsBoolean() isActive?: boolean;
   @IsOptional() @Transform(toBool) @IsBoolean() isPromotion?: boolean;
   @IsOptional() @IsString() sellerId?: string;
   @IsOptional() @IsNumber() priceMin?: number;

@@ -28,6 +28,11 @@ export class PaymentsService {
     if (order.approvalStatus === 'PENDING') {
       throw new BadRequestException('Заказ ожидает согласования в организации');
     }
+    // Заказ «под заказ»: оплата только после того, как продавец подтвердит
+    // наличие (переведёт заказ из статуса «Новый»).
+    if (order.requiresConfirmation && order.status === 'PENDING') {
+      throw new BadRequestException('Заказ содержит позицию «под заказ» — оплата будет доступна после подтверждения продавцом');
+    }
 
     const amount = Number(order.total);
     const payment = await this.prisma.payment.create({

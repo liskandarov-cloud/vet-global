@@ -21,6 +21,7 @@ interface Order {
   status: string;
   total: number;
   subtotal: number;
+  requiresConfirmation?: boolean;
   items: { productId: string; offerId?: string | null; productName: string; quantity: number; price: number }[];
 }
 interface Tx { id: string; amount: number; type: string; description: string; createdAt: string }
@@ -146,9 +147,11 @@ function BuyerContent() {
                 <td><span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs">{STATUS_LABELS[o.status]}</span></td>
                 <td className="font-semibold">{formatMoney(o.total)}</td>
                 <td className="flex items-center gap-2 py-2">
-                  {o.status === 'PENDING' && (
+                  {o.status === 'PENDING' && o.requiresConfirmation ? (
+                    <span className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">{tt('Ждёт подтверждения продавца', 'Sotuvchi tasdigʻini kutmoqda')}</span>
+                  ) : o.status === 'PENDING' ? (
                     <PayControl onPay={(provider) => pay(o.id, provider)} />
-                  )}
+                  ) : null}
                   <button className="btn-ghost !px-2 !py-1" onClick={() => repeat(o)} title={tt('Повторить', 'Takrorlash')}><RotateCcw size={15} /></button>
                   <button className="btn-ghost !px-2 !py-1" onClick={() => invoice(o.id)} title={tt('Счёт PDF', 'Hisob-faktura PDF')}><FileText size={15} /></button>
                 </td>

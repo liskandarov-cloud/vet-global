@@ -69,6 +69,19 @@ function SellerContent() {
     load();
   };
 
+  // Снять с продажи / вернуть в каталог без удаления (распродан → скрыть,
+  // поступил → вернуть). PATCH требует categoryId, поэтому шлём его вместе.
+  const toggleActive = async (p: any) => {
+    const next = !(p.isActive ?? true);
+    try {
+      await api.put(`/products/${p.id}`, { name: p.name, description: p.description, categoryId: p.categoryId, price: Number(p.price), isActive: next });
+      toast.success(next ? tt('Товар в каталоге', 'Mahsulot katalogda') : tt('Снят с продажи', 'Sotuvdan olindi'));
+      load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
+    }
+  };
+
   const setStatus = async (id: string, status: string) => {
     await api.patch(`/orders/${id}/status`, { status });
     toast.success(tt('Статус обновлён', 'Holat yangilandi'));
@@ -149,20 +162,32 @@ function SellerContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-ink-subtle">
-                <tr className="border-b border-slate-100"><th className="py-2">{tt('Название', 'Nomi')}</th><th>{tt('Цена', 'Narx')}</th><th>{tt('Наличие', 'Mavjudlik')}</th><th></th></tr>
+                <tr className="border-b border-slate-100"><th className="py-2">{tt('Название', 'Nomi')}</th><th>{tt('Цена', 'Narx')}</th><th>{tt('Наличие', 'Mavjudlik')}</th><th>{tt('В каталоге', 'Katalogda')}</th><th></th></tr>
               </thead>
               <tbody>
-                {products.map((p) => (
-                  <tr key={p.id} className="border-b border-slate-50">
+                {products.map((p) => {
+                  const active = (p as any).isActive ?? true;
+                  return (
+                  <tr key={p.id} className={`border-b border-slate-50 ${active ? '' : 'opacity-60'}`}>
                     <td className="py-2">{p.name}</td>
                     <td>{formatMoney(p.price)}</td>
                     <td>{p.inStock ? tt('В наличии', 'Mavjud') : tt('Под заказ', 'Buyurtma asosida')}</td>
+                    <td>
+                      {/* Переключатель: снять с продажи / вернуть без удаления. */}
+                      <button
+                        onClick={() => toggleActive(p)}
+                        title={active ? tt('Снять с продажи', 'Sotuvdan olish') : tt('Вернуть в каталог', 'Katalogga qaytarish')}
+                        className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${active ? 'bg-teal-600' : 'bg-slate-300 dark:bg-slate-700'}`}>
+                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${active ? 'translate-x-6' : 'translate-x-1'}`} />
+                      </button>
+                    </td>
                     <td className="flex gap-2 py-2">
                       <button className="btn-ghost !px-2 !py-1" onClick={() => setEditing({ ...EMPTY, ...p, animalType: p.animalType ?? '' })}><Pencil size={15} /></button>
                       <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => del(p.id)}><Trash2 size={15} /></button>
                     </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

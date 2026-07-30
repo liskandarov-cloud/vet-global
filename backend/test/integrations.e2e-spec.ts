@@ -205,4 +205,59 @@ describe('VetGlobal integrations (e2e)', () => {
     const invoice = await req(`/orders/${awarded.order.id}/invoice`, { token: buyer });
     expect(invoice.status).toBe(200);
   });
+  // «Под заказ»: заказ можно оформить, но оплата блокируется до подтверждения.
+  it('backorder: out-of-stock product → order allowed, payment blocked until confirmed', async () => {
+    // делаем товар продавца «под заказ»
+    await req(`/products/${sellerProduct.id}`, {
+      method: 'PUT', token: seller,
+      body: { name: sellerProduct.name, description: sellerProduct.description, categoryId: sellerProduct.categoryId, price: Number(sellerProduct.price), inStock: false },
+    });
+
+    const order = (await req('/orders', {
+      method: 'POST', token: buyer,
+      body: { items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }] },
+    })).body;
+    expect(order.id).toBeTruthy();
+    expect(order.requiresConfirmation).toBe(true);
+
+    // оплата пока заблокирована
+    const blocked = await req('/payments', { method: 'POST', token: buyer, body: { orderId: order.id, provider: 'CLICK' } });
+    expect(blocked.status).toBe(400);
+
+    // продавец подтверждает (переводит из PENDING)
+    await req(`/orders/${order.id}/status`, { method: 'PATCH', token: seller, body: { status: 'CONFIRMED' } });
+
+    // теперь оплата проходит
+    const ok = await req('/payments', { method: 'POST', token: buyer, body: { orderId: order.id, provider: 'CLICK' } });
+    expect(ok.status).toBeLessThan(400);
+
+    // возвращаем товар в наличие, чтобы не мешать другим тестам
+    await req(`/products/${sellerProduct.id}`, {
+      method: 'PUT', token: seller,
+      body: { name: sellerProduct.name, description: sellerProduct.description, categoryId: sellerProduct.categoryId, price: Number(sellerProduct.price), inStock: true },
+    });
+  });
+
+  // Снятие с продажи: неактивный товар пропадает из публичного каталога,
+  // но остаётся виден продавцу в своём списке.
+  it('isActive: hidden product disappears from catalog but stays for seller', async () => {
+    await req(`/products/${sellerProduct.id}`, {
+      method: 'PUT', token: seller,
+      body: { name: sellerProduct.name, description: sellerProduct.description, categoryId: sellerProduct.categoryId, price: Number(sellerProduct.price), isActive: false },
+    });
+
+    const publicList = (await req('/products?limit=200')).body.products;
+    expect(publicList.some((p: any) => p.id === sellerProduct.id)).toBe(false);
+
+    const mine = (await req(`/products?sellerId=${sellerId}&limit=200`)).body.products;
+    expect(mine.some((p: any) => p.id === sellerProduct.id)).toBe(true);
+
+    // возвращаем в каталог
+    await req(`/products/${sellerProduct.id}`, {
+      method: 'PUT', token: seller,
+      body: { name: sellerProduct.name, description: sellerProduct.description, categoryId: sellerProduct.categoryId, price: Number(sellerProduct.price), isActive: true },
+    });
+    const back = (await req('/products?limit=200')).body.products;
+    expect(back.some((p: any) => p.id === sellerProduct.id)).toBe(true);
+  });
 });

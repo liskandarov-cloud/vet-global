@@ -201,7 +201,12 @@ function OrderContent() {
 
         {/* Side: docs, payment, delivery */}
         <div className="space-y-4">
-          {order.status === 'PENDING' && (
+          {order.status === 'PENDING' && order.requiresConfirmation ? (
+            <div className="card p-5">
+              <h3 className="mb-2 font-semibold">{tt('Оплата', 'Toʻlov')}</h3>
+              <p className="text-sm text-amber-700 dark:text-amber-300">{tt('Заказ содержит позицию «под заказ». Оплата откроется после того, как продавец подтвердит наличие.', 'Buyurtmada «buyurtma asosida» pozitsiya bor. Toʻlov sotuvchi mavjudligini tasdiqlagach ochiladi.')}</p>
+            </div>
+          ) : order.status === 'PENDING' ? (
             <div className="card p-5">
               <h3 className="mb-2 font-semibold">{tt('Оплата', 'Toʻlov')}</h3>
               <div className="flex gap-2">
@@ -210,7 +215,7 @@ function OrderContent() {
                 ))}
               </div>
             </div>
-          )}
+          ) : null}
 
           {payment && (
             <div className="card flex items-center justify-between p-4 text-sm">

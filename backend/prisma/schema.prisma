@@ -411,7 +411,8 @@ model Product {
   manufacturer   String?
   form           String? // форма выпуска
   animalType     AnimalType?
-  inStock        Boolean     @default(true)
+  inStock        Boolean     @default(true) // false = «под заказ» (виден, но оплата после подтверждения)
+  isActive       Boolean     @default(true) // false = снят с продажи, скрыт из каталога (без удаления)
   minOrder       Int         @default(1) // минимальный объём / квант отгрузки
   images         String[]    @default([])
   certificates   String[]    @default([]) // URLs PDF-сертификатов
@@ -541,6 +542,10 @@ model Order {
 
   // Сделка заключена по запросу цен (RFQ) — для прослеживаемости тендера.
   rfqId          String?
+
+  // Заказ содержит позицию «под заказ»: оплата блокируется, пока продавец
+  // не подтвердит наличие (перевод статуса из PENDING).
+  requiresConfirmation Boolean @default(false)
 
   // Организация-покупатель и согласование (P2)
   orgId          String?

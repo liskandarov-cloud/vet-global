@@ -73,6 +73,10 @@ export class OrdersService {
       for (const c of contracts) contractMap.set(c.offerId, Number(c.price));
     }
 
+    // Есть ли в заказе позиция «под заказ» (нет в наличии). Такой заказ можно
+    // оформить как предзаказ, но оплата блокируется до подтверждения продавцом.
+    let requiresConfirmation = false;
+
     const items = dto.items.map((i) => {
       const p = products.find((x) => x.id === i.productId)!;
 
@@ -91,7 +95,9 @@ export class OrdersService {
         if (o.productId !== p.id) {
           throw new BadRequestException(`Предложение для «${p.name}» не найдено`);
         }
-        if (!o.isActive || !o.inStock) {
+        // Снятый с продажи оффер заказать нельзя; «нет в наличии» — можно, но
+        // это предзаказ (оплата после подтверждения), а не отказ.
+        if (!o.isActive) {
           throw new BadRequestException(`Предложение для «${p.name}» недоступно`);
         }
         sellerId = o.sellerId;
@@ -101,6 +107,9 @@ export class OrdersService {
         unitPrice = contract != null ? contract : unitPriceForQty(o, i.quantity);
         offerId = o.id;
       }
+
+      // «Под заказ»: товар помечен продавцом как не в наличии (или выбранный оффер).
+      if (!p.inStock || (o && !o.inStock)) requiresConfirmation = true;
 
       if (i.quantity < minOrder) {
         throw new BadRequestException(`Минимальный заказ для «${p.name}» — ${minOrder} шт.`);
@@ -203,6 +212,7 @@ export class OrdersService {
           buyerName,
           buyerPhone,
           buyerCompany,
+          requiresConfirmation,
           subtotal,
           vetPointsUsed,
           total,

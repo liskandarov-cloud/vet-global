@@ -60,6 +60,7 @@ export interface Product {
   form?: string;
   animalType?: string;
   inStock: boolean;
+  isActive?: boolean;
   minOrder: number;
   images: string[];
   certificates: string[];
