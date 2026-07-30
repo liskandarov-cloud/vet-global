@@ -67,7 +67,7 @@ export default function RegisterPage() {
           <input className="input" type="email" placeholder="Email" value={form.email} onChange={upd('email')} required />
           <input className="input" placeholder={tt('Телефон', 'Telefon')} value={form.phone} onChange={upd('phone')} required />
           <input className="input" placeholder={tt('Компания', 'Kompaniya')} value={form.company} onChange={upd('company')} />
-          <input className="input" placeholder={tt('ИНН', 'INN')} value={form.inn} onChange={upd('inn')} />
+          <input className="input" placeholder={tt('ИНН (СТИР)', 'STIR')} value={form.inn} onChange={upd('inn')} />
           <input className="input" type="password" placeholder={tt('Пароль (мин. 6)', 'Parol (min. 6)')} value={form.password} onChange={upd('password')} required minLength={6} />
           <button className="btn-primary w-full" disabled={loading}>{loading ? '…' : tt('Создать аккаунт', 'Hisob yaratish')}</button>
         </form>

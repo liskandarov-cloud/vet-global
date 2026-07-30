@@ -260,4 +260,53 @@ describe('VetGlobal integrations (e2e)', () => {
     const back = (await req('/products?limit=200')).body.products;
     expect(back.some((p: any) => p.id === sellerProduct.id)).toBe(true);
   });
-});
+
+  // Тендер с ценами по позициям: продавец даёт разбивку → при выборе победителя
+  // заказ создаётся строка-в-строку, а не одной лумп-суммой.
+  it('tender: per-line quote → order gets one line per position', async () => {
+    // покупатель создаёт запрос на 2 позиции с разным количеством
+    const rfq = (await req('/rfq', {
+      method: 'POST', token: buyer,
+      body: { title: `zz-tender-${Date.now()}`, items: [
+        { name: 'Позиция A', quantity: 10, unit: 'фл' },
+        { name: 'Позиция B', quantity: 4, unit: 'л' },
+      ] },
+    })).body;
+    expect(rfq.id).toBeTruthy();
+    expect(rfq.items.length).toBe(2);
+
+    // продавец подаёт котировку с разбивкой по позициям
+    const q = await req(`/rfq/${rfq.id}/quote`, {
+      method: 'POST', token: seller,
+      body: { items: [
+        { rfqItemId: rfq.items[0].id, unitPrice: 1000 },
+        { rfqItemId: rfq.items[1].id, unitPrice: 2500 },
+      ], leadTimeDays: 5 },
+    });
+    expect(q.status).toBeLessThan(400);
+
+    // итог считается на сервере: 10*1000 + 4*2500 = 20000
+    const detail = (await req(`/rfq/${rfq.id}`, { token: buyer })).body;
+    const myQuote = detail.quotes[0];
+    expect(myQuote.totalPrice).toBe(20000);
+    expect(myQuote.items.length).toBe(2);
+    expect(myQuote.items.find((i: any) => i.name === 'Позиция A').lineTotal).toBe(10000);
+
+    // неполная разбивка отклоняется (указана цена только по одной позиции)
+    const bad = await req(`/rfq/${rfq.id}/quote`, {
+      method: 'POST', token: seller,
+      body: { items: [{ rfqItemId: rfq.items[0].id, unitPrice: 999 }] },
+    });
+    expect(bad.status).toBe(400);
+
+    // покупатель выбирает победителя → заказ строка-в-строку
+    const awarded = (await req(`/rfq/${rfq.id}/award/${myQuote.id}`, { method: 'POST', token: buyer })).body;
+    expect(awarded.orderId).toBeTruthy();
+    const order = (await req(`/orders/${awarded.orderId}`, { token: buyer })).body;
+    expect(order.items.length).toBe(2);
+    const total = order.items.reduce((sum: number, it: any) => sum + Number(it.price) * it.quantity, 0);
+    expect(total).toBe(20000);
+
+    await req(`/rfq/${rfq.id}`, { method: 'DELETE', token: buyer }).catch(() => {});
+  });
+});\n

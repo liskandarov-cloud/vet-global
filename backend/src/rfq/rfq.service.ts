@@ -89,7 +89,10 @@ export class RfqService {
         buyer: { select: { id: true, company: true, fullName: true, phone: true } },
         quotes: {
           orderBy: { totalPrice: 'asc' },
-          include: { seller: { select: { id: true, company: true, isVerified: true, rating: true } } },
+          include: {
+            seller: { select: { id: true, company: true, isVerified: true, rating: true } },
+            items: { include: { rfqItem: { select: { id: true, name: true, quantity: true, unit: true } } } },
+          },
         },
       },
     });
@@ -101,7 +104,19 @@ export class RfqService {
     const quotes = (isBuyer || isAdmin
       ? rfq.quotes
       : rfq.quotes.filter((q) => q.sellerId === user.id)
-    ).map((q) => ({ ...q, totalPrice: Number(q.totalPrice), seller: { ...q.seller, rating: Number(q.seller.rating) } }));
+    ).map((q) => ({
+      ...q,
+      totalPrice: Number(q.totalPrice),
+      seller: { ...q.seller, rating: Number(q.seller.rating) },
+      items: q.items.map((qi) => ({
+        rfqItemId: qi.rfqItemId,
+        name: qi.rfqItem.name,
+        quantity: qi.rfqItem.quantity,
+        unit: qi.rfqItem.unit,
+        unitPrice: Number(qi.unitPrice),
+        lineTotal: Number(qi.unitPrice) * qi.rfqItem.quantity,
+      })),
+    }));
 
     // Сделка, заключённая по этому тендеру (если победитель уже выбран).
     const order = await this.prisma.order.findFirst({
@@ -118,25 +133,53 @@ export class RfqService {
   }
 
   // Продавец подаёт/обновляет котировку.
+  // Два режима: единая сумма (dto.totalPrice) или разбивка по позициям (dto.items) —
+  // тогда итог считается на сервере как Σ(цена × количество из запроса).
   async quote(rfqId: string, dto: QuoteDto, user: AuthUser) {
-    const rfq = await this.prisma.rfq.findUnique({ where: { id: rfqId } });
+    const rfq = await this.prisma.rfq.findUnique({ where: { id: rfqId }, include: { items: true } });
     if (!rfq) throw new NotFoundException('Запрос не найден');
     if (rfq.status !== RfqStatus.OPEN) throw new BadRequestException('Запрос закрыт');
 
-    return this.prisma.rfqQuote.upsert({
-      where: { rfqId_sellerId: { rfqId, sellerId: user.id } },
-      create: {
-        rfqId,
-        sellerId: user.id,
-        totalPrice: dto.totalPrice,
-        leadTimeDays: dto.leadTimeDays ?? null,
-        note: dto.note ?? null,
-      },
-      update: {
-        totalPrice: dto.totalPrice,
-        leadTimeDays: dto.leadTimeDays ?? null,
-        note: dto.note ?? null,
-      },
+    // Разбивка по позициям: валидируем, что все позиции запроса оценены и что
+    // присланные rfqItemId действительно принадлежат этому тендеру.
+    let breakdown: { rfqItemId: string; unitPrice: number }[] | null = null;
+    let total: number;
+    if (dto.items?.length) {
+      const validIds = new Set(rfq.items.map((it) => it.id));
+      const seen = new Set<string>();
+      for (const line of dto.items) {
+        if (!validIds.has(line.rfqItemId)) throw new BadRequestException('Позиция не найдена в запросе');
+        if (seen.has(line.rfqItemId)) throw new BadRequestException('Позиция указана дважды');
+        seen.add(line.rfqItemId);
+      }
+      if (seen.size !== rfq.items.length) {
+        throw new BadRequestException('Укажите цену по каждой позиции запроса');
+      }
+      breakdown = dto.items.map((l) => ({ rfqItemId: l.rfqItemId, unitPrice: l.unitPrice }));
+      const qtyById = new Map(rfq.items.map((it) => [it.id, it.quantity]));
+      total = breakdown.reduce((s, l) => s + l.unitPrice * (qtyById.get(l.rfqItemId) ?? 0), 0);
+      total = Math.round(total * 100) / 100;
+    } else if (dto.totalPrice != null) {
+      total = dto.totalPrice;
+    } else {
+      throw new BadRequestException('Укажите цену: общей суммой или по позициям');
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const q = await tx.rfqQuote.upsert({
+        where: { rfqId_sellerId: { rfqId, sellerId: user.id } },
+        create: { rfqId, sellerId: user.id, totalPrice: total, leadTimeDays: dto.leadTimeDays ?? null, note: dto.note ?? null },
+        update: { totalPrice: total, leadTimeDays: dto.leadTimeDays ?? null, note: dto.note ?? null },
+      });
+      // Перезаписываем разбивку целиком: при обновлении котировки старые строки
+      // могут не соответствовать новым ценам.
+      await tx.rfqQuoteItem.deleteMany({ where: { quoteId: q.id } });
+      if (breakdown) {
+        await tx.rfqQuoteItem.createMany({
+          data: breakdown.map((l) => ({ quoteId: q.id, rfqItemId: l.rfqItemId, unitPrice: l.unitPrice })),
+        });
+      }
+      return q;
     });
   }
 
@@ -144,7 +187,7 @@ export class RfqService {
   async award(rfqId: string, quoteId: string, user: AuthUser) {
     const rfq = await this.prisma.rfq.findUnique({
       where: { id: rfqId },
-      include: { quotes: true, items: true },
+      include: { quotes: { include: { items: true } }, items: true },
     });
     if (!rfq) throw new NotFoundException('Запрос не найден');
     if (rfq.buyerId !== user.id && user.role !== UserRole.ADMIN)
@@ -167,15 +210,39 @@ export class RfqService {
   }
 
   // Заказ по выигравшей котировке.
-  // Котировка — единая сумма за весь запрос, поэтому заказ создаётся одной
-  // позицией: дробить лумп-сумму по позициям значило бы выдумывать цены,
-  // которых продавец не называл. Состав запроса виден по ссылке на тендер.
+  // Если продавец дал разбивку по позициям — заказ создаётся строка-в-строку
+  // (каждая позиция запроса своей ценой). Иначе (единая сумма) — одной позицией:
+  // дробить лумп-сумму значило бы выдумывать цены, которых продавец не называл.
   private async createOrderFromQuote(rfq: any, quote: any) {
     const buyer = await this.prisma.user.findUnique({ where: { id: rfq.buyerId } });
     const total = Number(quote.totalPrice);
     const commission = Math.round(((total * this.commissionPct) / 100) * 100) / 100;
     const vetPointsEarned = Math.round(((total * this.earnPct) / 100) * 100) / 100;
     const positions = rfq.items?.length ?? 0;
+
+    // Разбивка по позициям, если она есть в котировке.
+    const itemById = new Map((rfq.items ?? []).map((it: any) => [it.id, it]));
+    const breakdown: any[] = quote.items ?? [];
+    const lines = breakdown.length
+      ? breakdown.map((qi: any) => {
+          const it: any = itemById.get(qi.rfqItemId);
+          return {
+            productId: it?.productId ?? null,
+            productName: it?.name ?? 'Позиция',
+            sellerId: quote.sellerId,
+            quantity: it?.quantity ?? 1,
+            price: Number(qi.unitPrice),
+          };
+        })
+      : [
+          {
+            productId: null,
+            productName: `Тендер: ${rfq.title}${positions ? ` (${positions} поз.)` : ''}`,
+            sellerId: quote.sellerId,
+            quantity: 1,
+            price: total,
+          },
+        ];
 
     return this.prisma.order.create({
       data: {
@@ -188,17 +255,7 @@ export class RfqService {
         total,
         commission,
         vetPointsEarned,
-        items: {
-          create: [
-            {
-              productId: null,
-              productName: `Тендер: ${rfq.title}${positions ? ` (${positions} поз.)` : ''}`,
-              sellerId: quote.sellerId,
-              quantity: 1,
-              price: total,
-            },
-          ],
-        },
+        items: { create: lines },
       },
     });
   }

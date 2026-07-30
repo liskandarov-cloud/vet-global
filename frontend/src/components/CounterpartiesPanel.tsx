@@ -31,7 +31,7 @@ export function CounterpartiesPanel() {
   const upd = (k: string, v: any) => setForm((f: any) => ({ ...f, [k]: v }));
 
   const save = async () => {
-    if (!form.name || !form.inn) return toast.error(tt('Укажите название и ИНН', 'Nomi va INNni kiriting'));
+    if (!form.name || !form.inn) return toast.error(tt('Укажите название и ИНН (СТИР)', 'Nomi va STIRni kiriting'));
     setSaving(true);
     try {
       await api.post('/users/me/counterparties', {
@@ -71,7 +71,7 @@ export function CounterpartiesPanel() {
 
       {items.length === 0 ? (
         <div className="card p-6 text-sm text-ink-subtle">
-          {tt('Добавьте юрлицо (ИНН, МФО, расчётный счёт) — реквизиты подставятся в договор и счёт, а при оформлении заказа можно будет выбрать контрагента.', 'Yuridik shaxs qoʻshing (INN, MFO, hisob raqami) — rekvizitlar shartnoma va hisob-fakturaga qoʻyiladi, buyurtma rasmiylashtirishda kontragentni tanlash mumkin boʻladi.')}
+          {tt('Добавьте юрлицо (ИНН/СТИР, МФО, расчётный счёт) — реквизиты подставятся в договор и счёт, а при оформлении заказа можно будет выбрать контрагента.', 'Yuridik shaxs qoʻshing (STIR, MFO, hisob raqami) — rekvizitlar shartnoma va hisob-fakturaga qoʻyiladi, buyurtma rasmiylashtirishda kontragentni tanlash mumkin boʻladi.')}
         </div>
       ) : (
         <div className="grid gap-3 md:grid-cols-2">
@@ -88,7 +88,7 @@ export function CounterpartiesPanel() {
                 </div>
               </div>
               <div className="mt-2 space-y-0.5 text-sm text-ink-muted">
-                <div>{tt('ИНН', 'INN')}: {c.inn}</div>
+                <div>{tt('ИНН (СТИР)', 'STIR')}: {c.inn}</div>
                 {c.mfo && <div>{tt('МФО', 'MFO')}: {c.mfo}</div>}
                 {c.bankAccount && <div>{tt('Р/с', 'Hisob raqami')}: {c.bankAccount}</div>}
                 {c.address && <div>{c.address}</div>}
@@ -107,7 +107,7 @@ export function CounterpartiesPanel() {
             </div>
             <div className="space-y-3">
               <input className="input" placeholder={tt('Название юрлица', 'Yuridik shaxs nomi')} value={form.name} onChange={(e) => upd('name', e.target.value)} />
-              <input className="input" placeholder={tt('ИНН', 'INN')} value={form.inn} onChange={(e) => upd('inn', e.target.value)} />
+              <input className="input" placeholder={tt('ИНН (СТИР)', 'STIR')} value={form.inn} onChange={(e) => upd('inn', e.target.value)} />
               <input className="input" placeholder={tt('МФО банка', 'Bank MFO')} value={form.mfo} onChange={(e) => upd('mfo', e.target.value)} />
               <input className="input" placeholder={tt('Расчётный счёт', 'Hisob raqami')} value={form.bankAccount} onChange={(e) => upd('bankAccount', e.target.value)} />
               <input className="input" placeholder={tt('Адрес', 'Manzil')} value={form.address} onChange={(e) => upd('address', e.target.value)} />

@@ -141,7 +141,7 @@ export default function CartPage() {
               <label className="mb-1 block text-sm font-medium">{tt('Контрагент (юрлицо)', 'Kontragent (yuridik shaxs)')}</label>
               <select className="input" value={counterpartyId} onChange={(e) => setCounterpartyId(e.target.value)}>
                 {counterparties.map((c) => (
-                  <option key={c.id} value={c.id}>{c.name} · {tt('ИНН', 'INN')} {c.inn}</option>
+                  <option key={c.id} value={c.id}>{c.name} · {tt('ИНН (СТИР)', 'STIR')} {c.inn}</option>
                 ))}
               </select>
               <Link href="/dashboard" className="mt-1 inline-block text-xs text-teal-700 hover:underline">{tt('Управлять реквизитами', 'Rekvizitlarni boshqarish')}</Link>

@@ -67,7 +67,7 @@ function CreateOrg({ onCreated }: { onCreated: () => void }) {
     <div className="card max-w-md space-y-3 p-6">
       <p className="text-sm text-ink-muted">{tt('Создайте организацию, чтобы закупать вместе с командой: роли, лимиты трат и согласование заказов.', 'Jamoa bilan birga xarid qilish uchun tashkilot yarating: rollar, xarajat limitlari va buyurtmalarni kelishish.')}</p>
       <input className="input" placeholder={tt('Название организации', 'Tashkilot nomi')} value={name} onChange={(e) => setName(e.target.value)} />
-      <input className="input" placeholder={tt('ИНН (необязательно)', 'INN (ixtiyoriy)')} value={inn} onChange={(e) => setInn(e.target.value)} />
+      <input className="input" placeholder={tt('ИНН (СТИР), необязательно', 'STIR (ixtiyoriy)')} value={inn} onChange={(e) => setInn(e.target.value)} />
       <button className="btn-primary w-full" onClick={create}>{tt('Создать организацию', 'Tashkilot yaratish')}</button>
     </div>
   );
@@ -104,7 +104,7 @@ function OrgManage({ data, approvals, reload }: { data: OrgData; approvals: any[
       <div className="card flex items-center justify-between p-5">
         <div>
           <div className="flex items-center gap-2 font-heading text-xl font-bold"><Building2 size={20} className="text-teal-700" /> {data.org!.name}</div>
-          {data.org!.inn && <div className="text-sm text-ink-subtle">{tt('ИНН', 'INN')} {data.org!.inn}</div>}
+          {data.org!.inn && <div className="text-sm text-ink-subtle">{tt('ИНН (СТИР)', 'STIR')} {data.org!.inn}</div>}
         </div>
         <div className="text-right text-sm">
           <div className="text-ink-subtle">{tt('Ваша роль', 'Sizning rolingiz')}</div>

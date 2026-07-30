@@ -61,7 +61,7 @@ export function SellerRequisitesPanel() {
           <input className="input" value={form.company} onChange={(e) => upd('company', e.target.value)} />
         </div>
         <div>
-          <label className="mb-1 block text-xs text-ink-muted">{tt('ИНН', 'INN')}</label>
+          <label className="mb-1 block text-xs text-ink-muted">{tt('ИНН (СТИР)', 'STIR')}</label>
           <input className="input" value={form.inn} onChange={(e) => upd('inn', e.target.value)} />
         </div>
         <div>

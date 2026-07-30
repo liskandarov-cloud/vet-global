@@ -233,7 +233,8 @@ model RfqItem {
   quantity  Int
   unit      String? // единица измерения: шт, л, доз, флакон и т.п.
 
-  rfq Rfq @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  rfq        Rfq            @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  quoteItems RfqQuoteItem[]
 
   @@index([rfqId])
 }
@@ -243,18 +244,35 @@ model RfqQuote {
   id           String   @id @default(uuid())
   rfqId        String
   sellerId     String
-  totalPrice   Decimal  @db.Decimal(12, 2)
+  totalPrice   Decimal  @db.Decimal(12, 2) // общая сумма (для разбивки — сумма строк)
   leadTimeDays Int?
   note         String?
   isAwarded    Boolean  @default(false)
   createdAt    DateTime @default(now())
 
-  rfq    Rfq  @relation(fields: [rfqId], references: [id], onDelete: Cascade)
-  seller User @relation("SellerQuotes", fields: [sellerId], references: [id], onDelete: Cascade)
+  rfq    Rfq            @relation(fields: [rfqId], references: [id], onDelete: Cascade)
+  seller User           @relation("SellerQuotes", fields: [sellerId], references: [id], onDelete: Cascade)
+  items  RfqQuoteItem[] // опциональная разбивка цены по позициям запроса
 
   @@unique([rfqId, sellerId])
   @@index([rfqId])
   @@index([sellerId])
+}
+
+// Позиция котировки — цена продавца за конкретную позицию тендера.
+// Необязательна: без неё котировка остаётся единой суммой (легаси-поведение),
+// с ней при выборе победителя заказ создаётся строка-в-строку.
+model RfqQuoteItem {
+  id        String  @id @default(uuid())
+  quoteId   String
+  rfqItemId String
+  unitPrice Decimal @db.Decimal(12, 2) // цена за единицу позиции
+
+  quote   RfqQuote @relation(fields: [quoteId], references: [id], onDelete: Cascade)
+  rfqItem RfqItem  @relation(fields: [rfqItemId], references: [id], onDelete: Cascade)
+
+  @@unique([quoteId, rfqItemId])
+  @@index([quoteId])
 }
 
 // Автопополнение: регулярный авто-заказ товара (P2).

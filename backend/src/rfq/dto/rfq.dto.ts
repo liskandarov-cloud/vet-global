@@ -55,11 +55,33 @@ export class CreateRfqDto {
   items!: RfqItemInput[];
 }
 
-export class QuoteDto {
+export class QuoteItemInput {
+  @ApiProperty()
+  @IsString()
+  rfqItemId!: string;
+
   @ApiProperty()
   @IsNumber()
   @Min(0)
-  totalPrice!: number;
+  unitPrice!: number; // цена за единицу позиции
+}
+
+export class QuoteDto {
+  // Единая сумма за весь запрос. Необязательна, если передан разбор по позициям
+  // (items) — тогда итог считается на сервере как сумма строк.
+  @ApiPropertyOptional()
+  @IsOptional()
+  @IsNumber()
+  @Min(0)
+  totalPrice?: number;
+
+  @ApiPropertyOptional({ type: [QuoteItemInput], description: 'Разбивка цены по позициям' })
+  @IsOptional()
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => QuoteItemInput)
+  items?: QuoteItemInput[];
 
   @ApiPropertyOptional()
   @IsOptional()

@@ -87,7 +87,7 @@ export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
             <input className="input" value={form.phone} onChange={(e) => setForm((f) => ({ ...f, phone: e.target.value }))} />
           </div>
           <div>
-            <label className="mb-1 block text-xs text-ink-muted">{tt('ИНН', 'INN')}</label>
+            <label className="mb-1 block text-xs text-ink-muted">{tt('ИНН (СТИР)', 'STIR')}</label>
             <input className="input" value={form.inn} onChange={(e) => setForm((f) => ({ ...f, inn: e.target.value }))} />
           </div>
         </div>

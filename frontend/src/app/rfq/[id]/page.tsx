@@ -29,7 +29,9 @@ export default function RfqDetailPage() {
   const router = useRouter();
   const { tt } = useI18n();
   const [rfq, setRfq] = useState<any>(null);
+  const [mode, setMode] = useState<'items' | 'total'>('items');
   const [price, setPrice] = useState(0);
+  const [unit, setUnit] = useState<Record<string, number>>({});
   const [lead, setLead] = useState(3);
   const [qnote, setQnote] = useState('');
 
@@ -39,10 +41,22 @@ export default function RfqDetailPage() {
   if (!rfq) return <div className="py-24 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>;
 
   const isBuyer = rfq.buyer?.id === user?.id;
+  // Итог в режиме «по позициям» — сумма цен × количество (как на сервере).
+  const itemsTotal: number = rfq.items.reduce(
+    (s: number, it: any) => s + (unit[it.id] || 0) * it.quantity,
+    0,
+  );
   const submitQuote = async () => {
-    if (price <= 0) { toast.error(tt('Укажите цену', 'Narxni koʻrsating')); return; }
     try {
-      await api.post(`/rfq/${id}/quote`, { totalPrice: price, leadTimeDays: lead, note: qnote });
+      if (mode === 'items') {
+        const missing = rfq.items.some((it: any) => !unit[it.id] || unit[it.id] <= 0);
+        if (missing) { toast.error(tt('Укажите цену по каждой позиции', 'Har bir pozitsiya narxini koʻrsating')); return; }
+        const items = rfq.items.map((it: any) => ({ rfqItemId: it.id, unitPrice: unit[it.id] }));
+        await api.post(`/rfq/${id}/quote`, { items, leadTimeDays: lead, note: qnote });
+      } else {
+        if (price <= 0) { toast.error(tt('Укажите цену', 'Narxni koʻrsating')); return; }
+        await api.post(`/rfq/${id}/quote`, { totalPrice: price, leadTimeDays: lead, note: qnote });
+      }
       toast.success(tt('Котировка отправлена', 'Kotirovka yuborildi'));
       load();
     } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
@@ -89,18 +103,51 @@ export default function RfqDetailPage() {
       {/* Продавец: форма котировки */}
       {rfq.canQuote && !isBuyer && (
         <div className="card mt-4 space-y-3 p-4">
-          <div className="font-medium">{tt('Ваша котировка', 'Sizning kotirovkangiz')}</div>
-          <div className="flex gap-2">
+          <div className="flex items-center justify-between gap-2">
+            <div className="font-medium">{tt('Ваша котировка', 'Sizning kotirovkangiz')}</div>
+            <div className="inline-flex overflow-hidden rounded-lg border border-slate-200 text-xs">
+              <button type="button" onClick={() => setMode('items')}
+                className={`px-2.5 py-1 ${mode === 'items' ? 'bg-teal-600 text-white' : 'text-ink-muted'}`}>
+                {tt('По позициям', 'Pozitsiyalar boʻyicha')}
+              </button>
+              <button type="button" onClick={() => setMode('total')}
+                className={`px-2.5 py-1 ${mode === 'total' ? 'bg-teal-600 text-white' : 'text-ink-muted'}`}>
+                {tt('Общей суммой', 'Yagona summa')}
+              </button>
+            </div>
+          </div>
+
+          {mode === 'items' ? (
+            <div className="space-y-2">
+              {rfq.items.map((it: any) => (
+                <div key={it.id} className="flex items-center gap-2">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm">{it.name}</div>
+                    <div className="text-xs text-ink-subtle">{it.quantity} {it.unit || tt('шт', 'dona')}</div>
+                  </div>
+                  <div className="w-40">
+                    <input className="input" type="number" min={0} placeholder={tt('цена за ед., сум', 'birlik narxi, soʻm')}
+                      value={unit[it.id] || ''} onChange={(e) => setUnit((u) => ({ ...u, [it.id]: e.target.value === '' ? 0 : Number(e.target.value) }))} />
+                  </div>
+                  <div className="w-28 text-right text-sm text-ink-subtle">{formatMoney((unit[it.id] || 0) * it.quantity)}</div>
+                </div>
+              ))}
+              <div className="flex justify-between border-t border-slate-100 pt-2 text-sm font-semibold">
+                <span>{tt('Итого', 'Jami')}</span><span>{formatMoney(itemsTotal)}</span>
+              </div>
+            </div>
+          ) : (
             <div className="flex-1">
               <label className="mb-1 block text-xs text-ink-muted">{tt('Итоговая цена за весь запрос, сум', 'Butun soʻrov uchun yakuniy narx, soʻm')}</label>
               <input className="input" type="number" min={0} placeholder={tt('напр. 1200000', 'masalan, 1200000')}
                 value={price || ''} onChange={(e) => setPrice(e.target.value === '' ? 0 : Number(e.target.value))} />
             </div>
-            <div className="w-36">
-              <label className="mb-1 block text-xs text-ink-muted">{tt('Срок поставки, дней', 'Yetkazib berish, kun')}</label>
-              <input className="input" type="number" min={0} placeholder={tt('напр. 3', 'masalan, 3')}
-                value={lead || ''} onChange={(e) => setLead(e.target.value === '' ? 0 : Number(e.target.value))} />
-            </div>
+          )}
+
+          <div className="w-full sm:w-40">
+            <label className="mb-1 block text-xs text-ink-muted">{tt('Срок поставки, дней', 'Yetkazib berish, kun')}</label>
+            <input className="input" type="number" min={0} placeholder={tt('напр. 3', 'masalan, 3')}
+              value={lead || ''} onChange={(e) => setLead(e.target.value === '' ? 0 : Number(e.target.value))} />
           </div>
           <textarea className="input" rows={2} placeholder={tt('Комментарий (необязательно)', 'Izoh (ixtiyoriy)')} value={qnote} onChange={(e) => setQnote(e.target.value)} />
           <button className="btn-primary w-full" onClick={submitQuote}>{tt('Отправить котировку', 'Kotirovkani yuborish')}</button>
@@ -142,25 +189,39 @@ export default function RfqDetailPage() {
         ) : (
           <div className="space-y-2">
             {rfq.quotes.map((q: any, idx: number) => (
-              <div key={q.id} className={`card flex items-center justify-between p-4 ${q.isAwarded ? 'ring-1 ring-emerald-300' : ''}`}>
-                <div>
-                  <div className="flex items-center gap-2 font-medium">
-                    {q.seller?.company ?? tt('Поставщик', 'Yetkazib beruvchi')}
-                    {q.seller?.isVerified && <ShieldCheck size={14} className="text-teal-700" />}
-                    {idx === 0 && rfq.quotes.length > 1 && <span className="rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">{tt('лучшая цена', 'eng yaxshi narx')}</span>}
-                    {q.isAwarded && <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"><Trophy size={11} /> {tt('выбран', 'tanlangan')}</span>}
+              <div key={q.id} className={`card p-4 ${q.isAwarded ? 'ring-1 ring-emerald-300' : ''}`}>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="flex items-center gap-2 font-medium">
+                      {q.seller?.company ?? tt('Поставщик', 'Yetkazib beruvchi')}
+                      {q.seller?.isVerified && <ShieldCheck size={14} className="text-teal-700" />}
+                      {idx === 0 && rfq.quotes.length > 1 && <span className="rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">{tt('лучшая цена', 'eng yaxshi narx')}</span>}
+                      {q.isAwarded && <span className="inline-flex items-center gap-1 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700"><Trophy size={11} /> {tt('выбран', 'tanlangan')}</span>}
+                      {q.items?.length > 0 && <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-ink-subtle">{tt('по позициям', 'pozitsiyalar')}</span>}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-subtle">
+                      {q.leadTimeDays != null && <span className="inline-flex items-center gap-1"><Truck size={12} /> {q.leadTimeDays} {tt('дн.', 'kun')}</span>}
+                      {q.note && <span>· {q.note}</span>}
+                    </div>
                   </div>
-                  <div className="mt-0.5 flex items-center gap-2 text-xs text-ink-subtle">
-                    {q.leadTimeDays != null && <span className="inline-flex items-center gap-1"><Truck size={12} /> {q.leadTimeDays} {tt('дн.', 'kun')}</span>}
-                    {q.note && <span>· {q.note}</span>}
+                  <div className="text-right">
+                    <div className="font-heading text-lg font-bold">{formatMoney(q.totalPrice)}</div>
+                    {isBuyer && rfq.status === 'OPEN' && (
+                      <button className="btn-primary mt-1 !px-3 !py-1 text-xs" onClick={() => award(q.id)}>{tt('Выбрать', 'Tanlash')}</button>
+                    )}
                   </div>
                 </div>
-                <div className="text-right">
-                  <div className="font-heading text-lg font-bold">{formatMoney(q.totalPrice)}</div>
-                  {isBuyer && rfq.status === 'OPEN' && (
-                    <button className="btn-primary mt-1 !px-3 !py-1 text-xs" onClick={() => award(q.id)}>{tt('Выбрать', 'Tanlash')}</button>
-                  )}
-                </div>
+                {/* Разбивка по позициям, если продавец её дал */}
+                {q.items?.length > 0 && (
+                  <ul className="mt-3 divide-y divide-slate-100 border-t border-slate-100 pt-2 text-xs">
+                    {q.items.map((li: any) => (
+                      <li key={li.rfqItemId} className="flex justify-between py-1">
+                        <span className="text-ink-muted">{li.name} · {li.quantity} {li.unit || tt('шт', 'dona')} × {formatMoney(li.unitPrice)}</span>
+                        <span className="text-ink-subtle">{formatMoney(li.lineTotal)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </div>
             ))}
           </div>
