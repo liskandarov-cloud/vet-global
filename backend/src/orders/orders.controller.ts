@@ -95,6 +95,15 @@ export class OrdersController {
     return this.orders.updateStatus(id, dto.status, user);
   }
 
+  // Продавец подтверждает наличие по предзаказу «под заказ» → открывает оплату.
+  @Post(':id/confirm-availability')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER, UserRole.ADMIN)
+  confirmAvailability(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.orders.confirmAvailability(id, user);
+  }
+
   // Удаление заказа (только админ) — чистка тестовых/ошибочных заказов.
   @Delete(':id')
   @ApiBearerAuth()

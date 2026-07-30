@@ -88,6 +88,15 @@ function SellerContent() {
     load();
   };
 
+  // Подтверждение наличия по предзаказу «под заказ»: снимает блок оплаты у покупателя.
+  const confirmAvail = async (id: string) => {
+    try {
+      await api.post(`/orders/${id}/confirm-availability`);
+      toast.success(tt('Наличие подтверждено — покупатель может оплатить', 'Mavjudlik tasdiqlandi — xaridor toʻlashi mumkin'));
+      load();
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
+  };
+
   const sendDidox = async (id: string) => {
     try {
       const { data } = await api.post(`/didox/send/${id}`);
@@ -249,6 +258,12 @@ function SellerContent() {
                   <td>{o.buyerName}<div className="text-xs text-ink-subtle">{o.buyerPhone}</div></td>
                   <td className="font-semibold">{formatMoney(o.total)}</td>
                   <td>
+                    {o.requiresConfirmation && o.status === 'PENDING' && (
+                      <div className="mb-1 flex flex-col items-start gap-1">
+                        <span className="rounded-md bg-amber-50 px-2 py-0.5 text-[11px] text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">{tt('Предзаказ «под заказ»', 'Oldindan buyurtma')}</span>
+                        <button className="btn-secondary !px-2.5 !py-1 text-xs" onClick={() => confirmAvail(o.id)}>{tt('Подтвердить наличие', 'Mavjudligini tasdiqlash')}</button>
+                      </div>
+                    )}
                     <select className="input !h-9 !w-auto" value={o.status} onChange={(e) => setStatus(o.id, e.target.value)}>
                       {Object.entries(statusLabels).map(([k, l]) => <option key={k} value={k}>{l}</option>)}
                     </select>

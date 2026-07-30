@@ -224,12 +224,19 @@ describe('VetGlobal integrations (e2e)', () => {
     const blocked = await req('/payments', { method: 'POST', token: buyer, body: { orderId: order.id, provider: 'CLICK' } });
     expect(blocked.status).toBe(400);
 
-    // продавец подтверждает (переводит из PENDING)
-    await req(`/orders/${order.id}/status`, { method: 'PATCH', token: seller, body: { status: 'CONFIRMED' } });
+    // продавец подтверждает наличие: флаг снимается, статус остаётся PENDING
+    // (иначе у покупателя пропала бы кнопка оплаты).
+    const confirmed = (await req(`/orders/${order.id}/confirm-availability`, { method: 'POST', token: seller })).body;
+    expect(confirmed.requiresConfirmation).toBe(false);
+    expect(confirmed.status).toBe('PENDING');
 
     // теперь оплата проходит
     const ok = await req('/payments', { method: 'POST', token: buyer, body: { orderId: order.id, provider: 'CLICK' } });
     expect(ok.status).toBeLessThan(400);
+
+    // повторное подтверждение уже отклоняется (нечего подтверждать)
+    const again = await req(`/orders/${order.id}/confirm-availability`, { method: 'POST', token: seller });
+    expect(again.status).toBe(400);
 
     // возвращаем товар в наличие, чтобы не мешать другим тестам
     await req(`/products/${sellerProduct.id}`, {

@@ -364,6 +364,32 @@ export class OrdersService {
     return this.getOne(id, user);
   }
 
+  // Продавец подтверждает наличие по заказу «под заказ» (предзаказу): снимаем
+  // флаг requiresConfirmation, СТАТУС ОСТАЁТСЯ «Новый» (PENDING) — иначе на витрине
+  // покупателя пропала бы кнопка оплаты (она показывается только для PENDING).
+  // После этого оплата открывается и покупателю уходит уведомление.
+  async confirmAvailability(id: string, user: AuthUser) {
+    const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+    if (!order) throw new NotFoundException('Order not found');
+    if (user.role === UserRole.SELLER && !order.items.some((it) => it.sellerId === user.id)) {
+      throw new ForbiddenException('Not authorized for this order');
+    }
+    if (!order.requiresConfirmation || order.status !== OrderStatus.PENDING) {
+      throw new BadRequestException('Заказ не требует подтверждения наличия');
+    }
+
+    await this.prisma.order.update({ where: { id }, data: { requiresConfirmation: false } });
+
+    if (order.buyerId) {
+      void this.alerts.notify(order.buyerId, {
+        title: `Заказ #${id.slice(0, 8)}`,
+        body: 'Продавец подтвердил наличие — заказ можно оплатить',
+        url: `/orders/${id}`,
+      });
+    }
+    return this.getOne(id, user);
+  }
+
   // Generates (and records) the invoice PDF for a confirmed order.
   async invoicePdf(id: string, user: AuthUser): Promise<{ buffer: Buffer; number: string }> {
     const order = await this.prisma.order.findUnique({
