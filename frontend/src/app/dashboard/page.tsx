@@ -44,6 +44,15 @@ function BuyerContent() {
   const [stats, setStats] = useState<any>(null);
   const [favorites, setFavorites] = useState<Product[]>([]);
   const [showProfile, setShowProfile] = useState(false);
+  const [orderFilter, setOrderFilter] = useState<'all' | 'topay' | 'preorder' | 'active' | 'done'>('all');
+
+  // Группа заказа для фильтра: сначала действия покупателя (оплата/предзаказ),
+  // затем состояние (в работе / завершён).
+  const bucket = (o: Order): 'topay' | 'preorder' | 'active' | 'done' =>
+    o.status === 'PENDING' && o.requiresConfirmation ? 'preorder'
+    : o.status === 'PENDING' ? 'topay'
+    : o.status === 'DELIVERED' || o.status === 'CANCELLED' ? 'done'
+    : 'active';
 
   const load = () => {
     api.get('/orders').then((r) => setOrders(r.data));
@@ -132,6 +141,26 @@ function BuyerContent() {
         <h2 className="font-heading text-xl font-bold">{tt('Мои заказы', 'Mening buyurtmalarim')}</h2>
         <button className="btn-secondary" onClick={exportExcel}><Download size={16} /> Excel</button>
       </div>
+
+      {/* Фильтр заказов со счётчиками */}
+      <div className="mt-3 flex flex-wrap gap-2">
+        {([
+          ['all', tt('Все', 'Barchasi')],
+          ['topay', tt('Ждут оплаты', 'Toʻlov kutmoqda')],
+          ['preorder', tt('Предзаказы', 'Oldindan buyurtma')],
+          ['active', tt('В работе', 'Jarayonda')],
+          ['done', tt('Завершённые', 'Yakunlangan')],
+        ] as [typeof orderFilter, string][]).map(([k, label]) => {
+          const cnt = k === 'all' ? orders.length : orders.filter((o) => bucket(o) === k).length;
+          return (
+            <button key={k} onClick={() => setOrderFilter(k)}
+              className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${orderFilter === k ? 'border-teal-500 bg-teal-50 text-teal-700 dark:bg-teal-950/40' : 'border-slate-200 text-ink-muted hover:border-teal-200'}`}>
+              {label} <span className="opacity-70">· {cnt}</span>
+            </button>
+          );
+        })}
+      </div>
+
       <div className="mt-3 overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="text-left text-ink-subtle">
@@ -140,7 +169,7 @@ function BuyerContent() {
             </tr>
           </thead>
           <tbody>
-            {orders.map((o) => (
+            {orders.filter((o) => orderFilter === 'all' || bucket(o) === orderFilter).map((o) => (
               <tr key={o.id} className="border-b border-slate-50">
                 <td className="py-2 font-mono text-xs"><Link href={`/orders/${o.id}`} className="text-teal-700 hover:underline">{o.id.slice(0, 8)}</Link></td>
                 <td>{new Date(o.createdAt).toLocaleDateString('ru-RU')}</td>
@@ -159,7 +188,11 @@ function BuyerContent() {
             ))}
           </tbody>
         </table>
-        {orders.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Заказов пока нет', 'Hozircha buyurtmalar yoʻq')}</div>}
+        {orders.filter((o) => orderFilter === 'all' || bucket(o) === orderFilter).length === 0 && (
+          <div className="py-10 text-center text-ink-subtle">
+            {orders.length === 0 ? tt('Заказов пока нет', 'Hozircha buyurtmalar yoʻq') : tt('Нет заказов в этой группе', 'Bu guruhda buyurtma yoʻq')}
+          </div>
+        )}
       </div>
 
       <h2 className="mt-10 font-heading text-xl font-bold">{tt('История VetPoints', 'VetPoints tarixi')}</h2>
