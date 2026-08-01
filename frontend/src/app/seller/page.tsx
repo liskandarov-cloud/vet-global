@@ -50,6 +50,8 @@ function SellerContent() {
   const [deliveryOrder, setDeliveryOrder] = useState<any | null>(null);
   const [editingPromo, setEditingPromo] = useState<any | null>(null);
   const [bulkPhotos, setBulkPhotos] = useState(false);
+  const [productFilter, setProductFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set());
 
   const load = () => {
     api.get('/seller/stats').then((r) => setStats(r.data)).catch(() => {});
@@ -81,6 +83,27 @@ function SellerContent() {
       toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
     }
   };
+
+  // Массовое вкл/выкл выбранных товаров (распродал партию — снять пачкой,
+  // поступила поставка — вернуть пачкой).
+  const bulkSetActive = async (next: boolean) => {
+    const ids = [...selectedProducts];
+    if (!ids.length) return;
+    try {
+      await Promise.all(ids.map((id) => {
+        const p: any = products.find((x) => x.id === id);
+        return api.put(`/products/${id}`, { name: p.name, description: p.description, categoryId: p.categoryId, price: Number(p.price), isActive: next });
+      }));
+      toast.success(next ? tt('Возвращены в каталог', 'Katalogga qaytarildi') : tt('Сняты с продажи', 'Sotuvdan olindi'));
+      setSelectedProducts(new Set());
+      load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
+    }
+  };
+
+  const toggleSelect = (id: string) =>
+    setSelectedProducts((s) => { const n = new Set(s); n.has(id) ? n.delete(id) : n.add(id); return n; });
 
   const setStatus = async (id: string, status: string) => {
     await api.patch(`/orders/${id}/status`, { status });
@@ -161,23 +184,69 @@ function SellerContent() {
         ))}
       </div>
 
-      {tab === 'products' && (
+      {tab === 'products' && (() => {
+        const activeCount = products.filter((p: any) => p.isActive ?? true).length;
+        const inactiveCount = products.length - activeCount;
+        const filtered = products.filter((p: any) => {
+          const a = p.isActive ?? true;
+          return productFilter === 'all' ? true : productFilter === 'active' ? a : !a;
+        });
+        const allSelected = filtered.length > 0 && filtered.every((p) => selectedProducts.has(p.id));
+        const toggleAll = () => setSelectedProducts((s) => {
+          const n = new Set(s);
+          if (allSelected) filtered.forEach((p) => n.delete(p.id));
+          else filtered.forEach((p) => n.add(p.id));
+          return n;
+        });
+        const chips: [typeof productFilter, string, number][] = [
+          ['all', tt('Все', 'Barchasi'), products.length],
+          ['active', tt('В каталоге', 'Katalogda'), activeCount],
+          ['inactive', tt('Снятые', 'Olingan'), inactiveCount],
+        ];
+        return (
         <div className="mt-6">
           <SyncPanel />
           <div className="mb-4 flex flex-wrap gap-2">
             <button className="btn-primary" onClick={() => setEditing({ ...EMPTY })}><Plus size={16} /> {tt('Добавить товар', 'Mahsulot qoʻshish')}</button>
             <button className="btn-secondary" onClick={() => setBulkPhotos(true)}><Upload size={16} /> {tt('Фото пачкой', 'Fotolar toʻplami')}</button>
           </div>
+
+          {/* Фильтр по статусу в каталоге со счётчиками */}
+          <div className="mb-3 flex flex-wrap gap-2">
+            {chips.map(([k, label, cnt]) => (
+              <button key={k} onClick={() => setProductFilter(k)}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-medium transition-colors ${productFilter === k ? 'border-teal-500 bg-teal-50 text-teal-700 dark:bg-teal-950/40' : 'border-slate-200 text-ink-muted hover:border-teal-200'}`}>
+                {label} <span className="opacity-70">· {cnt}</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Панель массовых действий над выбранными */}
+          {selectedProducts.size > 0 && (
+            <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-teal-200 bg-teal-50/60 px-3 py-2 text-sm dark:bg-teal-950/30">
+              <span className="font-medium">{tt('Выбрано', 'Tanlangan')}: {selectedProducts.size}</span>
+              <button className="btn-secondary !py-1 text-xs" onClick={() => bulkSetActive(true)}>{tt('Вернуть в каталог', 'Katalogga qaytarish')}</button>
+              <button className="btn-secondary !py-1 text-xs" onClick={() => bulkSetActive(false)}>{tt('Снять с продажи', 'Sotuvdan olish')}</button>
+              <button className="btn-ghost !py-1 text-xs" onClick={() => setSelectedProducts(new Set())}>{tt('Сбросить', 'Bekor qilish')}</button>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-ink-subtle">
-                <tr className="border-b border-slate-100"><th className="py-2">{tt('Название', 'Nomi')}</th><th>{tt('Цена', 'Narx')}</th><th>{tt('Наличие', 'Mavjudlik')}</th><th>{tt('В каталоге', 'Katalogda')}</th><th></th></tr>
+                <tr className="border-b border-slate-100">
+                  <th className="w-8 py-2"><input type="checkbox" checked={allSelected} onChange={toggleAll} aria-label={tt('Выбрать все', 'Barchasini tanlash')} /></th>
+                  <th className="py-2">{tt('Название', 'Nomi')}</th><th>{tt('Цена', 'Narx')}</th><th>{tt('Наличие', 'Mavjudlik')}</th><th>{tt('В каталоге', 'Katalogda')}</th><th></th>
+                </tr>
               </thead>
               <tbody>
-                {products.map((p) => {
+                {filtered.length === 0 ? (
+                  <tr><td colSpan={6} className="py-8 text-center text-ink-subtle">{tt('Нет товаров в этой категории', 'Bu turkumda mahsulot yoʻq')}</td></tr>
+                ) : filtered.map((p) => {
                   const active = (p as any).isActive ?? true;
                   return (
                   <tr key={p.id} className={`border-b border-slate-50 ${active ? '' : 'opacity-60'}`}>
+                    <td><input type="checkbox" checked={selectedProducts.has(p.id)} onChange={() => toggleSelect(p.id)} aria-label={p.name} /></td>
                     <td className="py-2">{p.name}</td>
                     <td>{formatMoney(p.price)}</td>
                     <td>{p.inStock ? tt('В наличии', 'Mavjud') : tt('Под заказ', 'Buyurtma asosida')}</td>
@@ -201,7 +270,8 @@ function SellerContent() {
             </table>
           </div>
         </div>
-      )}
+        );
+      })()}
 
       {bulkPhotos && <SellerBulkPhotos products={products} onClose={() => setBulkPhotos(false)} onSaved={() => { setBulkPhotos(false); load(); }} />}
 
