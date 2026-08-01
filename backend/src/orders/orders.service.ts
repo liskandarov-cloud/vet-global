@@ -259,6 +259,20 @@ export class OrdersService {
     // Notify buyer + sellers + admin (fire-and-forget; email failures must not break checkout).
     void this.notifications.onOrderCreated(order.id).catch(() => undefined);
 
+    // Предзаказ «под заказ»: продавцу нужен явный сигнал подтвердить наличие,
+    // иначе оплата у покупателя останется заблокированной. Шлём каждому продавцу
+    // из состава заказа отдельный алерт со ссылкой в кабинет.
+    if (requiresConfirmation) {
+      const sellerIds = [...new Set(items.map((it) => it.sellerId).filter(Boolean))] as string[];
+      for (const sid of sellerIds) {
+        void this.alerts.notify(sid, {
+          title: 'Новый предзаказ — подтвердите наличие',
+          body: `${buyerName}: заказ содержит позицию «под заказ». Подтвердите наличие, чтобы открылась оплата.`,
+          url: '/seller',
+        });
+      }
+    }
+
     // Push согласующим, если заказ ушёл на согласование.
     if (orgId && approvalStatus === ApprovalStatus.PENDING) {
       void this.prisma.orgMembership
