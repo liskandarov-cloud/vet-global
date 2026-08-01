@@ -4,10 +4,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { serializeOffer } from '../common/pricing';
+import { AlertsService } from '../alerts/alerts.service';
 
 @Injectable()
 export class ProductsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly alerts: AlertsService,
+  ) {}
 
   async list(q: ProductQueryDto) {
     const where: Prisma.ProductWhereInput = {};
@@ -147,7 +151,54 @@ export class ProductsService {
     await this.assertCategory(dto.categoryId);
     const product = await this.prisma.product.update({ where: { id }, data: dto });
     await this.upsertBrand(product.manufacturer);
+
+    // «Сообщить о поступлении»: если товар стал доступен к заказу (был «под заказ»
+    // или снят с продажи, а теперь в наличии и в каталоге) — оповещаем подписчиков.
+    const wasBuyable = existing.inStock && existing.isActive;
+    const nowBuyable = product.inStock && product.isActive;
+    if (!wasBuyable && nowBuyable) void this.notifyStockSubscribers(product.id, product.name);
+
     return this.serialize(product);
+  }
+
+  // Рассылает подписчикам «сообщить о поступлении» и удаляет их подписки (одноразово).
+  private async notifyStockSubscribers(productId: string, productName: string) {
+    const subs = await this.prisma.stockAlert.findMany({ where: { productId } });
+    if (!subs.length) return;
+    await Promise.all(
+      subs.map((s) =>
+        this.alerts.notify(s.userId, {
+          title: 'Товар снова в наличии',
+          body: `«${productName}» снова доступен для заказа`,
+          url: `/products/${productId}`,
+        }),
+      ),
+    );
+    await this.prisma.stockAlert.deleteMany({ where: { productId } });
+  }
+
+  // Покупатель подписывается на поступление товара.
+  async subscribeStock(productId: string, user: AuthUser) {
+    const product = await this.prisma.product.findUnique({ where: { id: productId } });
+    if (!product) throw new NotFoundException('Product not found');
+    await this.prisma.stockAlert.upsert({
+      where: { userId_productId: { userId: user.id, productId } },
+      create: { userId: user.id, productId },
+      update: {},
+    });
+    return { subscribed: true };
+  }
+
+  async unsubscribeStock(productId: string, user: AuthUser) {
+    await this.prisma.stockAlert.deleteMany({ where: { userId: user.id, productId } });
+    return { subscribed: false };
+  }
+
+  async isStockSubscribed(productId: string, user: AuthUser) {
+    const sub = await this.prisma.stockAlert.findUnique({
+      where: { userId_productId: { userId: user.id, productId } },
+    });
+    return { subscribed: !!sub };
   }
 
   async remove(id: string, user: AuthUser) {

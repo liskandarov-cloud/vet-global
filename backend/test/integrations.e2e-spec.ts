@@ -316,4 +316,35 @@ describe('VetGlobal integrations (e2e)', () => {
 
     await req(`/rfq/${rfq.id}`, { method: 'DELETE', token: buyer }).catch(() => {});
   });
+
+  // «Сообщить о поступлении»: покупатель подписывается на товар «под заказ»,
+  // при возврате наличия получает уведомление, подписка гасится (одноразово).
+  it('stock alert: buyer subscribed → notified when product back in stock', async () => {
+    // товар «под заказ»
+    await req(`/products/${sellerProduct.id}`, {
+      method: 'PUT', token: seller,
+      body: { name: sellerProduct.name, description: sellerProduct.description, categoryId: sellerProduct.categoryId, price: Number(sellerProduct.price), inStock: false },
+    });
+
+    const sub = await req(`/products/${sellerProduct.id}/notify-me`, { method: 'POST', token: buyer });
+    expect(sub.status).toBeLessThan(400);
+    expect(sub.body.subscribed).toBe(true);
+
+    const check = (await req(`/products/${sellerProduct.id}/notify-me`, { token: buyer })).body;
+    expect(check.subscribed).toBe(true);
+
+    // продавец возвращает наличие → срабатывает уведомление
+    await req(`/products/${sellerProduct.id}`, {
+      method: 'PUT', token: seller,
+      body: { name: sellerProduct.name, description: sellerProduct.description, categoryId: sellerProduct.categoryId, price: Number(sellerProduct.price), inStock: true },
+    });
+
+    // подписка одноразовая — после срабатывания её нет
+    const after = (await req(`/products/${sellerProduct.id}/notify-me`, { token: buyer })).body;
+    expect(after.subscribed).toBe(false);
+
+    // в центре уведомлений покупателя появилось «снова в наличии»
+    const notifs = (await req('/notifications', { token: buyer })).body;
+    expect(notifs.items.some((n: any) => /наличи/i.test(n.title) || /наличи|доступен/i.test(n.body))).toBe(true);
+  });
 });\n

@@ -44,6 +44,7 @@ export default function ProductPage() {
   const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
   const [subInterval, setSubInterval] = useState(30);
   const [contractMap, setContractMap] = useState<Record<string, number>>({});
+  const [stockSub, setStockSub] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -56,6 +57,27 @@ export default function ProductPage() {
     });
     api.get('/reviews', { params: { productId: id } }).then((r) => setReviews(r.data)).catch(() => {});
   }, [id]);
+
+  // Статус подписки «сообщить о поступлении».
+  useEffect(() => {
+    if (!id || !currentUser) { setStockSub(false); return; }
+    api.get(`/products/${id}/notify-me`).then((r) => setStockSub(!!r.data?.subscribed)).catch(() => {});
+  }, [id, currentUser]);
+
+  const toggleStockSub = async () => {
+    if (!currentUser) { toast.error(tt('Войдите, чтобы подписаться', 'Obuna uchun tizimga kiring')); return; }
+    try {
+      if (stockSub) {
+        await api.delete(`/products/${id}/notify-me`);
+        setStockSub(false);
+        toast.success(tt('Подписка отменена', 'Obuna bekor qilindi'));
+      } else {
+        await api.post(`/products/${id}/notify-me`);
+        setStockSub(true);
+        toast.success(tt('Сообщим, когда товар поступит', 'Mahsulot kelganda xabar beramiz'));
+      }
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
+  };
 
   // Контрактные (персональные) цены покупателя по этому товару.
   useEffect(() => {
@@ -239,9 +261,14 @@ export default function ProductPage() {
               {selectedOffer?.isRx && (<><span>·</span><span className="inline-flex items-center gap-1 text-amber-600"><Pill size={13} /> {tt('по рецепту', 'retsept boʻyicha')}</span></>)}
             </div>
             {!effInStock && (
-              <div className="mt-2 flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
-                <CalendarClock size={14} className="mt-0.5 shrink-0" />
-                <span>{tt('Товар под заказ. Оформить можно сейчас, но оплата станет доступна после подтверждения наличия продавцом.', 'Mahsulot buyurtma asosida. Hozir rasmiylashtirish mumkin, lekin toʻlov sotuvchi mavjudligini tasdiqlagach ochiladi.')}</span>
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                <div className="flex items-start gap-2">
+                  <CalendarClock size={14} className="mt-0.5 shrink-0" />
+                  <span>{tt('Товар под заказ. Оформить можно сейчас, но оплата станет доступна после подтверждения наличия продавцом.', 'Mahsulot buyurtma asosida. Hozir rasmiylashtirish mumkin, lekin toʻlov sotuvchi mavjudligini tasdiqlagach ochiladi.')}</span>
+                </div>
+                <button onClick={toggleStockSub} className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white/70 px-2.5 py-1 font-medium text-amber-800 transition-colors hover:bg-white dark:bg-amber-950/40 dark:text-amber-200">
+                  <BadgeCheck size={13} /> {stockSub ? tt('Вы подписаны — отменить', 'Obuna boʻlgansiz — bekor qilish') : tt('Сообщить о поступлении', 'Kelganda xabar berish')}
+                </button>
               </div>
             )}
             {selectedOffer?.priceBreaks && selectedOffer.priceBreaks.length > 0 && (

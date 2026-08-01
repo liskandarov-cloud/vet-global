@@ -180,6 +180,7 @@ model User {
   promotions         Promotion[]
   blogPosts          BlogPost[]
   sellerLicenses     SellerDocument[]
+  stockAlerts        StockAlert[]
 
   @@index([role])
   @@index([role, isVerified])
@@ -293,6 +294,22 @@ model Subscription {
 
   @@index([buyerId])
   @@index([active, nextRunAt])
+}
+
+// Подписка «сообщить о поступлении»: покупатель ждёт, когда товар «под заказ»
+// (или снятый с продажи) снова станет доступен. Одноразовая — после уведомления
+// запись удаляется.
+model StockAlert {
+  id        String   @id @default(uuid())
+  userId    String
+  productId String
+  createdAt DateTime @default(now())
+
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, productId])
+  @@index([productId])
 }
 
 // Уведомление в приложении (центр уведомлений).
@@ -458,6 +475,7 @@ model Product {
   promotions    Promotion[]
   favorites     Favorite[]
   subscriptions Subscription[]
+  stockAlerts   StockAlert[]
 
   @@index([categoryId])
   @@index([sellerId])

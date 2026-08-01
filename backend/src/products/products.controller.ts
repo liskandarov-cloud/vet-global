@@ -54,6 +54,28 @@ export class ProductsController {
     return this.products.update(id, dto, user);
   }
 
+  // «Сообщить о поступлении» — подписка покупателя на возврат товара в наличие.
+  @Get(':id/notify-me')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  isStockSubscribed(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.products.isStockSubscribed(id, user);
+  }
+
+  @Post(':id/notify-me')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  subscribeStock(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.products.subscribeStock(id, user);
+  }
+
+  @Delete(':id/notify-me')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  unsubscribeStock(@Param('id') id: string, @CurrentUser() user: AuthUser) {
+    return this.products.unsubscribeStock(id, user);
+  }
+
   @Delete(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
