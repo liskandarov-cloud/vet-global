@@ -43,7 +43,7 @@ function SellerContent() {
   const [stats, setStats] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
-  const [orderFilter, setOrderFilter] = useState<'all' | 'active' | 'SHIPPED' | 'DELIVERED'>('all');
+  const [orderFilter, setOrderFilter] = useState<'all' | 'preorder' | 'active' | 'SHIPPED' | 'DELIVERED'>('all');
   const [categories, setCategories] = useState<Category[]>([]);
   const [promotions, setPromotions] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
@@ -292,11 +292,13 @@ function SellerContent() {
           <div className="mb-3 flex flex-wrap gap-1.5">
             {([
               ['all', tt('Все', 'Barchasi')],
+              ['preorder', tt('Предзаказы', 'Oldindan buyurtma')],
               ['active', tt('Активные', 'Faol')],
               ['SHIPPED', tt('Отгружено', 'Joʻnatilgan')],
               ['DELIVERED', tt('Завершённые', 'Yakunlangan')],
             ] as const).map(([k, l]) => {
               const cnt = k === 'all' ? orders.length
+                : k === 'preorder' ? orders.filter((o) => o.status === 'PENDING' && o.requiresConfirmation).length
                 : k === 'active' ? orders.filter((o) => !['SHIPPED', 'DELIVERED', 'CANCELLED'].includes(o.status)).length
                 : orders.filter((o) => o.status === k).length;
               return (
@@ -316,6 +318,7 @@ function SellerContent() {
               {orders
                 .filter((o) =>
                   orderFilter === 'all' ? true
+                  : orderFilter === 'preorder' ? o.status === 'PENDING' && o.requiresConfirmation
                   : orderFilter === 'active' ? !['SHIPPED', 'DELIVERED', 'CANCELLED'].includes(o.status)
                   : o.status === orderFilter)
                 .map((o) => (
