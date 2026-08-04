@@ -257,6 +257,9 @@ export default function ProductPage() {
                 <span className={`h-2 w-2 rounded-full ${effInStock ? 'bg-teal-500' : 'bg-amber-500'}`} />
                 {effInStock ? tt('В наличии', 'Mavjud') : tt('Под заказ', 'Buyurtma asosida')}
               </span>
+              {effInStock && product.stockQty != null && (
+                <><span>·</span><span className={product.stockQty <= 10 ? 'font-medium text-amber-600' : ''}>{tt('осталось', 'qoldi')} {product.stockQty} {tt('шт', 'dona')}</span></>
+              )}
               {selectedOffer?.leadTimeDays != null && (<><span>·</span><span className="inline-flex items-center gap-1"><Truck size={13} /> {selectedOffer.leadTimeDays} {tt('дн.', 'kun')}</span></>)}
               {selectedOffer?.isRx && (<><span>·</span><span className="inline-flex items-center gap-1 text-amber-600"><Pill size={13} /> {tt('по рецепту', 'retsept boʻyicha')}</span></>)}
             </div>

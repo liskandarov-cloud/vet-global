@@ -114,9 +114,10 @@ export class ProductsService {
 
   async create(dto: CreateProductDto, user: AuthUser) {
     await this.assertCategory(dto.categoryId);
-    const product = await this.prisma.product.create({
-      data: { ...dto, sellerId: user.id },
-    });
+    const data: any = { ...dto, sellerId: user.id };
+    // Если задан числовой остаток — наличие определяется им (0 → «под заказ»).
+    if (typeof dto.stockQty === 'number') data.inStock = dto.stockQty > 0;
+    const product = await this.prisma.product.create({ data });
     await this.upsertBrand(product.manufacturer);
     return this.serialize(product);
   }
@@ -149,7 +150,10 @@ export class ProductsService {
     if (!existing) throw new NotFoundException('Product not found');
     this.assertOwnership(existing.sellerId, user);
     await this.assertCategory(dto.categoryId);
-    const product = await this.prisma.product.update({ where: { id }, data: dto });
+    const data: any = { ...dto };
+    // Числовой остаток задаёт наличие: 0 → «под заказ», >0 → в наличии.
+    if (typeof dto.stockQty === 'number') data.inStock = dto.stockQty > 0;
+    const product = await this.prisma.product.update({ where: { id }, data });
     await this.upsertBrand(product.manufacturer);
 
     // «Сообщить о поступлении»: если товар стал доступен к заказу (был «под заказ»

@@ -61,6 +61,7 @@ export interface Product {
   animalType?: string;
   inStock: boolean;
   isActive?: boolean;
+  stockQty?: number | null;
   minOrder: number;
   images: string[];
   certificates: string[];

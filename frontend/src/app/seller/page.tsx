@@ -249,7 +249,7 @@ function SellerContent() {
                     <td><input type="checkbox" checked={selectedProducts.has(p.id)} onChange={() => toggleSelect(p.id)} aria-label={p.name} /></td>
                     <td className="py-2">{p.name}</td>
                     <td>{formatMoney(p.price)}</td>
-                    <td>{p.inStock ? tt('В наличии', 'Mavjud') : tt('Под заказ', 'Buyurtma asosida')}</td>
+                    <td>{p.inStock ? ((p as any).stockQty != null ? `${(p as any).stockQty} ${tt('шт', 'dona')}` : tt('В наличии', 'Mavjud')) : tt('Под заказ', 'Buyurtma asosida')}</td>
                     <td>
                       {/* Переключатель: снять с продажи / вернуть без удаления. */}
                       <button
@@ -624,6 +624,8 @@ function ProductForm({ initial, categories, onClose, onSaved }: any) {
       animalType: form.animalType || undefined, inStock: form.inStock, minOrder: Number(form.minOrder) || 1,
       images: form.images, certificates: form.certificates, isPromotion: form.isPromotion, promotionText: form.promotionText || undefined,
       externalId: form.externalId || undefined,
+      // Остаток: пусто → не отслеживаем (только флаг «В наличии»); число → учёт кол-ва.
+      stockQty: form.stockQty === '' || form.stockQty == null ? undefined : Number(form.stockQty),
     };
     try {
       if (form.id) await api.put(`/products/${form.id}`, payload);
@@ -667,8 +669,9 @@ function ProductForm({ initial, categories, onClose, onSaved }: any) {
             ] as const).map(([v, ru, uz]) => <option key={v} value={v}>{tt(ru, uz)}</option>)}
           </select>
           <input className="input" type="number" placeholder={tt('Мин. заказ, шт', 'Min. buyurtma, dona')} value={form.minOrder || ''} onChange={(e) => upd('minOrder', e.target.value)} />
+          <input className="input" type="number" min={0} placeholder={tt('Остаток, шт (если ведёте учёт)', 'Qoldiq, dona (agar hisob yuritilsa)')} value={form.stockQty ?? ''} onChange={(e) => upd('stockQty', e.target.value)} />
           <input className="input" placeholder={tt('Код в 1С (externalId)', '1C kodi (externalId)')} value={form.externalId} onChange={(e) => upd('externalId', e.target.value)} />
-          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.inStock} onChange={(e) => upd('inStock', e.target.checked)} className="h-4 w-4 accent-teal-600" /> {tt('В наличии', 'Mavjud')}</label>
+          <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.inStock} disabled={form.stockQty !== '' && form.stockQty != null} onChange={(e) => upd('inStock', e.target.checked)} className="h-4 w-4 accent-teal-600" /> {tt('В наличии', 'Mavjud')}<span className="text-xs text-ink-subtle">{form.stockQty !== '' && form.stockQty != null ? tt('(по остатку)', '(qoldiq boʻyicha)') : ''}</span></label>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">

@@ -111,6 +111,11 @@ export class OrdersService {
       // «Под заказ»: товар помечен продавцом как не в наличии (или выбранный оффер).
       if (!p.inStock || (o && !o.inStock)) requiresConfirmation = true;
 
+      // Числовой учёт остатка: нельзя купить больше, чем есть в наличии.
+      if (p.stockQty != null && p.inStock && p.stockQty > 0 && i.quantity > p.stockQty) {
+        throw new BadRequestException(`В наличии только ${p.stockQty} шт. — «${p.name}»`);
+      }
+
       if (i.quantity < minOrder) {
         throw new BadRequestException(`Минимальный заказ для «${p.name}» — ${minOrder} шт.`);
       }
@@ -229,6 +234,20 @@ export class OrdersService {
         },
         include: { items: true },
       });
+
+      // Списываем числовой остаток атомарно (без ухода в минус даже при гонке).
+      // Когда остаток исчерпан — товар автоматически становится «под заказ».
+      for (const it of items) {
+        const p = products.find((x) => x.id === it.productId)!;
+        if (p.stockQty != null && p.inStock && p.stockQty > 0) {
+          const dec = await tx.product.updateMany({
+            where: { id: it.productId, stockQty: { gte: it.quantity } },
+            data: { stockQty: { decrement: it.quantity } },
+          });
+          if (dec.count === 0) throw new BadRequestException(`Недостаточно на складе: «${p.name}»`);
+          await tx.product.updateMany({ where: { id: it.productId, stockQty: 0 }, data: { inStock: false } });
+        }
+      }
 
       // Резервируем кредитный лимит под отсрочку/рассрочку.
       if (user && creditToReserve > 0) {

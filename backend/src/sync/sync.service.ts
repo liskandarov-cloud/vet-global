@@ -42,7 +42,7 @@ export class SyncService {
       if (!it.externalId) continue;
       const data: any = {};
       if (typeof it.price === 'number') data.price = it.price;
-      if (typeof it.quantity === 'number') data.inStock = it.quantity > 0;
+      if (typeof it.quantity === 'number') { data.stockQty = it.quantity; data.inStock = it.quantity > 0; }
       else if (typeof it.inStock === 'boolean') data.inStock = it.inStock;
       if (Object.keys(data).length === 0) continue;
 

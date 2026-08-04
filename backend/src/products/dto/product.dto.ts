@@ -27,6 +27,7 @@ export class CreateProductDto {
   @IsOptional() @IsString() form?: string;
   @IsOptional() @IsEnum(AnimalType) animalType?: AnimalType;
   @IsOptional() @IsBoolean() inStock?: boolean;
+  @IsOptional() @IsInt() @Min(0) stockQty?: number; // остаток; null/пусто = не отслеживать
   @IsOptional() @IsBoolean() isActive?: boolean;
   @IsOptional() @IsInt() @Min(1) minOrder?: number;
   @IsOptional() @IsArray() @IsString({ each: true }) images?: string[];

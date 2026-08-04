@@ -347,4 +347,38 @@ describe('VetGlobal integrations (e2e)', () => {
     const notifs = (await req('/notifications', { token: buyer })).body;
     expect(notifs.items.some((n: any) => /наличи/i.test(n.title) || /наличи|доступен/i.test(n.body))).toBe(true);
   });
+
+  // Числовой остаток: списывается при заказе, нельзя купить больше, чем есть,
+  // на нуле товар становится «под заказ».
+  it('stock qty: decremented on order, blocks oversell, hits 0 → backorder', async () => {
+    const cat = sellerProduct.categoryId;
+    const prod = (await req('/products', {
+      method: 'POST', token: seller,
+      body: { name: `zz-stock-${Date.now()}`, description: 'x', categoryId: cat, price: 100000, minOrder: 1, stockQty: 3 },
+    })).body;
+    expect(prod.stockQty).toBe(3);
+    expect(prod.inStock).toBe(true);
+
+    // заказ на 2 → остаток 1
+    await req('/orders', { method: 'POST', token: buyer, body: { items: [{ productId: prod.id, quantity: 2 }] } });
+    let p = (await req(`/products/${prod.id}`)).body;
+    expect(p.stockQty).toBe(1);
+    expect(p.inStock).toBe(true);
+
+    // нельзя купить больше, чем есть
+    const over = await req('/orders', { method: 'POST', token: buyer, body: { items: [{ productId: prod.id, quantity: 5 }] } });
+    expect(over.status).toBe(400);
+
+    // добираем последний → остаток 0, товар «под заказ»
+    await req('/orders', { method: 'POST', token: buyer, body: { items: [{ productId: prod.id, quantity: 1 }] } });
+    p = (await req(`/products/${prod.id}`)).body;
+    expect(p.stockQty).toBe(0);
+    expect(p.inStock).toBe(false);
+
+    // следующий заказ по нему — уже предзаказ
+    const pre = (await req('/orders', { method: 'POST', token: buyer, body: { items: [{ productId: prod.id, quantity: 1 }] } })).body;
+    expect(pre.requiresConfirmation).toBe(true);
+
+    await req(`/products/${prod.id}`, { method: 'DELETE', token: seller }).catch(() => {});
+  });
 });\n
