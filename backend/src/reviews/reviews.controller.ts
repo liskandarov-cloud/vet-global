@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Param,
@@ -90,6 +91,17 @@ export class ReviewsController {
     const review = await this.prisma.review.update({ where: { id }, data: { isApproved } });
     await this.recomputeRating(review.productId);
     return review;
+  }
+
+  // Отклонить/удалить отзыв (модерация): спам или неуместный контент.
+  @Delete(':id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  async remove(@Param('id') id: string) {
+    const review = await this.prisma.review.delete({ where: { id } });
+    await this.recomputeRating(review.productId);
+    return { ok: true };
   }
 
   // Recompute product & seller aggregate ratings from approved reviews.

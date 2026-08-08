@@ -80,6 +80,10 @@ function AdminContent() {
   };
   const ban = async (id: string, isBanned: boolean) => { await api.patch(`/admin/users/${id}/ban`, { isBanned }); toast.success(isBanned ? tt('Заблокирован', 'Bloklandi') : tt('Разблокирован', 'Blokdan chiqarildi')); load(); };
   const approve = async (id: string) => { await api.patch(`/reviews/${id}/approve`, { isApproved: true }); toast.success(tt('Опубликован', 'Chop etildi')); load(); };
+  const rejectReview = async (id: string) => {
+    if (!confirm(tt('Отклонить и удалить отзыв?', 'Sharh rad etilsinmi?'))) return;
+    await api.delete(`/reviews/${id}`); toast.success(tt('Отзыв отклонён', 'Sharh rad etildi')); load();
+  };
   const setLeadStatus = async (id: string, status: string) => { await api.patch(`/leads/${id}`, { status }); load(); };
   const ORDER_STATUS: Record<string, string> = {
     PENDING: tt('Новый', 'Yangi'), CONFIRMED: tt('Подтверждён', 'Tasdiqlangan'), PROCESSING: tt('В обработке', 'Qayta ishlanmoqda'),
@@ -325,12 +329,15 @@ function AdminContent() {
       {tab === 'reviews' && (
         <div className="mt-6 space-y-3">
           {reviews.map((r) => (
-            <div key={r.id} className="card flex items-center justify-between p-4">
-              <div>
+            <div key={r.id} className="card flex items-center justify-between gap-3 p-4">
+              <div className="min-w-0">
                 <div className="font-medium">{r.buyerName} · {r.rating}★</div>
                 <p className="text-sm text-ink-muted">{r.comment}</p>
               </div>
-              <button className="btn-primary !px-3 !py-2" onClick={() => approve(r.id)}><Check size={16} /> {tt('Одобрить', 'Maʼqullash')}</button>
+              <div className="flex shrink-0 gap-2">
+                <button className="btn-primary !px-3 !py-2" onClick={() => approve(r.id)}><Check size={16} /> {tt('Одобрить', 'Maʼqullash')}</button>
+                <button className="btn-ghost !px-3 !py-2 text-red-500" onClick={() => rejectReview(r.id)}><X size={16} /> {tt('Отклонить', 'Rad etish')}</button>
+              </div>
             </div>
           ))}
           {reviews.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Нет отзывов на модерации', 'Moderatsiyada sharhlar yoʻq')}</div>}

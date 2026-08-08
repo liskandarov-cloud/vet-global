@@ -211,7 +211,26 @@ function SellerContent() {
             <button className="btn-secondary" onClick={() => setBulkPhotos(true)}><Upload size={16} /> {tt('Фото пачкой', 'Fotolar toʻplami')}</button>
           </div>
 
+          {/* Онбординг: пустой кабинет нового продавца — что сделать в первую очередь. */}
+          {products.length === 0 && (
+            <div className="mb-4 rounded-2xl border border-teal-200 bg-teal-50/60 p-5 dark:border-teal-900/50 dark:bg-teal-950/20">
+              <div className="font-heading text-lg font-bold">{tt('Начните продавать на VetGlobal', 'VetGlobalʼda sotishni boshlang')}</div>
+              <p className="mt-1 text-sm text-ink-muted">{tt('Три шага, чтобы ваши товары появились в каталоге и покупатели смогли оформить заказ.', 'Mahsulotlaringiz katalogda paydo boʻlishi va xaridorlar buyurtma bera olishi uchun uch qadam.')}</p>
+              <ol className="mt-3 space-y-2 text-sm">
+                <li className="flex gap-2"><span className="font-semibold text-teal-700">1.</span> {tt('Добавьте первый товар — название, цена, остаток, фото и сертификат.', 'Birinchi mahsulotni qoʻshing — nomi, narxi, qoldiq, foto va sertifikat.')}</li>
+                <li className="flex gap-2"><span className="font-semibold text-teal-700">2.</span> {tt('Заполните реквизиты юрлица — подставятся в счёт и договор.', 'Yuridik shaxs rekvizitlarini toʻldiring — hisob va shartnomaga qoʻyiladi.')}</li>
+                <li className="flex gap-2"><span className="font-semibold text-teal-700">3.</span> {tt('Загрузите лицензию в профиле — для отметки «проверенный поставщик».', 'Profilda litsenziyani yuklang — «tasdiqlangan yetkazib beruvchi» belgisi uchun.')}</li>
+              </ol>
+              <div className="mt-4 flex flex-wrap gap-2">
+                <button className="btn-primary" onClick={() => setEditing({ ...EMPTY })}><Plus size={16} /> {tt('Добавить первый товар', 'Birinchi mahsulot')}</button>
+                <button className="btn-secondary" onClick={() => setTab('requisites')}>{tt('Реквизиты', 'Rekvizitlar')}</button>
+                <button className="btn-secondary" onClick={() => setTab('profile')}>{tt('Профиль и лицензия', 'Profil va litsenziya')}</button>
+              </div>
+            </div>
+          )}
+
           {/* Фильтр по статусу в каталоге со счётчиками */}
+          {products.length > 0 && (
           <div className="mb-3 flex flex-wrap gap-2">
             {chips.map(([k, label, cnt]) => (
               <button key={k} onClick={() => setProductFilter(k)}
@@ -220,6 +239,7 @@ function SellerContent() {
               </button>
             ))}
           </div>
+          )}
 
           {/* Панель массовых действий над выбранными */}
           {selectedProducts.size > 0 && (
