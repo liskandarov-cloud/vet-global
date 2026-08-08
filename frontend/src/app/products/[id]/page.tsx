@@ -45,6 +45,10 @@ export default function ProductPage() {
   const [subInterval, setSubInterval] = useState(30);
   const [contractMap, setContractMap] = useState<Record<string, number>>({});
   const [stockSub, setStockSub] = useState(false);
+  const [rvRating, setRvRating] = useState(5);
+  const [rvComment, setRvComment] = useState('');
+  const [rvSending, setRvSending] = useState(false);
+  const [rvDone, setRvDone] = useState(false); // отзыв отправлен или уже был
 
   useEffect(() => {
     if (!id) return;
@@ -77,6 +81,21 @@ export default function ProductPage() {
         toast.success(tt('Сообщим, когда товар поступит', 'Mahsulot kelganda xabar beramiz'));
       }
     } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
+  };
+
+  // Отзыв покупателя (бэкенд разрешает только после подтверждённой покупки).
+  const submitReview = async () => {
+    if (!rvComment.trim()) { toast.error(tt('Напишите отзыв', 'Sharh yozing')); return; }
+    setRvSending(true);
+    try {
+      await api.post('/reviews', { productId: id, rating: rvRating, comment: rvComment.trim() });
+      toast.success(tt('Спасибо! Отзыв отправлен на модерацию', 'Rahmat! Sharh moderatsiyaga yuborildi'));
+      setRvComment(''); setRvDone(true);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message ?? tt('Ошибка', 'Xatolik');
+      toast.error(msg);
+      if (/уже|already/i.test(String(msg))) setRvDone(true);
+    } finally { setRvSending(false); }
   };
 
   // Контрактные (персональные) цены покупателя по этому товару.
@@ -494,22 +513,51 @@ export default function ProductPage() {
       )}
 
       {/* Reviews */}
-      {reviews.length > 0 && (
+      {(reviews.length > 0 || currentUser?.role === 'BUYER') && (
         <section className="mt-12">
           <h2 className="mb-4 font-heading text-2xl font-bold">{tt('Отзывы', 'Sharhlar')}</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            {reviews.map((r) => (
-              <div key={r.id} className="card p-4">
-                <div className="flex items-center justify-between">
-                  <span className="font-medium">{r.buyerName}</span>
-                  <span className="flex items-center gap-0.5 text-amber-400">
-                    {Array.from({ length: r.rating }).map((_, i) => <Star key={i} size={14} className="fill-amber-400" />)}
-                  </span>
-                </div>
-                <p className="mt-2 text-sm text-ink-muted">{r.comment}</p>
+
+          {/* Форма отзыва — только покупателю (бэкенд пропустит после покупки). */}
+          {currentUser?.role === 'BUYER' && !rvDone && (
+            <div className="card mb-4 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-sm font-medium">{tt('Ваша оценка', 'Bahoyingiz')}</span>
+                <span className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button key={n} type="button" onClick={() => setRvRating(n)} aria-label={`${n}`}>
+                      <Star size={20} className={n <= rvRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'} />
+                    </button>
+                  ))}
+                </span>
               </div>
-            ))}
-          </div>
+              <textarea className="input !h-auto py-2" rows={3} placeholder={tt('Поделитесь опытом использования…', 'Foydalanish tajribangizni yozing…')}
+                value={rvComment} onChange={(e) => setRvComment(e.target.value)} />
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-ink-subtle">{tt('Отзыв можно оставить после покупки товара.', 'Sharh mahsulotni sotib olgandan keyin qoldiriladi.')}</span>
+                <button className="btn-primary !px-4 !py-1.5 text-sm" onClick={submitReview} disabled={rvSending}>
+                  {rvSending ? tt('Отправка…', 'Yuborilmoqda…') : tt('Оставить отзыв', 'Sharh qoldirish')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {reviews.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {reviews.map((r) => (
+                <div key={r.id} className="card p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{r.buyerName}</span>
+                    <span className="flex items-center gap-0.5 text-amber-400">
+                      {Array.from({ length: r.rating }).map((_, i) => <Star key={i} size={14} className="fill-amber-400" />)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-ink-muted">{r.comment}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-subtle">{tt('Отзывов пока нет — станьте первым после покупки.', 'Hozircha sharhlar yoʻq — xariddan keyin birinchi boʻling.')}</p>
+          )}
         </section>
       )}
 
