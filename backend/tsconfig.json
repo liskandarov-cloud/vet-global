@@ -11,6 +11,12 @@
     "outDir": "./dist",
     "baseUrl": "./",
     "incremental": true,
+    // Кэш инкрементальной сборки держим внутри outDir: nest-cli.json задаёт
+    // deleteOutDir, поэтому каждый `nest start` стирает dist. Кэш, лежащий вне
+    // dist, это переживал — tsc считал вывод актуальным, не эмитил ничего и
+    // отдавал `nest start` несуществующий dist/main. Внутри dist они всегда
+    // исчезают вместе и разойтись не могут.
+    "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "skipLibCheck": true,
     "strictNullChecks": true,
     "noImplicitAny": false,
