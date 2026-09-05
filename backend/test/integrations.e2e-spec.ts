@@ -381,4 +381,4 @@ describe('VetGlobal integrations (e2e)', () => {
 
     await req(`/products/${prod.id}`, { method: 'DELETE', token: seller }).catch(() => {});
   });
-});\n
+});
