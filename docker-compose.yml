@@ -115,6 +115,9 @@ services:
       # Seed
       ADMIN_EMAIL: ${ADMIN_EMAIL}
       ADMIN_PASSWORD: ${ADMIN_PASSWORD}
+      # Демо-данные: seed их создаёт только при SEED_DEMO=true (backend/prisma/seed.ts).
+      # Без проброса локальный каталог поднимался пустым. На проде render.yaml задаёт false.
+      SEED_DEMO: ${SEED_DEMO:-false}
       CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-3000}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
