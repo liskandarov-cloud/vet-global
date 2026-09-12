@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
@@ -8,6 +8,8 @@ import { AlertsService } from '../alerts/alerts.service';
 
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly alerts: AlertsService,
@@ -160,7 +162,17 @@ export class ProductsService {
     // или снят с продажи, а теперь в наличии и в каталоге) — оповещаем подписчиков.
     const wasBuyable = existing.inStock && existing.isActive;
     const nowBuyable = product.inStock && product.isActive;
-    if (!wasBuyable && nowBuyable) void this.notifyStockSubscribers(product.id, product.name);
+    // Ждём завершения: при «запустил и забыл» ответ возвращался раньше, чем
+    // подписки погашены, поэтому покупатель мог увидеть себя всё ещё
+    // подписанным, а при остановке процесса уведомление терялось молча.
+    // Стоит это пары запросов к базе — сама отправка push внутри notify
+    // по-прежнему идёт без ожидания. Ошибку рассылки глотаем: обновление
+    // товара продавцом не должно падать из-за недоставленного уведомления.
+    if (!wasBuyable && nowBuyable) {
+      await this.notifyStockSubscribers(product.id, product.name).catch((e) =>
+        this.logger.warn(`не удалось оповестить подписчиков ${product.id}: ${e}`),
+      );
+    }
 
     return this.serialize(product);
   }
