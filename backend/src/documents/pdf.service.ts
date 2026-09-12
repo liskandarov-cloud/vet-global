@@ -26,6 +26,9 @@ export interface InvoiceData {
   items: { name: string; quantity: number; price: number }[];
   subtotal: number;
   vetPointsUsed: number;
+  // Доставка входит в сумму к оплате, поэтому должна быть видна отдельной
+  // строкой: иначе итог в счёте не сходился бы с перечнем позиций.
+  deliveryCost?: number;
   total: number;
 }
 
@@ -119,6 +122,11 @@ export class PdfService {
     doc.fontSize(10).fillColor('#475569');
     doc.text('Сумма позиций:', 380, y);
     doc.fillColor('#0F172A').text(money(data.subtotal), 470, y);
+    if (data.deliveryCost && data.deliveryCost > 0) {
+      y += 16;
+      doc.fillColor('#475569').text('Доставка:', 380, y);
+      doc.fillColor('#0F172A').text(money(data.deliveryCost), 470, y);
+    }
     if (data.vetPointsUsed > 0) {
       y += 16;
       doc.fillColor('#475569').text('Списано VetPoints:', 380, y);

@@ -14,6 +14,7 @@ import { PdfService } from '../documents/pdf.service';
 import { NotificationsService } from '../mail/notifications.service';
 import { AlertsService } from '../alerts/alerts.service';
 import {
+  orderTotal,
   packPriceOf,
   percentOf,
   unitPriceWithContract,
@@ -153,7 +154,9 @@ export class OrdersService {
       vetPointsUsed = vetPointsSpendable(subtotal, dto.vetPointsUsed, balance, this.maxSpendPct);
     }
 
-    const total = subtotal - vetPointsUsed;
+    // Доставка на этом шаге всегда нулевая: её стоимость назначает продавец
+    // позже, при оформлении отправки, и тогда сумма пересчитывается.
+    const total = orderTotal(subtotal, vetPointsUsed, 0);
     // Комиссия считается от subtotal, то есть до списания баллов: лояльность
     // платформы не должна уменьшать её собственный доход.
     const commission = percentOf(subtotal, this.commissionPct);
@@ -495,6 +498,7 @@ export class OrdersService {
       })),
       subtotal: Number(order.subtotal),
       vetPointsUsed: Number(order.vetPointsUsed),
+      deliveryCost: Number(order.shipment?.cost ?? 0),
       total: Number(order.total),
     });
 

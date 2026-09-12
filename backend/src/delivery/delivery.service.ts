@@ -1,8 +1,9 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { DeliveryMethod, ShipmentStatus, UserRole } from '@prisma/client';
+import { ForbiddenException, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { DeliveryMethod, ShipmentStatus, UserRole, PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { SmsService } from '../sms/sms.service';
+import { orderTotal } from '../common/pricing';
 
 const SHIP_RU: Record<ShipmentStatus, string> = {
   PENDING: 'ожидает отгрузки',
@@ -51,6 +52,8 @@ export class DeliveryService {
       update: data,
       create: { orderId, ...data },
     });
+
+    await this.syncOrderTotal(orderId, Number(shipment.cost));
     return this.serialize(shipment);
   }
 
@@ -74,6 +77,43 @@ export class DeliveryService {
         .catch(() => undefined);
     }
     return this.serialize(shipment);
+  }
+
+  // Сумма заказа включает доставку, поэтому при её назначении пересчитывается.
+  //
+  // Стоимость доставки задаёт продавец уже после создания заказа, а order.total —
+  // это сумма к оплате: по ней создаётся платёж, её сверяет Payme, из неё
+  // складываются счёт и документ ЭДО. Поэтому менять её задним числом можно
+  // только пока заказ не оплачен и счёт не выставлен: иначе покупатель заплатил
+  // одну сумму, а в документах оказалась другая.
+  //
+  // Прочие поля отправки (трек-номер, перевозчик) правятся свободно — проверка
+  // срабатывает лишь когда меняется именно сумма.
+  private async syncOrderTotal(orderId: string, deliveryCost: number) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      select: {
+        subtotal: true,
+        vetPointsUsed: true,
+        total: true,
+        invoice: { select: { id: true } },
+        payments: { where: { status: PaymentStatus.PAID }, select: { id: true } },
+      },
+    });
+    if (!order) return;
+
+    const next = orderTotal(Number(order.subtotal), Number(order.vetPointsUsed), deliveryCost);
+    if (next === Number(order.total)) return;
+
+    if (order.payments.length || order.invoice) {
+      const reason = order.payments.length ? 'заказ уже оплачен' : 'по заказу выставлен счёт';
+      throw new BadRequestException(
+        `Стоимость доставки нельзя изменить: ${reason}. Сумма к оплате осталась бы прежней, ` +
+          'а документы разошлись бы с платежом.',
+      );
+    }
+
+    await this.prisma.order.update({ where: { id: orderId }, data: { total: next } });
   }
 
   private async assertOrderAccess(orderId: string, user: AuthUser, mutate: boolean) {

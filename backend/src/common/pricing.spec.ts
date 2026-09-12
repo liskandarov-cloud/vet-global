@@ -4,6 +4,7 @@ import {
   unitPriceWithContract,
   percentOf,
   vetPointsSpendable,
+  orderTotal,
 } from './pricing';
 
 describe('packPriceOf — цена единицы заказа с учётом фасовки', () => {
@@ -192,5 +193,41 @@ describe('unitPriceWithContract — договорная цена покупат
     const packed = { price: 20000, priceUnitQty: 1000, packSize: 5000 };
     expect(unitPriceWithContract(packed, 1, null)).toBe(100000);
     expect(unitPriceWithContract(packed, 1, 95000)).toBe(95000);
+  });
+});
+
+describe('orderTotal — сумма заказа к оплате', () => {
+  it('без доставки и баллов равна сумме позиций', () => {
+    expect(orderTotal(100000, 0, 0)).toBe(100000);
+  });
+
+  it('доставка прибавляется', () => {
+    expect(orderTotal(100000, 0, 45000)).toBe(145000);
+  });
+
+  it('баллы вычитаются', () => {
+    expect(orderTotal(100000, 10000, 0)).toBe(90000);
+  });
+
+  it('доставка и баллы действуют одновременно', () => {
+    expect(orderTotal(100000, 10000, 45000)).toBe(135000);
+  });
+
+  it('округляется до копеек', () => {
+    expect(orderTotal(999.999, 0, 0.005)).toBe(1000);
+  });
+
+  it('мусор на входе не даёт NaN', () => {
+    expect(orderTotal(NaN, 0, 0)).toBe(0);
+    expect(orderTotal(1000, undefined as any, null as any)).toBe(1000);
+  });
+
+  it('комиссия считается от суммы позиций, а не от итога с доставкой', () => {
+    // Платформа берёт процент со своей сделки, а не с работы перевозчика.
+    const subtotal = 100000;
+    const total = orderTotal(subtotal, 0, 45000);
+    expect(total).toBe(145000);
+    expect(percentOf(subtotal, 12)).toBe(12000);
+    expect(percentOf(total, 12)).not.toBe(12000);
   });
 });

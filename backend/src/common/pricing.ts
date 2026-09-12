@@ -92,3 +92,19 @@ export function vetPointsSpendable(
   if (!(used > 0)) return 0;
   return Math.floor(used * 100) / 100;
 }
+
+// Сумма заказа к оплате.
+//
+// Доставка прибавляется, списанные баллы вычитаются. Комиссия платформы
+// считается отдельно и от subtotal, то есть доставку не облагает: платформа
+// берёт процент со своей сделки, а не с работы перевозчика.
+export function orderTotal(
+  subtotal: number,
+  vetPointsUsed: number,
+  deliveryCost: number,
+): number {
+  const sub = Number(subtotal) || 0;
+  const points = Number(vetPointsUsed) || 0;
+  const delivery = Number(deliveryCost) || 0;
+  return round2(sub - points + delivery);
+}
