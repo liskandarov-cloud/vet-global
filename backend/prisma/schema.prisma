@@ -164,6 +164,7 @@ model User {
   counterparties     Counterparty[]
   favorites          Favorite[]
   products           Product[]           @relation("SellerProducts")
+  deliveryTariffs    DeliveryTariff[]    @relation("SellerTariffs")
   offers             Offer[]             @relation("SellerOffers")
   orders             Order[]             @relation("BuyerOrders")
   creditApplications CreditApplication[]
@@ -644,6 +645,43 @@ model Invoice {
 }
 
 // ─────────────────────────────── Delivery ───────────────────────────────
+
+// Тариф доставки продавца.
+//
+// Веса и объёма у товаров в системе нет, поэтому тариф опирается на то, что
+// есть: способ доставки и город. Этого достаточно для узбекского B2B, где
+// поставщик обычно объявляет «Ташкент — столько, регионы — транспортной
+// компанией» и порог бесплатной доставки.
+model DeliveryTariff {
+  id       String         @id @default(uuid())
+  sellerId String
+  method   DeliveryMethod @default(COURIER)
+  // Пустая строка — тариф по умолчанию, когда для города покупателя своего нет.
+  //
+  // Именно пустая строка, а не NULL: в составном уникальном ключе Postgres
+  // считает NULL различными значениями, и два тарифа «для всех городов» у
+  // одного продавца прошли бы оба. Заодно Prisma не умеет искать по NULL в
+  // составном ключе, то есть upsert по нему был бы невозможен.
+  city     String         @default("")
+  cost     Decimal        @default(0) @db.Decimal(12, 2)
+  // Порог бесплатной доставки. Сравнивается с суммой всего заказа, а не долей
+  // этого продавца: так решено владельцем. Следствие: при заказе от двух
+  // поставщиков порог может быть достигнут суммой, к которой каждый из них
+  // добавил меньше половины.
+  freeFrom Decimal?       @db.Decimal(12, 2)
+  isActive Boolean        @default(true)
+  note     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  seller User @relation("SellerTariffs", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  // Один тариф на сочетание продавца, способа и города.
+  @@unique([sellerId, method, city])
+  @@index([sellerId, isActive])
+}
+
 
 // Shipment for an order (питч-дек: «Доставка»). 1:1 with Order.
 model Shipment {

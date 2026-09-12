@@ -441,4 +441,83 @@ describe('VetGlobal integrations (e2e)', () => {
     expect(billing.totals.revenue).toBeCloseTo(stats.gmv, 2);
     expect(billing.totals.payout).toBeCloseTo(billing.totals.revenue - billing.totals.commission, 2);
   });
+
+  // Доставку считают в корзине, до оформления заказа, и эта цифра должна
+  // совпасть с той, что попадёт в заказ. Проверяется то, из чего она
+  // складывается: тариф города важнее тарифа по умолчанию, порог бесплатной
+  // доставки сравнивается с суммой всего заказа (решение заказчика), самовывоз
+  // бесплатен, а продавец без тарифа не обнуляет доставку молча.
+  describe('тарифы доставки', () => {
+    const CITY = 'Тестбург';
+    const OTHER_CITY = 'Нукус';
+    let tariffIds: string[] = [];
+    let foreignProduct: any;
+
+    const estimate = async (q: Record<string, string>) =>
+      (await req(`/delivery/tariffs/estimate?${new URLSearchParams(q).toString()}`)).body;
+
+    beforeAll(async () => {
+      const def = await req('/delivery/tariffs', { token: seller, body: { method: 'COURIER', cost: 120000 } });
+      const city = await req('/delivery/tariffs', {
+        token: seller,
+        body: { method: 'COURIER', city: CITY, cost: 45000, freeFrom: 5000000 },
+      });
+      expect(def.status).toBe(201);
+      expect(city.status).toBe(201);
+      tariffIds = [def.body.id, city.body.id];
+
+      const all = (await req('/products?limit=100')).body.products as any[];
+      foreignProduct = all.find((p) => p.sellerId && p.sellerId !== sellerId);
+    });
+
+    afterAll(async () => {
+      for (const id of tariffIds) {
+        await req(`/delivery/tariffs/${id}`, { method: 'DELETE', token: seller });
+      }
+    });
+
+    it('тариф города важнее тарифа по умолчанию', async () => {
+      const d = await estimate({ productIds: sellerProduct.id, method: 'COURIER', city: CITY, subtotal: '1000000' });
+      expect(d.total).toBe(45000);
+      expect(d.unknown).toHaveLength(0);
+      expect(d.bySeller).toEqual([{ sellerId, cost: 45000 }]);
+    });
+
+    it('город без своего тарифа получает тариф по умолчанию', async () => {
+      const d = await estimate({ productIds: sellerProduct.id, method: 'COURIER', city: OTHER_CITY, subtotal: '1000000' });
+      expect(d.total).toBe(120000);
+    });
+
+    it('порог бесплатной доставки считается от суммы всего заказа', async () => {
+      expect((await estimate({ productIds: sellerProduct.id, method: 'COURIER', city: CITY, subtotal: '4999999' })).total).toBe(45000);
+      expect((await estimate({ productIds: sellerProduct.id, method: 'COURIER', city: CITY, subtotal: '5000000' })).total).toBe(0);
+    });
+
+    it('у тарифа без порога доставка не становится бесплатной на большой сумме', async () => {
+      const d = await estimate({ productIds: sellerProduct.id, method: 'COURIER', city: OTHER_CITY, subtotal: '9000000' });
+      expect(d.total).toBe(120000);
+    });
+
+    it('самовывоз бесплатен', async () => {
+      const d = await estimate({ productIds: sellerProduct.id, method: 'PICKUP', city: CITY, subtotal: '1000' });
+      expect(d.total).toBe(0);
+    });
+
+    it('продавец без тарифа попадает в unknown, а не обнуляет доставку', async () => {
+      if (!foreignProduct) return; // в базе один продавец — проверять нечего
+      const d = await estimate({
+        productIds: `${sellerProduct.id},${foreignProduct.id}`,
+        method: 'COURIER',
+        city: CITY,
+        subtotal: '1000000',
+      });
+      expect(d.unknown).toContain(foreignProduct.sellerId);
+      expect(d.total).toBe(45000);
+    });
+
+    it('покупатель не может заводить тарифы продавцу', async () => {
+      const res = await req('/delivery/tariffs', { token: buyer, body: { method: 'COURIER', cost: 1 } });
+      expect(res.status).toBe(403);
+    });
+  });
 });
