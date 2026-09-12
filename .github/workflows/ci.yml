@@ -77,9 +77,35 @@ jobs:
         # Сборка падает на ошибках типов — это дешёвая проверка до тестов.
         run: npm run build
 
-      - name: E2E
+      - name: E2E против запущенного приложения
         working-directory: backend
-        run: npm run test:e2e
+        env:
+          API_URL: http://localhost:8000/api
+        # Сервер поднимается здесь же, а не отдельным шагом: фоновый процесс
+        # между шагами может не дожить, а тесты обращаются к API по HTTP и без
+        # него падают невнятным «fetch failed».
+        run: |
+          set -uo pipefail
+          PORT=8000 node dist/main.js > /tmp/api.log 2>&1 &
+          API_PID=$!
+          trap 'kill $API_PID 2>/dev/null || true' EXIT
+
+          for i in $(seq 1 60); do
+            if curl -sf -o /dev/null http://localhost:8000/api/health; then
+              echo "API поднялся за ${i} с"
+              break
+            fi
+            if ! kill -0 $API_PID 2>/dev/null; then
+              echo "::error::процесс API завершился до готовности"
+              tail -60 /tmp/api.log; exit 1
+            fi
+            sleep 1
+          done
+
+          curl -sf -o /dev/null http://localhost:8000/api/health || {
+            echo "::error::API не ответил за 60 с"; tail -60 /tmp/api.log; exit 1; }
+
+          npm run test:e2e || { echo '--- логи API ---'; tail -80 /tmp/api.log; exit 1; }
 
   frontend:
     name: Фронтенд — сборка
