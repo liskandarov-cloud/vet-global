@@ -4,6 +4,7 @@ import { RfqStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRfqDto, QuoteDto } from './dto/rfq.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { percentOf } from '../common/pricing';
 
 @Injectable()
 export class RfqService {
@@ -216,8 +217,8 @@ export class RfqService {
   private async createOrderFromQuote(rfq: any, quote: any) {
     const buyer = await this.prisma.user.findUnique({ where: { id: rfq.buyerId } });
     const total = Number(quote.totalPrice);
-    const commission = Math.round(((total * this.commissionPct) / 100) * 100) / 100;
-    const vetPointsEarned = Math.round(((total * this.earnPct) / 100) * 100) / 100;
+    const commission = percentOf(total, this.commissionPct);
+    const vetPointsEarned = percentOf(total, this.earnPct);
     const positions = rfq.items?.length ?? 0;
 
     // Разбивка по позициям, если она есть в котировке.

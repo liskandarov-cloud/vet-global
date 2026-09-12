@@ -7,7 +7,7 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PdfService } from '../documents/pdf.service';
 import { NotificationsService } from '../mail/notifications.service';
 import { AlertsService } from '../alerts/alerts.service';
-import { packPriceOf, unitPriceForQty } from '../common/pricing';
+import { packPriceOf, unitPriceForQty, percentOf, vetPointsSpendable } from '../common/pricing';
 
 @Injectable()
 export class OrdersService {
@@ -138,14 +138,14 @@ export class OrdersService {
       const balance = Number(
         (await this.prisma.user.findUnique({ where: { id: user.id } }))?.vetPointsBalance ?? 0,
       );
-      const cap = (subtotal * this.maxSpendPct) / 100;
-      vetPointsUsed = Math.min(dto.vetPointsUsed, cap, balance);
-      vetPointsUsed = Math.floor(vetPointsUsed * 100) / 100;
+      vetPointsUsed = vetPointsSpendable(subtotal, dto.vetPointsUsed, balance, this.maxSpendPct);
     }
 
     const total = subtotal - vetPointsUsed;
-    const commission = Math.round(((subtotal * this.commissionPct) / 100) * 100) / 100;
-    const vetPointsEarned = Math.round(((subtotal * this.earnPct) / 100) * 100) / 100;
+    // Комиссия считается от subtotal, то есть до списания баллов: лояльность
+    // платформы не должна уменьшать её собственный доход.
+    const commission = percentOf(subtotal, this.commissionPct);
+    const vetPointsEarned = percentOf(subtotal, this.earnPct);
 
     const buyerName = dto.buyerName ?? user?.fullName ?? 'Гость';
     const buyerPhone = dto.buyerPhone ?? user?.phone ?? '';

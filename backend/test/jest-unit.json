@@ -1,0 +1,8 @@
+{
+  "//": "Юнит-тесты рядом с кодом (*.spec.ts в src). E2E вынесены отдельно: им нужен запущенный сервер и база, а эти работают в одиночку и за миллисекунды.",
+  "rootDir": "../src",
+  "moduleFileExtensions": ["js", "json", "ts"],
+  "testRegex": ".*\\.spec\\.ts$",
+  "transform": { "^.+\\.(t|j)s$": ["ts-jest", { "isolatedModules": true }] },
+  "testEnvironment": "node"
+}

@@ -34,3 +34,44 @@ export function unitPriceForQty(offer: any, qty: number): number {
   }
   return price;
 }
+
+// ── Денежная арифметика ───────────────────────────────────────────────────────
+//
+// Раньше эти формулы были вкраплены в orders.service и rfq.service двумя
+// копиями. Комиссия платформы — основной доход, и считать её в двух местах
+// по отдельности значит однажды разойтись.
+
+// Округление до копеек. Деньги считаем так везде: результат произведения
+// процентов на сумму почти никогда не целый, и без округления в базу уходили
+// бы значения вида 119.99999999999999.
+function round2(n: number): number {
+  return Math.round(n * 100) / 100;
+}
+
+// Процент от суммы — комиссия платформы и начисление VetPoints.
+export function percentOf(amount: number, pct: number): number {
+  const a = Number(amount) || 0;
+  const p = Number(pct) || 0;
+  return round2((a * p) / 100);
+}
+
+// Сколько баллов покупатель реально может списать.
+//
+// Ограничений три, и действует самое строгое: сколько он попросил, сколько
+// разрешено от суммы заказа и сколько у него есть. Округление вниз, а не к
+// ближайшему: списать больше доступного нельзя даже на копейку.
+export function vetPointsSpendable(
+  subtotal: number,
+  requested: number,
+  balance: number,
+  maxSpendPct: number,
+): number {
+  const req = Number(requested) || 0;
+  if (req <= 0) return 0;
+  const sub = Number(subtotal) || 0;
+  const bal = Number(balance) || 0;
+  const cap = (sub * (Number(maxSpendPct) || 0)) / 100;
+  const used = Math.min(req, cap, bal);
+  if (!(used > 0)) return 0;
+  return Math.floor(used * 100) / 100;
+}

@@ -12,7 +12,9 @@
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
     "prisma:seed": "ts-node --transpile-only prisma/seed.ts",
-    "test:e2e": "jest --config test/jest-e2e.json --runInBand"
+    "test:e2e": "jest --config test/jest-e2e.json --runInBand",
+    "test": "jest --config test/jest-unit.json",
+    "test:all": "npm run test && npm run test:e2e"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"
