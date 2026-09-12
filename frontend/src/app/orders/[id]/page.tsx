@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -107,9 +107,14 @@ function OrderContent() {
     router.push('/cart');
   };
 
-  const load = () =>
-    api.get(`/orders/${id}`).then((r) => setOrder(r.data)).catch(() => setNotFound(true));
-  useEffect(() => { if (id) load(); }, [id]);
+  // useCallback, чтобы load можно было честно указать в зависимостях эффекта.
+  // Раньше зависимость опускали, и линтер был прав: функция создавалась заново
+  // каждый рендер, и прямое её добавление дало бы бесконечные запросы.
+  const load = useCallback(
+    () => api.get(`/orders/${id}`).then((r) => setOrder(r.data)).catch(() => setNotFound(true)),
+    [id],
+  );
+  useEffect(() => { if (id) load(); }, [id, load]);
 
   if (notFound) return <div className="py-24 text-center text-ink-subtle">{tt('Заказ не найден', 'Buyurtma topilmadi')}</div>;
   if (!order) return <div className="py-24 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>;

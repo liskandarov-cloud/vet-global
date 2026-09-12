@@ -41,10 +41,18 @@ function CatalogInner() {
     api.get('/products/facets').then((r) => setFacets(r.data)).catch(() => {});
   }, []);
 
-  // Reset to page 1 whenever filters change.
-  useEffect(() => {
+  // Сброс на первую страницу при смене фильтров — во время рендера, а не в
+  // эффекте. В эффекте он давал лишний проход: query успевал пересчитаться со
+  // старым номером страницы, и только следующий рендер приводил его в порядок.
+  // Запрос при этом не уходил дважды — у него дебаунс с очисткой, — но лишняя
+  // перерисовка была. Приём описан в документации React как adjusting state
+  // when props change.
+  const filterKey = [search, category, manufacturer, animalType, inStock, sort].join('\u0000');
+  const [prevFilterKey, setPrevFilterKey] = useState(filterKey);
+  if (prevFilterKey !== filterKey) {
+    setPrevFilterKey(filterKey);
     setPage(1);
-  }, [search, category, manufacturer, animalType, inStock, sort]);
+  }
 
   const query = useMemo(
     () => ({

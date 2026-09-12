@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, ShieldCheck, Trophy, Truck, Trash2, Package } from 'lucide-react';
@@ -35,8 +35,13 @@ export default function RfqDetailPage() {
   const [lead, setLead] = useState(3);
   const [qnote, setQnote] = useState('');
 
-  const load = () => api.get(`/rfq/${id}`).then((r) => setRfq(r.data)).catch(() => {});
-  useEffect(() => { if (id) load(); }, [id]);
+  // useCallback — чтобы load можно было указать в зависимостях, не получив
+  // бесконечные запросы от функции, создаваемой заново каждый рендер.
+  const load = useCallback(
+    () => api.get(`/rfq/${id}`).then((r) => setRfq(r.data)).catch(() => {}),
+    [id],
+  );
+  useEffect(() => { if (id) load(); }, [id, load]);
 
   if (!rfq) return <div className="py-24 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>;
 
