@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { RefreshCw, Play, Pause, Trash2, Repeat, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -21,6 +22,7 @@ interface Sub {
 export default function SubscriptionsPage() {
   const { user, ready } = useAuth();
   const { tt } = useI18n();
+  const router = useRouter();
   const [subs, setSubs] = useState<Sub[]>([]);
 
   const load = () => api.get('/subscriptions').then((r) => setSubs(r.data)).catch(() => {});
@@ -41,8 +43,17 @@ export default function SubscriptionsPage() {
     catch { toast.error(tt('Ошибка', 'Xatolik')); }
   };
   const runNow = async (s: Sub) => {
-    try { const { data } = await api.post(`/subscriptions/${s.id}/run`); toast.success(tt('Заказ создан', 'Buyurtma yaratildi')); load(); if (data.orderId) window.location.href = `/orders/${data.orderId}`; }
-    catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
+    try {
+      const { data } = await api.post(`/subscriptions/${s.id}/run`);
+      toast.success(tt('Заказ создан', 'Buyurtma yaratildi'));
+      load();
+      // router.push, а не window.location.href: последний перезагружал страницу
+      // целиком — терялось состояние приложения, а показанное строкой выше
+      // уведомление стиралось, не успев прочитаться.
+      if (data.orderId) router.push(`/orders/${data.orderId}`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
+    }
   };
   const del = async (s: Sub) => {
     if (!confirm(tt('Удалить подписку?', 'Obunani oʻchirilsinmi?'))) return;
