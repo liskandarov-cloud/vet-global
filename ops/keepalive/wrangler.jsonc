@@ -1,0 +1,14 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vetglobal-keepalive",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-12",
+  "triggers": {
+    // Каждые 10 минут: Render на free-плане засыпает примерно через 15.
+    "crons": ["*/10 * * * *"]
+  },
+  "observability": {
+    // Логи нужны, чтобы было видно историю падений, а не только текущий статус.
+    "enabled": true
+  }
+}
