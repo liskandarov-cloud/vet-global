@@ -11,8 +11,15 @@ RUN npx prisma generate
 COPY backend/ ./
 RUN npm run build
 # Compile the seed to plain JS (prod runtime has no ts-node).
-RUN npx tsc prisma/seed.ts --outDir dist-seed --module commonjs --target ES2021 \
-    --esModuleInterop --skipLibCheck --moduleResolution node --resolveJsonModule
+#
+# Через отдельный tsconfig с явным rootDir, а не флагами по одному файлу: при
+# компиляции одного файла tsc выводит корень из набора файлов, и добавление
+# импорта за пределы prisma/ молча меняло структуру вывода. Так и сломался прод —
+# путь уехал в dist-seed/prisma/seed.js, а CMD искал dist-seed/seed.js.
+RUN npx tsc -p tsconfig.seed.json
+# Проверка сразу в сборке: иначе расхождение пути снова обнаружилось бы только
+# при старте контейнера, когда деплой уже идёт.
+RUN test -f dist-seed/prisma/seed.js || (echo "сид не собрался по ожидаемому пути" && ls -R dist-seed | head -30 && exit 1)
 
 FROM node:22-alpine AS runtime
 RUN apk add --no-cache openssl bash font-dejavu
@@ -28,4 +35,4 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/dist-seed ./dist-seed
 COPY backend/prisma ./prisma
 EXPOSE 8000
-CMD ["bash", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist-seed/seed.js && node dist/main.js"]
+CMD ["bash", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist-seed/prisma/seed.js && node dist/main.js"]

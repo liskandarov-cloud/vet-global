@@ -1,0 +1,15 @@
+{
+  "//": "Сборка сида для прод-образа. Отдельный конфиг, а не флаги в командной строке: при компиляции одного файла tsc выводит корень из набора файлов, и любой новый импорт за пределы prisma/ молча менял структуру вывода. Именно так сломался прод — CMD искал dist-seed/seed.js, а tsc начал складывать в dist-seed/prisma/seed.js после появления импорта из src/. Явный rootDir делает путь предсказуемым.",
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "dist-seed",
+    "declaration": false,
+    "sourceMap": false,
+    "incremental": false,
+    "noEmit": false
+  },
+  "include": ["prisma/**/*.ts", "src/**/*.ts"],
+  "//exclude": "Базовый конфиг исключает prisma — здесь он нужен, поэтому список переопределяется целиком.",
+  "exclude": ["node_modules", "dist", "dist-seed", "test", "src/**/*.spec.ts"]
+}
