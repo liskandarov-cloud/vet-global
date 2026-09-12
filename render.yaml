@@ -48,6 +48,12 @@ services:
         value: "https://vetglobal-web.l-iskandarov.workers.dev"
       - key: FRONTEND_URL
         value: "https://vetglobal-web.l-iskandarov.workers.dev"
+      # Swagger публикует карту всех эндпоинтов: 119 путей, 145 операций.
+      # Данные за ней под авторизацией, но для атакующего это готовая разведка,
+      # поэтому на боевом контуре выключена. Чтобы открыть на время интеграции,
+      # достаточно поставить true в Environment — передеплой применит.
+      - key: SWAGGER_ENABLED
+        value: "false"
       # Демо-данные генерируются ТОЛЬКО при SEED_DEMO=true. На реальном клиенте — false.
       - key: SEED_DEMO
         value: "false"
