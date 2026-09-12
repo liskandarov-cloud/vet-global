@@ -24,11 +24,12 @@ function absolute(url?: string): string | undefined {
   return `${SITE_URL}${url.startsWith('/') ? '' : '/'}${url}`;
 }
 
-export async function generateMetadata({
-  params,
-}: {
-  params: { slug: string };
-}): Promise<Metadata> {
+export async function generateMetadata(
+  props: {
+    params: Promise<{ slug: string }>;
+  }
+): Promise<Metadata> {
+  const params = await props.params;
   const post = await serverFetch<Post>(`/blog/${params.slug}`);
   if (!post?.title) return {};
 

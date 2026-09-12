@@ -8,6 +8,8 @@ COPY . .
 # NEXT_PUBLIC_* are inlined at build time — pass the API URL as a build arg.
 ARG NEXT_PUBLIC_API_URL=http://localhost:8000/api
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Этот образ запускает .next/standalone, поэтому вывод включаем явно.
+ENV BUILD_STANDALONE=1
 RUN npm run build
 
 # ── Runtime: minimal standalone server ──

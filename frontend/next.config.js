@@ -1,8 +1,10 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // standalone only for Docker/self-host; on Vercel it breaks routing (leave default).
-  output: process.env.VERCEL ? undefined : 'standalone',
+  // standalone включается только явным флагом — его собирает Dockerfile.prod
+  // для self-host. Прежнее условие «всё, что не Vercel» ломало сборку под
+  // Cloudflare: адаптеру нужен обычный вывод, а не standalone-сервер.
+  output: process.env.BUILD_STANDALONE ? 'standalone' : undefined,
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
