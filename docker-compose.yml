@@ -119,6 +119,11 @@ services:
       # Без проброса локальный каталог поднимался пустым. На проде render.yaml задаёт false.
       SEED_DEMO: ${SEED_DEMO:-false}
       CORS_ORIGINS: http://localhost:${FRONTEND_PORT:-3000}
+      # Ограничитель частоты выключен только в разработке: e2e-набор делает
+      # больше 120 запросов в минуту и упирался в лимит, после чего падали
+      # тесты, не связанные с частотой. В render.yaml этого флага нет — в проде
+      # защита работает.
+      THROTTLE_DISABLED: "true"
     ports:
       - "${BACKEND_PORT:-8000}:8000"
     volumes:

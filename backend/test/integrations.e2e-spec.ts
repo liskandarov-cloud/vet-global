@@ -381,4 +381,59 @@ describe('VetGlobal integrations (e2e)', () => {
 
     await req(`/products/${prod.id}`, { method: 'DELETE', token: seller }).catch(() => {});
   });
+
+  // Отчёты не должны учитывать отменённые заказы. Раньше фильтра по статусу не
+  // было вовсе: отмены попадали и в GMV, и в комиссию платформы, и в выплаты
+  // продавцам — то есть в цифры, по которым выставляют счёт.
+  it('отменённый заказ выпадает из GMV и комиссии', async () => {
+    const before = (await req('/admin/stats', { token: admin })).body;
+
+    // Свой товар, а не общий sellerProduct: предыдущий тест обнуляет его
+    // остаток, и заказ по нему уже не создаётся.
+    const fresh = (await req('/products', {
+      method: 'POST',
+      token: seller,
+      body: {
+        name: `Товар для проверки отчётов ${Date.now()}`,
+        description: 'создан автотестом',
+        categoryId: sellerProduct.categoryId,
+        price: 100000,
+      },
+    })).body;
+
+    const created = await req('/orders', {
+      method: 'POST',
+      token: buyer,
+      body: { items: [{ productId: fresh.id, quantity: 1 }] },
+    });
+    expect(created.status).toBeLessThan(400);
+    const orderId = created.body.id;
+
+    const withOrder = (await req('/admin/stats', { token: admin })).body;
+    expect(withOrder.gmv).toBeGreaterThan(before.gmv);
+
+    const cancelled = await req(`/orders/${orderId}/status`, {
+      method: 'PATCH',
+      token: admin,
+      body: { status: 'CANCELLED' },
+    });
+    expect(cancelled.status).toBeLessThan(400);
+
+    const after = (await req('/admin/stats', { token: admin })).body;
+    expect(after.gmv).toBe(before.gmv);
+    expect(after.commission).toBe(before.commission);
+
+    await req(`/products/${fresh.id}`, { method: 'DELETE', token: seller }).catch(() => {});
+  });
+
+  // Отчёт по выплатам и общая статистика берут комиссию разными путями: первый
+  // считает её от выручки по позициям, вторая суммирует записанную в заказах.
+  // Расхождение означало бы, что продавцу выставляют счёт не на ту сумму.
+  it('комиссия в отчёте по выплатам совпадает с общей статистикой', async () => {
+    const stats = (await req('/admin/stats', { token: admin })).body;
+    const billing = (await req('/admin/billing', { token: admin })).body;
+    expect(billing.totals.commission).toBeCloseTo(stats.commission, 2);
+    expect(billing.totals.revenue).toBeCloseTo(stats.gmv, 2);
+    expect(billing.totals.payout).toBeCloseTo(billing.totals.revenue - billing.totals.commission, 2);
+  });
 });

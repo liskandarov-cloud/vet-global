@@ -1,10 +1,25 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { percentOf } from '../common/pricing';
+
+// Отменённый заказ не выручка. Фильтр один для всех отчётов: раньше его не было
+// вовсе, и отмены попадали и в GMV, и в комиссию, и в выплаты продавцам.
+const NOT_CANCELLED = { status: { not: OrderStatus.CANCELLED } } as const;
 
 @Injectable()
 export class AnalyticsService {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly commissionPct: number;
+
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly config: ConfigService,
+  ) {
+    // Через ConfigService, как в orders и rfq: раньше здесь читался
+    // process.env напрямую, в обход общей настройки приложения.
+    this.commissionPct = Number(config.get('PLATFORM_COMMISSION_PERCENT') ?? 12);
+  }
 
   // ── Admin: platform-wide summary (GMV, commission, top sellers) ──
   async adminStats() {
@@ -14,7 +29,10 @@ export class AnalyticsService {
         this.prisma.user.count({ where: { role: 'SELLER' } }),
         this.prisma.user.count({ where: { role: 'BUYER' } }),
         this.prisma.product.count(),
-        this.prisma.order.findMany({ select: { subtotal: true, total: true, commission: true, status: true, createdAt: true } }),
+        this.prisma.order.findMany({
+          where: NOT_CANCELLED,
+          select: { subtotal: true, total: true, commission: true, status: true, createdAt: true },
+        }),
         this.prisma.review.count({ where: { isApproved: false } }),
         this.prisma.user.count({ where: { role: 'SELLER', isVerified: false } }),
       ]);
@@ -23,8 +41,11 @@ export class AnalyticsService {
     const commission = orders.reduce((s, o) => s + Number(o.commission), 0);
     const delivered = orders.filter((o) => o.status === OrderStatus.DELIVERED).length;
 
-    // Top sellers by delivered items value.
+    // Лучшие продавцы по стоимости позиций в неотменённых заказах. Прежний
+    // комментарий обещал «delivered», но фильтра не было вовсе — считались все,
+    // включая отменённые.
     const items = await this.prisma.orderItem.findMany({
+      where: { order: NOT_CANCELLED },
       select: { sellerId: true, price: true, quantity: true },
     });
     const bySeller = new Map<string, number>();
@@ -63,8 +84,8 @@ export class AnalyticsService {
 
   // ── Admin billing: per-seller revenue / commission / payout ──
   async adminBilling() {
-    const pct = Number(process.env.PLATFORM_COMMISSION_PERCENT ?? 12);
     const items = await this.prisma.orderItem.findMany({
+      where: { order: NOT_CANCELLED },
       select: { sellerId: true, price: true, quantity: true, orderId: true },
     });
 
@@ -83,7 +104,10 @@ export class AnalyticsService {
 
     const rows = [...map.entries()]
       .map(([id, v]) => {
-        const commission = Math.round((v.revenue * pct) / 100);
+        // percentOf, а не Math.round до целых: комиссия, записанная в заказе,
+        // округляется до копеек, и отчёт с другим округлением расходился бы с
+        // проводками — как раз там, где по нему выставляют счёт продавцу.
+        const commission = percentOf(v.revenue, this.commissionPct);
         return {
           sellerId: id,
           company: sellers.find((s) => s.id === id)?.company ?? '—',
@@ -100,13 +124,14 @@ export class AnalyticsService {
       { revenue: 0, commission: 0, payout: 0 },
     );
 
-    return { commissionPercent: pct, rows, totals };
+    return { commissionPercent: this.commissionPct, rows, totals };
   }
 
   // ── Seller dashboard ──
   async sellerStats(sellerId: string) {
     const items = await this.prisma.orderItem.findMany({
-      where: { sellerId },
+      // Без фильтра продавец видел в выручке и отменённые заказы.
+      where: { sellerId, order: NOT_CANCELLED },
       include: { order: { select: { status: true, createdAt: true } } },
     });
     const revenue = items.reduce((s, it) => s + Number(it.price) * it.quantity, 0);
@@ -137,7 +162,8 @@ export class AnalyticsService {
   // ── Buyer dashboard ──
   async buyerStats(buyerId: string) {
     const orders = await this.prisma.order.findMany({
-      where: { buyerId },
+      // Без фильтра покупатель видел в «потрачено» и отменённые заказы.
+      where: { buyerId, ...NOT_CANCELLED },
       include: { items: true },
     });
     const totalSpent = orders.reduce((s, o) => s + Number(o.total), 0);
