@@ -9,6 +9,7 @@ import { OffersService } from '../offers/offers.service';
 import { packPriceOf } from '../common/pricing';
 import { CommitImportDto, ImportRowResult } from './dto/import.dto';
 import { IMPORT_FIELDS, suggestMapping } from './import.fields';
+import { parseAnimal, parseBool, parseDate, parseImages, parseNumber } from './parse';
 
 // Потолок строк за один импорт: защищает от выгрузки всего 1С одним файлом.
 const MAX_ROWS = 2000;
@@ -145,7 +146,7 @@ export class ImportService {
         const name = at('name');
         if (!name) throw new Error('Пустое название');
 
-        const price = this.parseNumber(at('price'));
+        const price = parseNumber(at('price'));
         if (price == null || price <= 0) throw new Error(`Некорректная цена: «${at('price')}»`);
 
         // Категория: из колонки → по умолчанию → ошибка.
@@ -184,7 +185,7 @@ export class ImportService {
         }
 
         // Пустая колонка фото не должна стирать уже загруженные снимки.
-        const images = this.parseImages(at('images'));
+        const images = parseImages(at('images'));
 
         const productData: Record<string, unknown> = {
           name,
@@ -195,7 +196,7 @@ export class ImportService {
           ...(manufacturer ? { manufacturer } : {}),
           ...(at('activeSubstance') ? { activeSubstance: at('activeSubstance') } : {}),
           ...(at('form') ? { form: at('form') } : {}),
-          ...(this.parseAnimal(at('animalType')) ? { animalType: this.parseAnimal(at('animalType')) } : {}),
+          ...(parseAnimal(at('animalType')) ? { animalType: parseAnimal(at('animalType')) } : {}),
           ...(externalId ? { externalId } : {}),
         };
 
@@ -230,16 +231,16 @@ export class ImportService {
         const offerData: Record<string, unknown> = {
           price,
           priceUnit: at('priceUnit') || null,
-          priceUnitQty: this.parseNumber(at('priceUnitQty')) ?? 1,
-          packSize: this.parseNumber(at('packSize')) ?? 1,
+          priceUnitQty: parseNumber(at('priceUnitQty')) ?? 1,
+          packSize: parseNumber(at('packSize')) ?? 1,
           packUnit: at('packUnit') || null,
-          minOrder: this.parseNumber(at('minOrder')) ?? 1,
-          stockQty: this.parseNumber(at('stockQty')),
-          leadTimeDays: this.parseNumber(at('leadTimeDays')),
+          minOrder: parseNumber(at('minOrder')) ?? 1,
+          stockQty: parseNumber(at('stockQty')),
+          leadTimeDays: parseNumber(at('leadTimeDays')),
           batchNumber: at('batchNumber') || null,
-          expiryDate: this.parseDate(at('expiryDate')),
+          expiryDate: parseDate(at('expiryDate')),
           regNumber: at('regNumber') || null,
-          isRx: this.parseBool(at('isRx')) ?? false,
+          isRx: parseBool(at('isRx')) ?? false,
           inStock: true,
         };
 
@@ -292,59 +293,6 @@ export class ImportService {
   }
 
   // Прайсы приходят с разделителями тысяч и запятой в дробной части: «22 400,50», «1 344 000».
-  private parseNumber(v: string): number | null {
-    if (!v) return null;
-    const cleaned = v
-      .replace(/ /g, '')
-      .replace(/[^\d.,-]/g, '')
-      .replace(/\s/g, '');
-    if (!cleaned) return null;
-    // Запятая как десятичный разделитель, если после неё 1-2 цифры до конца.
-    const normalized = /,\d{1,2}$/.test(cleaned)
-      ? cleaned.replace(/\./g, '').replace(',', '.')
-      : cleaned.replace(/[,\s]/g, '');
-    const n = Number(normalized);
-    return Number.isFinite(n) ? n : null;
-  }
-
-  // Ссылки на фото: через запятую/перенос строки, только http(s) и относительные /uploads.
-  private parseImages(v: string): string[] {
-    if (!v) return [];
-    return v
-      .split(/[,\n;]+/)
-      .map((s) => s.trim())
-      .filter((s) => /^https?:\/\//i.test(s) || s.startsWith('/'));
-  }
-
-  private parseBool(v: string): boolean | null {
-    if (!v) return null;
-    return ['да', 'ha', 'yes', 'true', '1', '+', 'rx'].includes(v.toLowerCase().trim());
-  }
-
-  private parseDate(v: string): Date | null {
-    if (!v) return null;
-    // ДД.ММ.ГГГГ — самый частый формат в узбекских прайсах.
-    const m = v.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/);
-    if (m) {
-      const year = m[3].length === 2 ? 2000 + Number(m[3]) : Number(m[3]);
-      const d = new Date(year, Number(m[2]) - 1, Number(m[1]));
-      return Number.isNaN(d.getTime()) ? null : d;
-    }
-    const d = new Date(v);
-    return Number.isNaN(d.getTime()) ? null : d;
-  }
-
-  private parseAnimal(v: string): AnimalType | null {
-    if (!v) return null;
-    const s = v.toLowerCase().replace(/ё/g, 'е');
-    if (/птиц|parrand|poultry|куриц|бройлер/.test(s)) return AnimalType.POULTRY;
-    if (/крс|коров|скот|cattle|qoramol|бык|телён|телен/.test(s)) return AnimalType.CATTLE;
-    if (/мрс|овц|коз|sheep|goat|qoʻy|qoy|echki/.test(s)) return AnimalType.SMALL_RUMINANTS;
-    if (/лошад|конь|horse|ot\b/.test(s)) return AnimalType.HORSES;
-    if (/собак|кошк|пит[оo]мц|pet|dog|cat|it\b|mushuk/.test(s)) return AnimalType.PETS;
-    return AnimalType.OTHER;
-  }
-
   // Выгрузка своего прайса в том же формате, что принимает импорт:
   // продавец скачивает, правит цены/остатки и заливает обратно.
   async exportMine(user: AuthUser): Promise<Buffer> {
