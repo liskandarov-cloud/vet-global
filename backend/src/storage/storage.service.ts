@@ -20,6 +20,9 @@ export class StorageService implements OnModuleInit {
   private readonly client: S3Client;
   private readonly bucket: string;
   private readonly publicUrl: string;
+  // Только хост, без полного адреса: в логи не должны попадать лишние части
+  // конфигурации, а для диагностики достаточно понять, куда смотрит клиент.
+  private readonly endpointHost: string;
   // S3_ENDPOINT задан (docker-compose) → MinIO/S3; не задан (Render) → байты в Postgres.
   private readonly s3Enabled: boolean;
 
@@ -31,6 +34,11 @@ export class StorageService implements OnModuleInit {
     const endpoint = config.get<string>('S3_ENDPOINT') ?? 'http://minio:9000';
     this.bucket = config.get<string>('S3_BUCKET') ?? 'vetglobal';
     this.publicUrl = config.get<string>('S3_PUBLIC_URL') ?? 'http://localhost:9000';
+    try {
+      this.endpointHost = new URL(endpoint).host;
+    } catch {
+      this.endpointHost = endpoint;
+    }
     this.client = new S3Client({
       endpoint,
       region: config.get<string>('S3_REGION') ?? 'us-east-1',
@@ -50,6 +58,11 @@ export class StorageService implements OnModuleInit {
     }
     try {
       await this.client.send(new HeadBucketCommand({ Bucket: this.bucket }));
+      // Успешный путь раньше не логировался вовсе, и по логам нельзя было
+      // понять, куда на самом деле уходят файлы: отсутствие сообщения о
+      // Postgres приходилось толковать как «значит, S3». Теперь режим виден
+      // прямо, вместе с адресом — опечатка в S3_ENDPOINT тоже сразу заметна.
+      this.logger.log(`Файлы хранятся в S3: ${this.bucket} на ${this.endpointHost}`);
     } catch {
       try {
         await this.client.send(new CreateBucketCommand({ Bucket: this.bucket }));
@@ -69,7 +82,7 @@ export class StorageService implements OnModuleInit {
             }),
           }),
         );
-        this.logger.log(`Created bucket ${this.bucket}`);
+        this.logger.log(`Бакет ${this.bucket} создан на ${this.endpointHost}`);
       } catch (e) {
         this.logger.warn(`Bucket init skipped: ${(e as Error).message}`);
       }
