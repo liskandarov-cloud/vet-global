@@ -1,0 +1,104 @@
+# Проверки кода на каждом пуше и пул-реквесте.
+#
+# До этого в репозитории не было CI вовсе: 26 e2e-тестов существовали, но не
+# запускались. Из-за этого набор интеграционных тестов месяц был сломан
+# синтаксической ошибкой, и никто об этом не знал.
+#
+# База поднимается сервисным контейнером, а не берётся боевая: тесты создают и
+# удаляют записи, и трогать ими прод нельзя.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ['**/*.md', 'ops/**', 'docs/**']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Бэкенд — типы и e2e
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: test
+          POSTGRES_PASSWORD: test
+          POSTGRES_DB: test
+        ports: ['5432:5432']
+        # Без health-check шаги начинаются раньше, чем база примет соединение.
+        options: >-
+          --health-cmd="pg_isready -U test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: postgresql://test:test@localhost:5432/test?schema=public
+      JWT_SECRET: ci-secret-at-least-32-characters-long!!
+      JWT_EXPIRES_IN: 7d
+      PLATFORM_COMMISSION_PERCENT: '12'
+      VETPOINTS_EARN_PERCENT: '1'
+      VETPOINTS_MAX_SPEND_PERCENT: '10'
+      PAYMENTS_MODE: mock
+      DIDOX_MODE: mock
+      ADMIN_EMAIL: admin@vetglobal.com
+      ADMIN_PASSWORD: ci-admin-password
+      # Демо-данные нужны: часть e2e опирается на товары и продавцов из сида.
+      SEED_DEMO: 'true'
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - run: npm ci
+        working-directory: backend
+
+      - name: Схема и демо-данные
+        working-directory: backend
+        run: |
+          npx prisma generate
+          npx prisma db push --accept-data-loss
+          npm run prisma:seed
+
+      - name: Проверка типов
+        working-directory: backend
+        # Сборка падает на ошибках типов — это дешёвая проверка до тестов.
+        run: npm run build
+
+      - name: E2E
+        working-directory: backend
+        run: npm run test:e2e
+
+  frontend:
+    name: Фронтенд — сборка
+    runs-on: ubuntu-latest
+    env:
+      # Публичный адрес, а не внутрисетевой: последний снаружи мёртв, и
+      # серверные запросы по нему молча отдавали бы пустые страницы.
+      NEXT_PUBLIC_API_URL: https://vetglobal-backend.onrender.com/api
+      SITE_URL: https://vetglobal-web.l-iskandarov.workers.dev
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+        working-directory: frontend
+      - run: npm run lint
+        working-directory: frontend
+      - run: npm run build
+        working-directory: frontend

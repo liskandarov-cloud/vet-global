@@ -1,0 +1,72 @@
+# Выкатка фронтенда на Cloudflare Workers.
+#
+# Бэкенд выкатывает сам Render по своему автодеплою, а фронтенд после переезда
+# с Vercel остался без автоматизации — приходилось выкладывать руками.
+#
+# Требуется секрет CLOUDFLARE_API_TOKEN (права Edit Cloudflare Workers).
+
+name: Deploy frontend
+
+on:
+  push:
+    branches: [main]
+    # Только то, что реально попадает в сборку фронтенда.
+    paths:
+      - 'frontend/**'
+      - '.github/workflows/deploy-frontend.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  # Новый пуш отменяет незавершённую выкатку, иначе в прод может приехать
+  # более старая сборка.
+  group: deploy-frontend
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      CLOUDFLARE_ACCOUNT_ID: 75a08cec12a81171ab0fce6a59660c59
+      # Обе переменные нужны на этапе сборки: NEXT_PUBLIC_* вшивается в бандл,
+      # а SITE_URL попадает в sitemap и канонические ссылки статических страниц.
+      NEXT_PUBLIC_API_URL: https://vetglobal-backend.onrender.com/api
+      SITE_URL: https://vetglobal-web.l-iskandarov.workers.dev
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+        working-directory: frontend
+
+      - name: Сборка под Cloudflare
+        working-directory: frontend
+        run: npx opennextjs-cloudflare build
+
+      - name: Выкатка
+        working-directory: frontend
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: npx wrangler deploy
+
+      - name: Проверка после выкатки
+        run: |
+          set -euo pipefail
+          BASE=https://vetglobal-web.l-iskandarov.workers.dev
+          # Несколько попыток: Cloudflare раскатывает новую версию по краю
+          # не мгновенно.
+          for path in / /catalog /suppliers /blog /sitemap.xml; do
+            ok=
+            for i in 1 2 3 4 5; do
+              code=$(curl -s -o /dev/null -m 30 -w '%{http_code}' "$BASE$path") || code=000
+              if [ "$code" = 200 ]; then ok=1; echo "$path -> $code"; break; fi
+              sleep 10
+            done
+            test -n "$ok" || { echo "::error::$path не ответил 200"; exit 1; }
+          done

@@ -1,0 +1,69 @@
+# Ночной бэкап прод-базы.
+#
+# Бесплатный тариф Supabase резервных копий не делает вовсе, поэтому без этого
+# потеря данных была бы необратимой.
+#
+# Дамп снимается ролью backup_ro — она имеет только SELECT, так что утечка
+# секрета не даст возможности изменить или удалить данные.
+#
+# Запускается по расписанию и вручную. На pull_request намеренно не вешается:
+# репозиторий публичный, и секрет не должен попадать в прогоны от форков.
+
+name: Backup database
+
+on:
+  schedule:
+    # 02:30 UTC — 07:30 по Ташкенту, ночное окно с минимальной нагрузкой.
+    - cron: '30 2 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: backup-db
+  cancel-in-progress: false
+
+jobs:
+  dump:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Установка клиента PostgreSQL 17
+        run: |
+          # Версия клиента должна быть не ниже серверной (Supabase на 17),
+          # иначе pg_dump откажется работать с несовпадением версий.
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq postgresql-client-17
+
+      - name: Снятие дампа
+        env:
+          DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          test -n "$DB_URL" || { echo "::error::секрет BACKUP_DATABASE_URL не задан"; exit 1; }
+          STAMP=$(date -u +%Y-%m-%d)
+          # --no-owner и --no-acl: восстанавливать будем в другую базу, где роли
+          # Supabase отсутствуют, и их упоминание ломало бы импорт.
+          pg_dump "$DB_URL" \
+            --schema=public --no-owner --no-acl --format=custom --compress=9 \
+            --file="vetglobal-$STAMP.dump"
+          ls -lh "vetglobal-$STAMP.dump"
+          echo "STAMP=$STAMP" >> "$GITHUB_ENV"
+
+      - name: Проверка, что дамп не пустой
+        run: |
+          set -euo pipefail
+          SIZE=$(stat -c%s "vetglobal-$STAMP.dump")
+          # Пустой дамп весит считанные байты. Молча сохранить такой файл
+          # хуже, чем упасть: о потере узнали бы только при восстановлении.
+          test "$SIZE" -gt 4096 || { echo "::error::дамп подозрительно мал ($SIZE байт)"; exit 1; }
+          pg_restore --list "vetglobal-$STAMP.dump" | head -5
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vetglobal-db-${{ env.STAMP }}
+          path: vetglobal-*.dump
+          retention-days: 30
+          if-no-files-found: error
