@@ -121,7 +121,12 @@ export const useCart = create<CartState>()(
         set((s) => {
           const key = cartKey(item);
           const existing = s.items.find((i) => cartKey(i) === key);
-          const addQty = qty ?? item.minOrder ?? 1;
+          // minOrder || 1, а не ?? 1: оператор ?? пропускает ноль, и позиция
+          // попадала в корзину с количеством 0 — строка есть, в сумму не входит,
+          // оформить нельзя. Ноль достижим: при импорте прайса minOrder берётся
+          // из файла, а разбор «0» даёт ноль, а не пустое значение. Рядом в
+          // setQty так и сделано, расхождение было только здесь.
+          const addQty = qty ?? (item.minOrder || 1);
           if (existing) {
             return {
               items: s.items.map((i) =>

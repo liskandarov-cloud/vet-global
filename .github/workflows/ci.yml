@@ -138,5 +138,13 @@ jobs:
         working-directory: frontend
       - run: npm run lint
         working-directory: frontend
+
+      - name: Тесты
+        working-directory: frontend
+        # Логика корзины: идентичность позиций при мульти-поставщике, кламп к
+        # минимальному заказу, суммы. Раньше фронтенд проверялся только тем, что
+        # собирается — поведение не проверялось вовсе.
+        run: npm run test
+
       - run: npm run build
         working-directory: frontend

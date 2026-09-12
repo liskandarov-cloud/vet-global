@@ -2,3 +2,6 @@
 # Сборка адаптера Cloudflare
 .open-next
 .wrangler
+
+# Кэш Vitest
+.vitest
