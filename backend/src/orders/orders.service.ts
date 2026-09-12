@@ -1,4 +1,10 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { ApprovalStatus, OrderStatus, OrgRole, PaymentTerm, UserRole, VetPointsType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -8,9 +14,11 @@ import { PdfService } from '../documents/pdf.service';
 import { NotificationsService } from '../mail/notifications.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { packPriceOf, unitPriceForQty, percentOf, vetPointsSpendable } from '../common/pricing';
+import { isTransitionAllowed, transitionError } from './status';
 
 @Injectable()
 export class OrdersService {
+  private readonly logger = new Logger(OrdersService.name);
   private readonly commissionPct: number;
   private readonly earnPct: number;
   private readonly maxSpendPct: number;
@@ -357,6 +365,19 @@ export class OrdersService {
     // Seller may only touch orders containing their items.
     if (user.role === UserRole.SELLER && !order.items.some((it) => it.sellerId === user.id)) {
       throw new ForbiddenException('Not authorized for this order');
+    }
+
+    // Проверка перехода. Администратору она не мешает: исправлять ошибочно
+    // выставленный статус задним числом — его работа, и запрещать это значит
+    // оставить заказ навсегда в неверном состоянии. Такие случаи логируем,
+    // чтобы обход правил был видим.
+    if (!isTransitionAllowed(order.status, status)) {
+      if (user.role !== UserRole.ADMIN) {
+        throw new BadRequestException(transitionError(order.status, status));
+      }
+      this.logger.warn(
+        `админ ${user.id} переводит заказ ${id} из ${order.status} в ${status} в обход обычного потока`,
+      );
     }
 
     await this.prisma.order.update({ where: { id }, data: { status } });
