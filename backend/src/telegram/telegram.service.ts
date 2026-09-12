@@ -28,7 +28,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly prisma: PrismaService,
     private readonly leads: LeadsService,
   ) {
-    this.frontendUrl = config.get<string>('FRONTEND_URL') ?? 'https://vet-global.vercel.app';
+    this.frontendUrl = config.get<string>('FRONTEND_URL') ?? 'https://vetglobal-web.l-iskandarov.workers.dev';
     this.adminChatId = config.get<string>('TELEGRAM_ADMIN_CHAT_ID');
   }
 

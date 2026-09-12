@@ -45,9 +45,9 @@ services:
       # Только собственный фронтенд: «*» вместе с credentials отражал любой
       # Origin, т.е. API мог дёргать любой сторонний сайт. Домены — через запятую.
       - key: CORS_ORIGINS
-        value: "https://vet-global.vercel.app"
+        value: "https://vetglobal-web.l-iskandarov.workers.dev"
       - key: FRONTEND_URL
-        value: "https://vet-global.vercel.app"
+        value: "https://vetglobal-web.l-iskandarov.workers.dev"
       # Демо-данные генерируются ТОЛЬКО при SEED_DEMO=true. На реальном клиенте — false.
       - key: SEED_DEMO
         value: "false"

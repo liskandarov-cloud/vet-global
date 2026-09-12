@@ -5,7 +5,7 @@ import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { PWARegister } from '@/components/PWARegister';
 
-const SITE_URL = process.env.SITE_URL ?? 'https://vet-global.vercel.app';
+const SITE_URL = process.env.SITE_URL ?? 'https://vetglobal-web.l-iskandarov.workers.dev';
 const TITLE = 'VetGlobal — B2B-платформа ветеринарных решений';
 const DESCRIPTION =
   'Оптовые закупки ветеринарных препаратов, вакцин, кормов и добавок напрямую от проверенных поставщиков. Прозрачно, удобно, безопасно.';

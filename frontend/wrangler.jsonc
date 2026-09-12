@@ -1,0 +1,27 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "vetglobal-web",
+  "main": ".open-next/worker.js",
+  "compatibility_date": "2026-09-12",
+  // nodejs_compat нужен рантайму Next; global_fetch_strictly_public заставляет
+  // fetch к своему же домену идти через публичный интернет, как в Node.
+  "compatibility_flags": ["nodejs_compat", "global_fetch_strictly_public"],
+  "assets": {
+    "directory": ".open-next/assets",
+    "binding": "ASSETS"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "NEXT_INC_CACHE_KV",
+      "id": "256b436eea0541aa9a82d69a8fed807c"
+    }
+  ],
+  "vars": {
+    // Адрес API для браузера. API_INTERNAL_URL здесь намеренно не задан:
+    // он имеет смысл только внутри docker-сети, а снаружи серверные запросы
+    // по нему молча падают — sitemap остался бы без товаров.
+    "NEXT_PUBLIC_API_URL": "https://vetglobal-backend.onrender.com/api",
+    "SITE_URL": "https://vetglobal-web.l-iskandarov.workers.dev"
+  },
+  "observability": { "enabled": true }
+}

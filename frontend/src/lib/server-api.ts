@@ -54,4 +54,4 @@ export async function serverFetch<T = any>(path: string, revalidate = 60): Promi
   return null;
 }
 
-export const SITE_URL = process.env.SITE_URL ?? 'https://vet-global.vercel.app';
+export const SITE_URL = process.env.SITE_URL ?? 'https://vetglobal-web.l-iskandarov.workers.dev';
