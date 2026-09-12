@@ -15,6 +15,7 @@ import { NotificationsService } from '../mail/notifications.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { packPriceOf, unitPriceForQty, percentOf, vetPointsSpendable } from '../common/pricing';
 import { isTransitionAllowed, transitionError } from './status';
+import { invoiceNumberFor } from '../common/invoice-number';
 
 @Injectable()
 export class OrdersService {
@@ -453,7 +454,7 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
 
-    const number = order.invoice?.number ?? `VG-${order.createdAt.getFullYear()}-${order.id.slice(0, 8).toUpperCase()}`;
+    const number = order.invoice?.number ?? invoiceNumberFor(order);
     if (!order.invoice) {
       await this.prisma.invoice.create({
         data: { orderId: order.id, number, amount: order.total },

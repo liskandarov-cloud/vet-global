@@ -6,6 +6,7 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 import { DidoxAdapter, FacturaPayload } from './didox.types';
 import { MockDidoxAdapter } from './adapters/mock.adapter';
 import { LiveDidoxAdapter } from './adapters/live.adapter';
+import { invoiceNumberFor } from '../common/invoice-number';
 
 @Injectable()
 export class DidoxService {
@@ -38,7 +39,7 @@ export class DidoxService {
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
 
-    const number = order.invoice?.number ?? `VG-${order.createdAt.getFullYear()}-${order.id.slice(0, 8).toUpperCase()}`;
+    const number = order.invoice?.number ?? invoiceNumberFor(order);
     const seller = await this.prisma.user.findUnique({ where: { id: order.items[0]?.sellerId } });
 
     const payload: FacturaPayload = {
