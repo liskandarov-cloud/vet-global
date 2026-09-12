@@ -1,0 +1,114 @@
+# Проверка доступности прода с оповещением через issue.
+#
+# Своего мониторинга не было: падение между выкатками замечали по жалобам.
+# Платные сервисы не используем, поэтому оповещение идёт через GitHub — при
+# создании issue владелец получает письмо, а история проблем остаётся в
+# репозитории.
+#
+# Keepalive-worker пингует бэкенд каждые 10 минут, но он молчаливый: его задача
+# не дать уснуть, а не сообщить. Здесь наоборот — проверить и разбудить людей.
+
+name: Uptime
+
+on:
+  schedule:
+    # Каждые 30 минут. Чаще нет смысла: расписание GitHub всё равно
+    # выполняется с задержкой, а для оповещения это приемлемо.
+    - cron: '*/30 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  # Нужно, чтобы создавать и комментировать issue с отчётом о падении.
+  issues: write
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Проверка контуров
+        id: check
+        run: |
+          set -uo pipefail
+          # Отчёт накапливаем в файле, а не в переменной: многострочное
+          # значение в shell внутри YAML-блока легко ломает отступы.
+          : > /tmp/failed.md
+
+          check() {
+            name="$1"; url="$2"; expect="$3"
+            # Бэкенд на free-плане Render поднимается из сна до минуты,
+            # поэтому таймаут щедрый и есть вторая попытка.
+            for i in 1 2; do
+              code=$(curl -s -o /dev/null -m 90 -w '%{http_code}' "$url") || code=000
+              if [ "$code" = "$expect" ]; then
+                echo "ok   $name ($code)"
+                return 0
+              fi
+              sleep 15
+            done
+            echo "FAIL $name — ожидался $expect, получен $code"
+            printf -- '- **%s** — ожидался `%s`, получен `%s` (%s)\n' \
+              "$name" "$expect" "$code" "$url" >> /tmp/failed.md
+            return 1
+          }
+
+          check "API health"  "https://vetglobal-backend.onrender.com/api/health" 200 || true
+          check "API каталог" "https://vetglobal-backend.onrender.com/api/categories" 200 || true
+          check "Фронтенд"    "https://vetglobal-web.l-iskandarov.workers.dev/" 200 || true
+          check "Каталог"     "https://vetglobal-web.l-iskandarov.workers.dev/catalog" 200 || true
+
+          if [ -s /tmp/failed.md ]; then
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Оповестить через issue
+        if: steps.check.outputs.failed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          set -euo pipefail
+          # Один открытый issue на инцидент: при каждой неудачной проверке
+          # добавляем комментарий, а не заводим новый — иначе при длительном
+          # падении репозиторий завалило бы десятками одинаковых тикетов.
+          EXISTING=$(gh issue list --label outage --state open --limit 1 --json number -q '.[0].number' || true)
+          {
+            echo "Проверка доступности не прошла:"
+            echo
+            cat /tmp/failed.md
+            echo
+            echo "Прогон: $RUN_URL"
+          } > /tmp/body.md
+          BODY=$(cat /tmp/body.md)
+
+          if [ -n "${EXISTING:-}" ]; then
+            gh issue comment "$EXISTING" --body "$BODY"
+            echo "добавлен комментарий к #$EXISTING"
+          else
+            gh label create outage --color B60205 --description "Недоступность прода" 2>/dev/null || true
+            gh issue create --title "Прод недоступен" --label outage --body "$BODY"
+          fi
+
+      - name: Закрыть issue, если всё поднялось
+        if: steps.check.outputs.failed == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          EXISTING=$(gh issue list --label outage --state open --limit 1 --json number -q '.[0].number' || true)
+          if [ -n "${EXISTING:-}" ]; then
+            gh issue comment "$EXISTING" --body "Все проверки снова проходят — закрываю."
+            gh issue close "$EXISTING"
+            echo "закрыт #$EXISTING"
+          fi
+
+      - name: Уронить прогон при недоступности
+        if: steps.check.outputs.failed == 'true'
+        # Красный прогон в списке Actions — второй видимый признак помимо issue.
+        run: exit 1
