@@ -13,7 +13,12 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PdfService } from '../documents/pdf.service';
 import { NotificationsService } from '../mail/notifications.service';
 import { AlertsService } from '../alerts/alerts.service';
-import { packPriceOf, unitPriceForQty, percentOf, vetPointsSpendable } from '../common/pricing';
+import {
+  packPriceOf,
+  percentOf,
+  unitPriceWithContract,
+  vetPointsSpendable,
+} from '../common/pricing';
 import { isTransitionAllowed, transitionError } from './status';
 import { invoiceNumberFor } from '../common/invoice-number';
 
@@ -111,9 +116,7 @@ export class OrdersService {
         }
         sellerId = o.sellerId;
         minOrder = o.minOrder;
-        // Договорная цена перебивает прайс и объёмные скидки; иначе — цена оффера.
-        const contract = contractMap.get(o.id);
-        unitPrice = contract != null ? contract : unitPriceForQty(o, i.quantity);
+        unitPrice = unitPriceWithContract(o, i.quantity, contractMap.get(o.id));
         offerId = o.id;
       }
 

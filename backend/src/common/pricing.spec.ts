@@ -1,4 +1,10 @@
-import { packPriceOf, unitPriceForQty, percentOf, vetPointsSpendable } from './pricing';
+import {
+  packPriceOf,
+  unitPriceForQty,
+  unitPriceWithContract,
+  percentOf,
+  vetPointsSpendable,
+} from './pricing';
 
 describe('packPriceOf — цена единицы заказа с учётом фасовки', () => {
   it('обычный товар: цена не меняется', () => {
@@ -146,5 +152,45 @@ describe('vetPointsSpendable — сколько баллов можно спис
 
   it('отрицательный баланс не превращается в списание', () => {
     expect(vetPointsSpendable(100000, 5000, -100, MAX)).toBe(0);
+  });
+});
+
+describe('unitPriceWithContract — договорная цена покупателя', () => {
+  const offer = {
+    price: 10000,
+    priceBreaks: [
+      { minQty: 10, price: 9000 },
+      { minQty: 50, price: 8000 },
+    ],
+  };
+
+  it('без договора работает как обычный расчёт со скидками', () => {
+    expect(unitPriceWithContract(offer, 1, null)).toBe(10000);
+    expect(unitPriceWithContract(offer, 50, undefined)).toBe(8000);
+  });
+
+  it('договорная цена перебивает прайс', () => {
+    expect(unitPriceWithContract(offer, 1, 7500)).toBe(7500);
+  });
+
+  it('договорная цена перебивает и объёмные скидки — даже если те выгоднее', () => {
+    // Следствие заложенного поведения: покупатель с договором на 9500 при
+    // объёме 50 заплатит 9500, тогда как публичная скидка дала бы 8000.
+    // То есть договор может оказаться дороже открытого прайса. Решение
+    // намеренное, и тест существует, чтобы оно не осталось незамеченным.
+    expect(unitPriceWithContract(offer, 50, 9500)).toBe(9500);
+    expect(unitPriceForQty(offer, 50)).toBe(8000);
+  });
+
+  it('договорная цена, равная нулю, считается заданной', () => {
+    // Проверка на != null, а не на истинность: иначе бесплатная позиция по
+    // договору молча превращалась бы в цену прайса.
+    expect(unitPriceWithContract(offer, 1, 0)).toBe(0);
+  });
+
+  it('договорная цена учитывается и при фасовке', () => {
+    const packed = { price: 20000, priceUnitQty: 1000, packSize: 5000 };
+    expect(unitPriceWithContract(packed, 1, null)).toBe(100000);
+    expect(unitPriceWithContract(packed, 1, 95000)).toBe(95000);
   });
 });
