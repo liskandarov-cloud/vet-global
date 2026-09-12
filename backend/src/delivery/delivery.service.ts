@@ -35,6 +35,7 @@ export class DeliveryService {
 
   async upsert(orderId: string, dto: ShipmentDto, user: AuthUser) {
     await this.assertOrderAccess(orderId, user, true);
+    const sellerId = await this.resolveSeller(orderId, user);
     const data = {
       method: dto.method,
       status: dto.status,
@@ -48,26 +49,38 @@ export class DeliveryService {
       estimatedDate: dto.estimatedDate ? new Date(dto.estimatedDate) : undefined,
     };
     const shipment = await this.prisma.shipment.upsert({
-      where: { orderId },
+      where: { orderId_sellerId: { orderId, sellerId } },
       update: data,
-      create: { orderId, ...data },
+      create: { orderId, sellerId, ...data },
     });
 
-    await this.syncOrderTotal(orderId, Number(shipment.cost));
+    await this.syncOrderTotal(orderId);
     return this.serialize(shipment);
   }
 
+  // Возвращает все отправки заказа: у заказа от нескольких поставщиков их
+  // столько же, сколько продавцов, и показывать покупателю одну из них значит
+  // скрыть остальные посылки.
   async get(orderId: string, user: AuthUser) {
     await this.assertOrderAccess(orderId, user, false);
-    const shipment = await this.prisma.shipment.findUnique({ where: { orderId } });
-    return shipment ? this.serialize(shipment) : null;
+    const shipments = await this.prisma.shipment.findMany({
+      where: { orderId },
+      orderBy: { createdAt: 'asc' },
+    });
+    return shipments.map((sh) => this.serialize(sh));
   }
 
   async setStatus(orderId: string, status: ShipmentStatus, user: AuthUser) {
     await this.assertOrderAccess(orderId, user, true);
-    const existing = await this.prisma.shipment.findUnique({ where: { orderId } });
+    const sellerId = await this.resolveSeller(orderId, user);
+    const existing = await this.prisma.shipment.findUnique({
+      where: { orderId_sellerId: { orderId, sellerId } },
+    });
     if (!existing) throw new NotFoundException('Shipment not found');
-    const shipment = await this.prisma.shipment.update({ where: { orderId }, data: { status } });
+    const shipment = await this.prisma.shipment.update({
+      where: { orderId_sellerId: { orderId, sellerId } },
+      data: { status },
+    });
 
     // Notify buyer of the logistics change by SMS (ТЗ 3.4).
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
@@ -89,7 +102,7 @@ export class DeliveryService {
   //
   // Прочие поля отправки (трек-номер, перевозчик) правятся свободно — проверка
   // срабатывает лишь когда меняется именно сумма.
-  private async syncOrderTotal(orderId: string, deliveryCost: number) {
+  private async syncOrderTotal(orderId: string) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       select: {
@@ -98,10 +111,13 @@ export class DeliveryService {
         total: true,
         invoice: { select: { id: true } },
         payments: { where: { status: PaymentStatus.PAID }, select: { id: true } },
+        // Все отправки заказа: покупатель платит за доставку каждого поставщика.
+        shipments: { select: { cost: true } },
       },
     });
     if (!order) return;
 
+    const deliveryCost = order.shipments.reduce((sum, sh) => sum + Number(sh.cost), 0);
     const next = orderTotal(Number(order.subtotal), Number(order.vetPointsUsed), deliveryCost);
     if (next === Number(order.total)) return;
 
@@ -114,6 +130,24 @@ export class DeliveryService {
     }
 
     await this.prisma.order.update({ where: { id: orderId }, data: { total: next } });
+  }
+
+  // Чью отправку правит вызывающий.
+  //
+  // Продавец — всегда свою: подставить чужой идентификатор он не может, потому
+  // что берётся его собственный. Администратору достаётся первый продавец
+  // заказа: он правит отправки как исключение, а выбирать конкретную ему пока
+  // негде — интерфейса для этого нет, и придумывать параметр «за кого» до того,
+  // как он понадобится, значит расширять API впустую.
+  private async resolveSeller(orderId: string, user: AuthUser): Promise<string> {
+    if (user.role !== UserRole.ADMIN) return user.id;
+    const first = await this.prisma.orderItem.findFirst({
+      where: { orderId },
+      select: { sellerId: true },
+      orderBy: { id: 'asc' },
+    });
+    if (!first) throw new NotFoundException('В заказе нет позиций');
+    return first.sellerId;
   }
 
   private async assertOrderAccess(orderId: string, user: AuthUser, mutate: boolean) {

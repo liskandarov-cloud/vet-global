@@ -257,17 +257,27 @@ function OrderContent() {
             )}
           </div>
 
-          {order.shipment && (
-            <div className="card p-4 text-sm">
-              <div className="mb-1 flex items-center gap-2 font-medium"><Truck size={15} /> {tt('Доставка', 'Yetkazib berish')}</div>
-              <div className="text-ink-muted">{tt('Статус', 'Holat')}: <span className="font-medium text-ink">{shipLabel[order.shipment.status] ?? SHIP_RU[order.shipment.status]}</span></div>
-              {order.shipment.carrier && <div className="text-ink-muted">{tt('Перевозчик', 'Tashuvchi')}: {order.shipment.carrier}</div>}
-              {order.shipment.trackingNumber && <div className="text-ink-muted">{tt('Трек', 'Kuzatuv raqami')}: {order.shipment.trackingNumber}</div>}
-              {(order.shipment.city || order.shipment.address) && (
-                <div className="mt-1 flex items-start gap-1 text-ink-subtle"><MapPin size={13} className="mt-0.5 shrink-0" />{[order.shipment.city, order.shipment.address].filter(Boolean).join(', ')}</div>
+          {/* Отправок столько же, сколько поставщиков в заказе: у каждого свой
+              перевозчик, трек-номер и стоимость. Раньше показывалась одна на
+              весь заказ, и посылки остальных продавцов покупатель не видел. */}
+          {(order.shipments ?? []).map((sh: any, idx: number) => (
+            <div key={sh.id ?? idx} className="card p-4 text-sm">
+              <div className="mb-1 flex items-center gap-2 font-medium">
+                <Truck size={15} />
+                {tt('Доставка', 'Yetkazib berish')}
+                {(order.shipments ?? []).length > 1 && (
+                  <span className="text-ink-subtle">{idx + 1}/{order.shipments.length}</span>
+                )}
+              </div>
+              <div className="text-ink-muted">{tt('Статус', 'Holat')}: <span className="font-medium text-ink">{shipLabel[sh.status] ?? SHIP_RU[sh.status]}</span></div>
+              {sh.carrier && <div className="text-ink-muted">{tt('Перевозчик', 'Tashuvchi')}: {sh.carrier}</div>}
+              {sh.trackingNumber && <div className="text-ink-muted">{tt('Трек', 'Kuzatuv raqami')}: {sh.trackingNumber}</div>}
+              {sh.cost > 0 && <div className="text-ink-muted">{tt('Стоимость', 'Narxi')}: {formatMoney(Number(sh.cost))}</div>}
+              {(sh.city || sh.address) && (
+                <div className="mt-1 flex items-start gap-1 text-ink-subtle"><MapPin size={13} className="mt-0.5 shrink-0" />{[sh.city, sh.address].filter(Boolean).join(', ')}</div>
               )}
             </div>
-          )}
+          ))}
         </div>
       </div>
     </div>

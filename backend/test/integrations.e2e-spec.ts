@@ -58,14 +58,19 @@ describe('VetGlobal integrations (e2e)', () => {
       token: buyer,
       body: { items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }] },
     })).body;
-    const ship = await req(`/orders/${order.id}/shipment`, {
+    const ship = await req(`/orders/${order.id}/shipments`, {
       token: seller,
       body: { method: 'COURIER', city: 'Ташкент', carrier: 'BTS', trackingNumber: 'T1', cost: 40000 },
     });
     expect(ship.status).toBe(201);
     expect(ship.body.status).toBe('PENDING');
-    const view = await req(`/orders/${order.id}/shipment`, { token: buyer });
-    expect(view.body.carrier).toBe('BTS');
+    // Список, а не одна отправка: в заказе может быть несколько поставщиков,
+    // и покупатель должен видеть посылки каждого.
+    const view = await req(`/orders/${order.id}/shipments`, { token: buyer });
+    expect(Array.isArray(view.body)).toBe(true);
+    expect(view.body).toHaveLength(1);
+    expect(view.body[0].carrier).toBe('BTS');
+    expect(view.body[0].sellerId).toBe(sellerId);
   });
 
   it('consulting: public submit → admin sees it', async () => {

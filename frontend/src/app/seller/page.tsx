@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, Pencil, Trash2, Upload, X, TrendingUp, Package, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { useAuth } from '@/lib/store';
 import { RoleGuard, StatCard } from '@/components/RoleGuard';
 import { SellerOffersPanel } from '@/components/SellerOffersPanel';
 import { SellerContractsPanel } from '@/components/SellerContractsPanel';
@@ -14,6 +15,17 @@ import { ProfilePanel } from '@/components/ProfilePanel';
 import { TopProductsBar, WeeklyBars } from '@/components/Charts';
 import { Category, Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
+
+// Своя отправка продавца в заказе.
+//
+// Отправок в заказе столько же, сколько поставщиков, и продавец распоряжается
+// только своей. Запасной вариант по пустому продавцу — для записей, созданных
+// до разделения отправок: у них поле не заполнено, если восстановление ещё не
+// прогоняли.
+function ownShipment(order: any, sellerId?: string) {
+  const list = order?.shipments ?? [];
+  return list.find((sh: any) => sh.sellerId === sellerId) ?? list.find((sh: any) => !sh.sellerId);
+}
 import { signWithEimzo } from '@/lib/eimzo';
 import { useI18n } from '@/lib/i18n';
 
@@ -25,6 +37,9 @@ const EMPTY = {
 
 function SellerContent() {
   const { tt } = useI18n();
+  // Нужен, чтобы среди отправок заказа выбрать свою: у заказа от нескольких
+  // поставщиков их столько же, сколько продавцов.
+  const { user } = useAuth();
   const didoxLabels: Record<string, string> = {
     DRAFT: tt('Черновик', 'Qoralama'), SENT: tt('Отправлен', 'Joʻnatilgan'),
     SIGNED: tt('Подписан', 'Imzolangan'), REJECTED: tt('Отклонён', 'Rad etilgan'),
@@ -377,10 +392,10 @@ function SellerContent() {
                     )}
                   </td>
                   <td>
-                    {o.shipment ? (
+                    {ownShipment(o, user?.id) ? (
                       <button className="inline-flex items-center gap-1" onClick={() => setDeliveryOrder(o)}>
-                        <span className={`rounded-md px-2 py-0.5 text-xs ${o.shipment.status === 'DELIVERED' ? 'bg-teal-100 text-teal-700' : o.shipment.status === 'RETURNED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
-                          {shipLabels[o.shipment.status] ?? o.shipment.status}
+                        <span className={`rounded-md px-2 py-0.5 text-xs ${ownShipment(o, user?.id).status === 'DELIVERED' ? 'bg-teal-100 text-teal-700' : ownShipment(o, user?.id).status === 'RETURNED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                          {shipLabels[ownShipment(o, user?.id).status] ?? ownShipment(o, user?.id).status}
                         </span>
                       </button>
                     ) : (
@@ -543,6 +558,7 @@ function SyncPanel() {
 }
 
 function DeliveryForm({ order, onClose, onSaved }: any) {
+  const { user } = useAuth();
   const { tt } = useI18n();
   const shipMethods: Record<string, string> = {
     COURIER: tt('Курьер', 'Kuryer'), PICKUP: tt('Самовывоз', 'Oʻzi olib ketish'),
@@ -553,7 +569,7 @@ function DeliveryForm({ order, onClose, onSaved }: any) {
     IN_TRANSIT: tt('В пути', 'Yoʻlda'), DELIVERED: tt('Доставлено', 'Yetkazilgan'),
     RETURNED: tt('Возврат', 'Qaytarilgan'),
   };
-  const s = order.shipment ?? {};
+  const s = ownShipment(order, user?.id) ?? {};
   const [form, setForm] = useState<any>({
     method: s.method ?? 'COURIER', status: s.status ?? 'PENDING',
     city: s.city ?? '', address: s.address ?? '',
@@ -567,7 +583,7 @@ function DeliveryForm({ order, onClose, onSaved }: any) {
   const save = async () => {
     setSaving(true);
     try {
-      await api.post(`/orders/${order.id}/shipment`, {
+      await api.post(`/orders/${order.id}/shipments`, {
         ...form, cost: Number(form.cost) || 0,
         estimatedDate: form.estimatedDate || undefined,
       });

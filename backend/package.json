@@ -15,7 +15,8 @@
     "test:e2e": "jest --config test/jest-e2e.json --runInBand",
     "test": "jest --config test/jest-unit.json",
     "test:all": "npm run test && npm run test:e2e",
-    "seed:reference": "ts-node --transpile-only prisma/seed-reference.ts"
+    "seed:reference": "ts-node --transpile-only prisma/seed-reference.ts",
+    "backfill:shipment-seller": "ts-node --transpile-only prisma/backfill-shipment-seller.ts"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"

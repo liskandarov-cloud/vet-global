@@ -712,19 +712,23 @@ async function main() {
 
       // Обогащение заказов: доставка / оплата / счёт / условия оплаты.
       const myOrders = await prisma.order.findMany({ where: { buyerId: buyerMain.id, status: { not: OrderStatus.CANCELLED } }, orderBy: { createdAt: 'desc' }, take: 6 });
-      if (myOrders[0] && !(await prisma.shipment.findUnique({ where: { orderId: myOrders[0].id } }))) {
+      // findFirst, а не findUnique: отправка теперь принадлежит продавцу, и
+      // заказ может иметь их несколько — уникальности по orderId больше нет.
+      if (myOrders[0] && !(await prisma.shipment.findFirst({ where: { orderId: myOrders[0].id } }))) {
         const o = myOrders[0];
         await prisma.order.update({ where: { id: o.id }, data: { paymentTerm: PaymentTerm.NET_TERMS, netTermDays: 30, dueDate: new Date(Date.now() + 20 * 86400000) } });
-        await prisma.shipment.create({ data: { orderId: o.id, method: DeliveryMethod.TRANSPORT, status: ShipmentStatus.IN_TRANSIT, city: 'Ташкент', address: 'Юнусабадский р-н, ул. Амира Темура 15', recipientName: o.buyerName, recipientPhone: o.buyerPhone, cost: 120000, carrier: 'BTS Express', trackingNumber: 'BTS-2026-004417', estimatedDate: new Date(Date.now() + 3 * 86400000) } });
+        await prisma.shipment.create({ data: { orderId: o.id, sellerId: (await prisma.orderItem.findFirst({ where: { orderId: o.id }, select: { sellerId: true } }))?.sellerId, method: DeliveryMethod.TRANSPORT, status: ShipmentStatus.IN_TRANSIT, city: 'Ташкент', address: 'Юнусабадский р-н, ул. Амира Темура 15', recipientName: o.buyerName, recipientPhone: o.buyerPhone, cost: 120000, carrier: 'BTS Express', trackingNumber: 'BTS-2026-004417', estimatedDate: new Date(Date.now() + 3 * 86400000) } });
         await prisma.payment.create({ data: { orderId: o.id, provider: PaymentProvider.PAYME, amount: o.total, status: PaymentStatus.PAID, providerTransId: 'pm_demo_' + o.id.slice(0, 6) } });
         await prisma.invoice.upsert({ where: { orderId: o.id }, create: { orderId: o.id, number: invoiceNumberFor(o), amount: o.total, didoxStatus: 'SIGNED', didoxId: 'dx_' + o.id.slice(0, 8), signedAt: new Date() }, update: { didoxStatus: 'SIGNED', signedAt: new Date() } });
       }
-      if (myOrders[1] && !(await prisma.shipment.findUnique({ where: { orderId: myOrders[1].id } }))) {
+      // findFirst, а не findUnique: отправка теперь принадлежит продавцу, и
+      // заказ может иметь их несколько — уникальности по orderId больше нет.
+      if (myOrders[1] && !(await prisma.shipment.findFirst({ where: { orderId: myOrders[1].id } }))) {
         const o = myOrders[1];
         const total = Number(o.total); const n = 3; const per = Math.round(total / n);
         const schedule = Array.from({ length: n }, (_, i) => ({ n: i + 1, dueDate: new Date(Date.now() + (i + 1) * 30 * 86400000).toISOString(), amount: i === n - 1 ? total - per * (n - 1) : per }));
         await prisma.order.update({ where: { id: o.id }, data: { paymentTerm: PaymentTerm.INSTALLMENT, installments: n, paymentSchedule: schedule as any, dueDate: new Date(schedule[n - 1].dueDate) } });
-        await prisma.shipment.create({ data: { orderId: o.id, method: DeliveryMethod.COURIER, status: ShipmentStatus.DELIVERED, city: 'Ташкент', recipientName: o.buyerName, recipientPhone: o.buyerPhone, cost: 45000, carrier: 'Собственная доставка', trackingNumber: 'VG-DLV-1188' } });
+        await prisma.shipment.create({ data: { orderId: o.id, sellerId: (await prisma.orderItem.findFirst({ where: { orderId: o.id }, select: { sellerId: true } }))?.sellerId, method: DeliveryMethod.COURIER, status: ShipmentStatus.DELIVERED, city: 'Ташкент', recipientName: o.buyerName, recipientPhone: o.buyerPhone, cost: 45000, carrier: 'Собственная доставка', trackingNumber: 'VG-DLV-1188' } });
         await prisma.payment.create({ data: { orderId: o.id, provider: PaymentProvider.CLICK, amount: o.total, status: PaymentStatus.PAID, providerTransId: 'ck_demo_' + o.id.slice(0, 6) } });
       }
       if (myOrders[2] && !(await prisma.payment.findFirst({ where: { orderId: myOrders[2].id } }))) {

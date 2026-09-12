@@ -597,7 +597,7 @@ model Order {
   org          Organization? @relation(fields: [orgId], references: [id])
   items        OrderItem[]
   invoice      Invoice?
-  shipment     Shipment?
+  shipments    Shipment[]
   payments     Payment[]
 
   @@index([buyerId])
@@ -647,8 +647,16 @@ model Invoice {
 
 // Shipment for an order (питч-дек: «Доставка»). 1:1 with Order.
 model Shipment {
-  id             String         @id @default(uuid())
-  orderId        String         @unique
+  id      String @id @default(uuid())
+  orderId String
+  // Отправка принадлежит продавцу, а не заказу целиком: в заказе могут быть
+  // товары от нескольких поставщиков, и физически это разные посылки — со
+  // своим перевозчиком, трек-номером и стоимостью. Раньше на заказ приходилась
+  // ровно одна отправка, и у заказа от двух продавцов она была общей.
+  //
+  // Необязательное поле ради уже существующих записей: их продавец
+  // восстанавливается отдельным скриптом по первой позиции заказа.
+  sellerId String?
   method         DeliveryMethod @default(COURIER)
   status         ShipmentStatus @default(PENDING)
   city           String?
@@ -663,6 +671,10 @@ model Shipment {
   updatedAt      DateTime       @updatedAt
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  // Одна отправка на продавца в заказе.
+  @@unique([orderId, sellerId])
+  @@index([sellerId])
 
   @@index([status])
 }

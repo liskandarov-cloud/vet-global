@@ -26,7 +26,10 @@ class StatusDto {
 }
 
 @ApiTags('delivery')
-@Controller('orders/:orderId/shipment')
+// Множественное число не косметика: в заказе от нескольких поставщиков отправок
+// столько же, сколько продавцов, и GET возвращает список. Путь в единственном
+// числе обещал бы одну.
+@Controller('orders/:orderId/shipments')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class DeliveryController {
