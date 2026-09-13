@@ -28,14 +28,31 @@ jobs:
   dump:
     runs-on: ubuntu-latest
     steps:
-      - name: Установка клиента PostgreSQL 17
+      - name: Клиент PostgreSQL под версию сервера
+        env:
+          DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
         run: |
-          # Версия клиента должна быть не ниже серверной (Supabase на 17),
-          # иначе pg_dump откажется работать с несовпадением версий.
+          set -euo pipefail
+          test -n "$DB_URL" || { echo "::error::секрет BACKUP_DATABASE_URL не задан"; exit 1; }
+
           sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
           curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
           sudo apt-get update -qq
-          sudo apt-get install -y -qq postgresql-client-17
+
+          # Мажор сервера спрашиваем у самого сервера, а не зашиваем числом:
+          # Supabase обновляет версию сам, и зашитая «17» однажды снова
+          # разойдётся. Для запроса годится и старый psql — несовпадение
+          # версий запрещает только pg_dump.
+          MAJOR=$(psql "$DB_URL" -tAc 'SHOW server_version' | cut -d. -f1 | tr -d '[:space:]')
+          echo "сервер: PostgreSQL $MAJOR"
+          sudo apt-get install -y -qq "postgresql-client-$MAJOR"
+
+          # Явный PATH обязателен. В образе раннера /usr/bin/pg_dump — это
+          # клиент 16, и он перекрывает только что установленный: первый
+          # ночной бэкап упал на «server version mismatch» именно так, хотя
+          # нужный клиент уже стоял рядом.
+          echo "/usr/lib/postgresql/$MAJOR/bin" >> "$GITHUB_PATH"
+          echo "PG_MAJOR=$MAJOR" >> "$GITHUB_ENV"
 
       - name: Снятие дампа
         env:
@@ -43,6 +60,14 @@ jobs:
         run: |
           set -euo pipefail
           test -n "$DB_URL" || { echo "::error::секрет BACKUP_DATABASE_URL не задан"; exit 1; }
+
+          # Версию клиента проверяем до дампа: иначе о несовпадении узнаём из
+          # ошибки pg_dump, а бэкапа за сутки уже нет.
+          CLIENT=$(pg_dump --version | grep -oE '[0-9]+' | head -1)
+          echo "pg_dump: $CLIENT, сервер: $PG_MAJOR"
+          test "$CLIENT" -ge "$PG_MAJOR" || {
+            echo "::error::pg_dump $CLIENT старше сервера $PG_MAJOR — дамп будет отказан"; exit 1; }
+
           STAMP=$(date -u +%Y-%m-%d)
           # --no-owner и --no-acl: восстанавливать будем в другую базу, где роли
           # Supabase отсутствуют, и их упоминание ломало бы импорт.
