@@ -887,6 +887,77 @@ describe('VetGlobal integrations (e2e)', () => {
     });
   });
 
+  // Доставка в отчёте по выплатам. Деньги за неё берутся с покупателя (она
+  // входит в сумму заказа), но до этого не попадали в выплату никому: отчёт
+  // считал только товары, и доставка молча оставалась у платформы.
+  it('доставка попадает в выплату продавцу и не облагается комиссией', async () => {
+    const row = async () => {
+      const billing = (await req('/admin/billing', { token: admin })).body;
+      return billing.rows.find((r: any) => r.sellerId === sellerId);
+    };
+
+    await req('/delivery/tariffs', { token: seller, body: { method: 'COURIER', city: 'Ташкент', cost: 45000 } });
+    const before = await row();
+
+    const order = (await req('/orders', {
+      token: buyer,
+      body: {
+        items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }],
+        deliveryMethod: 'COURIER',
+        deliveryCity: 'Ташкент',
+      },
+    })).body;
+    expect(order.deliveryCost).toBe(45000);
+
+    const after = await row();
+    expect(after.delivery - before.delivery).toBeCloseTo(45000, 2);
+    // Комиссия выросла только на процент от товаров.
+    const goods = after.revenue - before.revenue;
+    expect(after.commission - before.commission).toBeCloseTo(goods * 0.12, 2);
+    expect(after.payout - before.payout).toBeCloseTo(goods * 0.88 + 45000, 2);
+  });
+
+  // Счёт-фактура — документ налогового учёта: строки обязаны сходиться с
+  // итогом, а два документа на одну поставку означают двойную реализацию.
+  describe('ЭДО: счёт-фактура', () => {
+    it('сумма документа — товары плюс доставка, без вычета баллов', async () => {
+      await req('/delivery/tariffs', { token: seller, body: { method: 'COURIER', city: 'Ташкент', cost: 45000 } });
+      const order = (await req('/orders', {
+        token: buyer,
+        body: {
+          items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }],
+          deliveryMethod: 'COURIER',
+          deliveryCity: 'Ташкент',
+          vetPointsUsed: 1000,
+        },
+      })).body;
+      expect(order.vetPointsUsed).toBe(1000);
+
+      const sent = await req(`/didox/send/${order.id}`, { token: admin, body: {} });
+      expect(sent.status).toBeLessThan(400);
+      expect(sent.body.didoxId).toBeTruthy();
+
+      // Баллы оплачивает платформа: продавцу выплачивается полная стоимость,
+      // поэтому и реализация в документе полная.
+      const invoice = (await req(`/orders/${order.id}/invoice`, { token: admin })).body;
+      const expected = order.subtotal + order.deliveryCost;
+      expect(Number(invoice.amount ?? expected)).toBeCloseTo(expected, 2);
+      expect(expected).not.toBe(order.total);
+    });
+
+    it('повторная отправка не создаёт второй документ', async () => {
+      const order = (await req('/orders', {
+        token: buyer,
+        body: { items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }] },
+      })).body;
+
+      const first = await req(`/didox/send/${order.id}`, { token: admin, body: {} });
+      const second = await req(`/didox/send/${order.id}`, { token: admin, body: {} });
+      expect(second.body.didoxId).toBe(first.body.didoxId);
+      expect(second.body.alreadySent).toBe(true);
+    });
+  });
+
   // Отчёт по выплатам и общая статистика берут комиссию разными путями: первый
   // считает её от выручки по позициям, вторая суммирует записанную в заказах.
   // Расхождение означало бы, что продавцу выставляют счёт не на ту сумму.
@@ -895,7 +966,16 @@ describe('VetGlobal integrations (e2e)', () => {
     const billing = (await req('/admin/billing', { token: admin })).body;
     expect(billing.totals.commission).toBeCloseTo(stats.commission, 2);
     expect(billing.totals.revenue).toBeCloseTo(stats.gmv, 2);
-    expect(billing.totals.payout).toBeCloseTo(billing.totals.revenue - billing.totals.commission, 2);
+    // Выплата включает доставку: деньги за неё берутся с покупателя, а
+    // организует её продавец. Комиссией доставка не облагается — платформа
+    // берёт процент со своей сделки, а не с работы перевозчика.
+    expect(billing.totals.payout).toBeCloseTo(
+      billing.totals.revenue - billing.totals.commission + billing.totals.delivery,
+      2,
+    );
+    // Выручка отчёта — только товары, как и GMV: иначе комиссия считалась бы от
+    // суммы, часть которой продавцу не принадлежит.
+    expect(billing.totals.revenue).toBeCloseTo(stats.gmv, 2);
   });
 
   // Доставку считают в корзине, до оформления заказа, и эта цифра должна

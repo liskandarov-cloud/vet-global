@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { percentOf } from '../common/pricing';
+import { percentOf, round2 } from '../common/pricing';
+import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 
 // Отменённый заказ не выручка. Фильтр один для всех отчётов: раньше его не было
 // вовсе, и отмены попадали и в GMV, и в комиссию, и в выплаты продавцам.
@@ -83,18 +84,50 @@ export class AnalyticsService {
   }
 
   // ── Admin billing: per-seller revenue / commission / payout ──
+  //
+  // Доставка учитывается отдельной строкой и комиссией не облагается.
+  //
+  // Деньги за доставку берутся с покупателя (они входят в сумму заказа), но до
+  // этого не попадали в выплату никому: отчёт считал только товары, и доставка
+  // молча оставалась у платформы, хотя организует её продавец — тарифы его,
+  // перевозчика выбирает он. Комиссия от неё не берётся по тому же правилу, по
+  // которому она не входит в базу комиссии в orderTotal: платформа берёт процент
+  // со своей сделки, а не с работы перевозчика.
   async adminBilling() {
     const items = await this.prisma.orderItem.findMany({
       where: { order: NOT_CANCELLED },
       select: { sellerId: true, price: true, quantity: true, orderId: true },
     });
 
-    const map = new Map<string, { revenue: number; orders: Set<string> }>();
+    const map = new Map<string, { revenue: number; delivery: number; orders: Set<string> }>();
+    const bucket = (sellerId: string) => {
+      const cur = map.get(sellerId) ?? { revenue: 0, delivery: 0, orders: new Set<string>() };
+      map.set(sellerId, cur);
+      return cur;
+    };
+
     for (const it of items) {
-      const cur = map.get(it.sellerId) ?? { revenue: 0, orders: new Set<string>() };
+      const cur = bucket(it.sellerId);
       cur.revenue += Number(it.price) * it.quantity;
       cur.orders.add(it.orderId);
-      map.set(it.sellerId, cur);
+    }
+
+    // Доставка по той же разбивке, по которой она попадает в сумму заказа.
+    const ordersWithDelivery = await this.prisma.order.findMany({
+      where: { ...NOT_CANCELLED, OR: [{ deliveryCost: { gt: 0 } }, { shipments: { some: {} } }] },
+      select: { deliveryQuote: true, shipments: { select: { sellerId: true, cost: true } } },
+    });
+    for (const order of ordersWithDelivery) {
+      const split = deliveryBySellerForOrder(
+        order.deliveryQuote,
+        order.shipments.map((sh) => ({ sellerId: sh.sellerId, cost: Number(sh.cost) })),
+      );
+      for (const [sellerId, cost] of Object.entries(split)) {
+        // Пустой ключ — доставка без продавца (наследие): выплатить её некому,
+        // и приписывать произвольному продавцу нельзя.
+        if (!sellerId) continue;
+        bucket(sellerId).delivery += cost;
+      }
     }
 
     const sellers = await this.prisma.user.findMany({
@@ -114,14 +147,20 @@ export class AnalyticsService {
           orders: v.orders.size,
           revenue: v.revenue,
           commission,
-          payout: v.revenue - commission,
+          delivery: round2(v.delivery),
+          payout: round2(v.revenue - commission + v.delivery),
         };
       })
       .sort((a, b) => b.revenue - a.revenue);
 
     const totals = rows.reduce(
-      (t, r) => ({ revenue: t.revenue + r.revenue, commission: t.commission + r.commission, payout: t.payout + r.payout }),
-      { revenue: 0, commission: 0, payout: 0 },
+      (t, r) => ({
+        revenue: round2(t.revenue + r.revenue),
+        commission: round2(t.commission + r.commission),
+        delivery: round2(t.delivery + r.delivery),
+        payout: round2(t.payout + r.payout),
+      }),
+      { revenue: 0, commission: 0, delivery: 0, payout: 0 },
     );
 
     return { commissionPercent: this.commissionPct, rows, totals };

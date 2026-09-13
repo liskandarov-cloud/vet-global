@@ -159,9 +159,14 @@ describe('VetGlobal API (e2e)', () => {
     expect(r.status).toBe(200);
     expect(Array.isArray(r.body.rows)).toBe(true);
     expect(r.body.totals.revenue).toBeGreaterThan(0);
-    // payout = revenue - commission for every row
+    // Выплата = товары − комиссия + доставка.
+    //
+    // Доставка появилась в отчёте отдельной строкой: деньги за неё берутся с
+    // покупателя, а организует её продавец, и до этого они не попадали в выплату
+    // никому. Комиссией она не облагается — платформа берёт процент со своей
+    // сделки, а не с работы перевозчика.
     for (const row of r.body.rows) {
-      expect(row.payout).toBe(row.revenue - row.commission);
+      expect(row.payout).toBeCloseTo(row.revenue - row.commission + row.delivery, 2);
     }
   });
 

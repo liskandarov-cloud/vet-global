@@ -1,4 +1,4 @@
-import { deliveryTotalForOrder, parseQuote } from './order-delivery';
+import { deliveryBySellerForOrder, deliveryTotalForOrder, parseQuote } from './order-delivery';
 
 const S1 = 'seller-1';
 const S2 = 'seller-2';
@@ -46,5 +46,40 @@ describe('доставка в сумме заказа', () => {
 
   it('складывает копейки без накопления погрешности', () => {
     expect(deliveryTotalForOrder({ [S1]: 0.1, [S2]: 0.2 }, [])).toBe(0.3);
+  });
+});
+
+describe('разбивка доставки по продавцам', () => {
+  it('расчёт при оформлении даёт разбивку как есть', () => {
+    expect(deliveryBySellerForOrder({ [S1]: 45000, [S2]: 30000 }, [])).toEqual({ [S1]: 45000, [S2]: 30000 });
+  });
+
+  it('продавец без тарифа попадает в разбивку по своей отправке', () => {
+    expect(
+      deliveryBySellerForOrder({ [S1]: 45000 }, [
+        { sellerId: S1, cost: 45000 },
+        { sellerId: S2, cost: 30000 },
+      ]),
+    ).toEqual({ [S1]: 45000, [S2]: 30000 });
+  });
+
+  it('старые заказы без расчёта разбиваются по отправкам', () => {
+    expect(deliveryBySellerForOrder(null, [{ sellerId: S1, cost: 40000 }])).toEqual({ [S1]: 40000 });
+  });
+
+  // Такую доставку нельзя ни выплатить, ни потерять: из суммы заказа она уже
+  // взята с покупателя, но продавец у неё неизвестен.
+  it('отправка без продавца попадает в ключ «неизвестно», а не исчезает', () => {
+    const split = deliveryBySellerForOrder({ [S1]: 45000 }, [{ sellerId: null, cost: 10000 }]);
+    expect(split['']).toBe(10000);
+    expect(deliveryTotalForOrder({ [S1]: 45000 }, [{ sellerId: null, cost: 10000 }])).toBe(55000);
+  });
+
+  it('сумма разбивки всегда равна доставке заказа', () => {
+    const quote = { [S1]: 45000, [S2]: 30000 };
+    const ships = [{ sellerId: S1, cost: 45000 }, { sellerId: 'seller-3', cost: 12000 }];
+    const split = deliveryBySellerForOrder(quote, ships);
+    const sum = Object.values(split).reduce((a, b) => a + b, 0);
+    expect(sum).toBe(deliveryTotalForOrder(quote, ships));
   });
 });

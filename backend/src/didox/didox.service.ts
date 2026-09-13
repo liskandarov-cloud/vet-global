@@ -3,10 +3,11 @@ import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
-import { DidoxAdapter, FacturaPayload } from './didox.types';
+import { DidoxAdapter } from './didox.types';
 import { MockDidoxAdapter } from './adapters/mock.adapter';
 import { LiveDidoxAdapter } from './adapters/live.adapter';
 import { invoiceNumberFor } from '../common/invoice-number';
+import { buildFactura } from './factura';
 
 @Injectable()
 export class DidoxService {
@@ -34,27 +35,32 @@ export class DidoxService {
   async send(orderId: string, user: AuthUser) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: true, invoice: true },
+      include: { items: true, invoice: true, counterparty: true, buyer: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
 
+    // Повторная отправка документ не дублирует.
+    //
+    // Счёт-фактура — документ налогового учёта: два документа на одну поставку
+    // означают двойную реализацию у продавца. Раньше каждый вызов создавал новый
+    // документ, а в базе оставался только последний идентификатор — предыдущий
+    // висел в Didox, и о нём уже нельзя было узнать.
+    if (order.invoice?.didoxId) {
+      return {
+        mode: this.adapter.mode,
+        didoxId: order.invoice.didoxId,
+        didoxStatus: order.invoice.didoxStatus,
+        number: order.invoice.number,
+        alreadySent: true,
+      };
+    }
+
     const number = order.invoice?.number ?? invoiceNumberFor(order);
     const seller = await this.prisma.user.findUnique({ where: { id: order.items[0]?.sellerId } });
 
-    const payload: FacturaPayload = {
-      facturaNo: number,
-      facturaDate: order.createdAt.toISOString().slice(0, 10),
-      seller: { tin: seller?.inn, name: seller?.company },
-      buyer: { tin: order.buyerCompany ? undefined : undefined, name: order.buyerCompany ?? order.buyerName },
-      items: order.items.map((it) => ({
-        name: it.productName,
-        quantity: it.quantity,
-        price: Number(it.price),
-        total: Number(it.price) * it.quantity,
-      })),
-      total: Number(order.total),
-    };
+    const payload = buildFactura(order, seller, number);
+    const total = payload.total;
 
     const result = await this.adapter.createInvoice(payload);
 
@@ -64,7 +70,10 @@ export class DidoxService {
       create: {
         orderId,
         number,
-        amount: order.total,
+        // Сумма счёта — сумма документа, а не заказа: они различаются на
+        // списанные баллы, и хранить здесь сумму заказа значило бы расходиться
+        // с отправленным в ЭДО документом.
+        amount: total,
         didoxId: result.didoxId,
         didoxStatus: result.status,
       },
