@@ -7,6 +7,7 @@ import { Product } from '@/lib/types';
 import { useCart, useFavorites, useAuth } from '@/lib/store';
 import { useI18n } from '@/lib/i18n';
 import { formatMoney } from '@/lib/utils';
+import { applyPromotion } from '@/lib/pricing';
 
 const PLACEHOLDER = '/products/vaccine.jpg';
 
@@ -94,10 +95,18 @@ export function ProductCard({ product }: { product: Product }) {
             {product.offersCount && product.offersCount > 0 && product.minPrice != null ? (
               <>
                 <div className="text-[11px] leading-none text-ink-subtle">{tt('от', 'dan')}</div>
-                <div className="whitespace-nowrap font-heading text-lg font-bold text-ink">{formatMoney(product.minPrice)}</div>
+                <div className="whitespace-nowrap font-heading text-lg font-bold text-ink">{formatMoney(applyPromotion(product.minPrice, product.promoPercent))}</div>
               </>
             ) : (
-              <div className="whitespace-nowrap font-heading text-lg font-bold text-ink">{formatMoney(product.price)}</div>
+              <div className="whitespace-nowrap font-heading text-lg font-bold text-ink">{formatMoney(applyPromotion(product.price, product.promoPercent))}</div>
+            )}
+            {/* Цена до акции зачёркнутой: скидка без исходной цены — это просто
+                другая цена, и покупатель не видит, что она снижена. */}
+            {!!product.promoPercent && product.promoPercent > 0 && (
+              <div className="flex items-center gap-1.5 text-xs">
+                <span className="text-ink-subtle line-through">{formatMoney(product.minPrice ?? product.price)}</span>
+                <span className="rounded bg-red-50 px-1 font-medium text-red-600">−{product.promoPercent}%</span>
+              </div>
             )}
             {product.offersCount && product.offersCount > 1 ? (
               <div className="text-xs font-medium text-teal-700">{product.offersCount} {tt('предложений', 'taklif')}</div>
@@ -117,7 +126,10 @@ export function ProductCard({ product }: { product: Product }) {
                   {
                     productId: product.id,
                     name: displayName,
-                    price: product.minPrice ?? product.price,
+                    // В корзину кладётся цена с акцией: сумма заказа считается
+                    // сервером по тому же правилу, и иначе корзина обещала бы
+                    // одну цену, а списалась другая.
+                    price: applyPromotion(product.minPrice ?? product.price, product.promoPercent),
                     minOrder: product.minOrder,
                     image,
                   },

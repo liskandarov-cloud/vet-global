@@ -39,6 +39,9 @@ export interface Offer {
   leadTimeDays?: number | null;
   netTermDays?: number | null;
   priceBreaks?: PriceBreak[] | null;
+  // Процент действующей акции продавца (0 — акции нет). Цену с акцией считает
+  // фронт: она зависит от количества и договорной цены покупателя.
+  promoPercent?: number;
   batchNumber?: string | null;
   expiryDate?: string | null;
   regNumber?: string | null;
@@ -55,6 +58,8 @@ export interface Product {
   description: string;
   categoryId: string;
   price: number;
+  // Процент действующей акции продавца (0 — акции нет).
+  promoPercent?: number;
   activeSubstance?: string;
   manufacturer?: string;
   form?: string;

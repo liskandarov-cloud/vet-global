@@ -20,6 +20,9 @@ export function serializeOffer(o: any) {
     ...o,
     price: Number(o.price),
     packPrice: packPriceOf(o),
+    // Процент действующей акции продавца (0 — акции нет). Цену с акцией считает
+    // получатель: она зависит от количества и договорной цены покупателя.
+    promoPercent: Number(o.promoPercent ?? 0),
     ...(o.seller ? { seller: { ...o.seller, rating: Number(o.seller.rating ?? 0) } } : {}),
   };
 }
@@ -43,14 +46,14 @@ export function unitPriceForQty(offer: any, qty: number): number {
 // оказывалась выгоднее договора, покупатель с договором платил больше, чем
 // случайный покупатель без него. Договор должен быть потолком цены, а не
 // заменой расчёта.
+// Оставлено отдельным именем как случай без акции: два независимых расчёта
+// цены однажды разошлись бы, поэтому реализация одна — unitPriceFinal.
 export function unitPriceWithContract(
   offer: any,
   qty: number,
   contractPrice?: number | null,
 ): number {
-  const computed = unitPriceForQty(offer, qty);
-  if (contractPrice == null) return computed;
-  return Math.min(Number(contractPrice), computed);
+  return unitPriceFinal(offer, qty, contractPrice, 0);
 }
 
 // ── Денежная арифметика ───────────────────────────────────────────────────────
@@ -108,4 +111,77 @@ export function orderTotal(
   const points = Number(vetPointsUsed) || 0;
   const delivery = Number(deliveryCost) || 0;
   return round2(sub - points + delivery);
+}
+
+// ── Акции ──────────────────────────────────────────────────────────────────
+//
+// Процент скидки у акции существовал и не читался нигде: продавец заводил
+// «−15%», покупатель видел это на странице акций, а в каталоге и в заказе цена
+// оставалась прежней. Платформа обещала скидку и не давала её.
+//
+// Решение владельца: акция снижает цену по-настоящему. Акции не складываются —
+// берётся лучшая для покупателя. Договорная цена дополнительно не уценивается:
+// она уже результат переговоров, и скидка поверх неё означала бы двойную уступку
+// там, где продавец её не обещал.
+
+export interface PromotionLike {
+  sellerId: string;
+  // Пусто — акция на все товары продавца.
+  productId?: string | null;
+  discountPercent: number;
+  startsAt: Date | string;
+  endsAt?: Date | string | null;
+  isActive?: boolean;
+}
+
+// Лучший процент среди применимых акций. Ноль означает «скидки нет».
+export function bestPromotionPercent(
+  promotions: PromotionLike[],
+  target: { sellerId: string; productId?: string | null },
+  at: Date = new Date(),
+): number {
+  const now = at.getTime();
+  let best = 0;
+  for (const p of promotions ?? []) {
+    if (!p || p.isActive === false) continue;
+    if (p.sellerId !== target.sellerId) continue;
+    // Акция без товара — на весь ассортимент продавца; с товаром — только на него.
+    if (p.productId && p.productId !== target.productId) continue;
+    if (new Date(p.startsAt).getTime() > now) continue;
+    if (p.endsAt != null && new Date(p.endsAt).getTime() < now) continue;
+    const pct = clampPercent(p.discountPercent);
+    if (pct > best) best = pct;
+  }
+  return best;
+}
+
+// Цена со снятым процентом. Процент вне 0..100 игнорируется: в базе он может
+// оказаться любым (правка вручную, импорт), а отрицательная скидка — это
+// наценка, которой покупателю никто не обещал.
+export function applyPromotion(price: number, percent: number): number {
+  const pct = clampPercent(percent);
+  if (!pct) return round2(Number(price) || 0);
+  return round2((Number(price) || 0) * (1 - pct / 100));
+}
+
+// Итоговая цена единицы: объёмные скидки, акция и договорная цена вместе.
+//
+// Покупатель платит меньшее из двух: договорной цены и публичной цены с акцией.
+// Порядок важен именно этим — акция применяется к публичной цене, а договорная
+// остаётся потолком, как решено ранее.
+export function unitPriceFinal(
+  offer: any,
+  qty: number,
+  contractPrice?: number | null,
+  promotionPercent = 0,
+): number {
+  const promoted = applyPromotion(unitPriceForQty(offer, qty), promotionPercent);
+  if (contractPrice == null) return promoted;
+  return round2(Math.min(Number(contractPrice), promoted));
+}
+
+function clampPercent(v: unknown): number {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.min(100, n);
 }

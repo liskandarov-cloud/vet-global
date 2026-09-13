@@ -3,7 +3,7 @@ import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
-import { serializeOffer } from '../common/pricing';
+import { bestPromotionPercent, serializeOffer } from '../common/pricing';
 import { AlertsService } from '../alerts/alerts.service';
 
 @Injectable()
@@ -70,6 +70,7 @@ export class ProductsService {
       }),
     ]);
 
+    await this.annotatePromotions(products);
     return { total, skip, limit: take, products: products.map((p) => this.serialize(p)) };
   }
 
@@ -111,6 +112,7 @@ export class ProductsService {
       include: { seller: { select: { id: true, company: true, isVerified: true } } },
     });
 
+    await this.annotatePromotions([product, ...related]);
     return { ...this.serialize(product), related: related.map((r) => this.serialize(r)) };
   }
 
@@ -257,11 +259,60 @@ export class ProductsService {
     if (!cat) throw new NotFoundException('Category not found');
   }
 
+  // Процент действующей акции для каждого товара и каждого его оффера.
+  //
+  // Витрина обязана показывать ту же цену, что спишется при заказе, поэтому
+  // акция приезжает на фронт процентом, а не готовой ценой: цена зависит от
+  // количества (объёмные скидки) и от договорной цены покупателя, и считать её
+  // на сервере для всех возможных количеств невозможно.
+  //
+  // Одним запросом на всех продавцов выдачи: акция бывает на весь ассортимент
+  // продавца (productId пуст) или на конкретный товар.
+  private async annotatePromotions(products: any[]): Promise<void> {
+    const sellerIds = new Set<string>();
+    for (const p of products) {
+      if (p?.sellerId) sellerIds.add(p.sellerId);
+      for (const o of Array.isArray(p?.offers) ? p.offers : []) {
+        if (o?.sellerId) sellerIds.add(o.sellerId);
+      }
+    }
+    if (!sellerIds.size) return;
+
+    const now = new Date();
+    const promotions = await this.prisma.promotion.findMany({
+      where: {
+        isActive: true,
+        sellerId: { in: [...sellerIds] },
+        startsAt: { lte: now },
+        OR: [{ endsAt: null }, { endsAt: { gte: now } }],
+      },
+      select: {
+        sellerId: true,
+        productId: true,
+        discountPercent: true,
+        startsAt: true,
+        endsAt: true,
+        isActive: true,
+      },
+    });
+    if (!promotions.length) return;
+
+    for (const p of products) {
+      p.promoPercent = bestPromotionPercent(promotions, { sellerId: p.sellerId, productId: p.id }, now);
+      for (const o of Array.isArray(p?.offers) ? p.offers : []) {
+        o.promoPercent = bestPromotionPercent(promotions, { sellerId: o.sellerId, productId: p.id }, now);
+      }
+    }
+  }
+
   private serialize(p: any) {
     return {
       ...p,
       price: Number(p.price),
       minPrice: p.minPrice != null ? Number(p.minPrice) : null,
+      // Ноль означает «акции нет»: отсутствие поля фронт трактовал бы так же,
+      // но явный ноль избавляет от проверок на undefined в расчётах цены.
+      promoPercent: Number(p.promoPercent ?? 0),
       rating: Number(p.rating),
       ...(p.seller ? { seller: { ...p.seller, rating: Number(p.seller.rating ?? 0) } } : {}),
       ...(Array.isArray(p.offers) ? { offers: p.offers.map((o: any) => serializeOffer(o)) } : {}),

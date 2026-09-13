@@ -5,6 +5,10 @@ import {
   percentOf,
   vetPointsSpendable,
   orderTotal,
+  applyPromotion,
+  bestPromotionPercent,
+  unitPriceFinal,
+  type PromotionLike,
 } from './pricing';
 
 describe('packPriceOf — цена единицы заказа с учётом фасовки', () => {
@@ -246,5 +250,82 @@ describe('orderTotal — сумма заказа к оплате', () => {
     expect(total).toBe(145000);
     expect(percentOf(subtotal, 12)).toBe(12000);
     expect(percentOf(total, 12)).not.toBe(12000);
+  });
+});
+
+describe('акции снижают цену', () => {
+  const SELLER = 'seller-1';
+  const PRODUCT = 'product-1';
+  const offer = { price: 100000 };
+  const promo = (over: Partial<PromotionLike> = {}): PromotionLike => ({
+    sellerId: SELLER,
+    productId: null,
+    discountPercent: 10,
+    startsAt: new Date('2026-09-01'),
+    endsAt: null,
+    isActive: true,
+    ...over,
+  });
+  const NOW = new Date('2026-09-13T12:00:00Z');
+
+  it('акция на весь ассортимент применяется к товару продавца', () => {
+    expect(bestPromotionPercent([promo()], { sellerId: SELLER, productId: PRODUCT }, NOW)).toBe(10);
+  });
+
+  it('акция на другой товар не применяется', () => {
+    expect(bestPromotionPercent([promo({ productId: 'other' })], { sellerId: SELLER, productId: PRODUCT }, NOW)).toBe(0);
+  });
+
+  it('акция другого продавца не применяется', () => {
+    expect(bestPromotionPercent([promo({ sellerId: 'seller-2' })], { sellerId: SELLER, productId: PRODUCT }, NOW)).toBe(0);
+  });
+
+  it('не начавшаяся и закончившаяся акции не применяются', () => {
+    expect(bestPromotionPercent([promo({ startsAt: new Date('2026-10-01') })], { sellerId: SELLER }, NOW)).toBe(0);
+    expect(bestPromotionPercent([promo({ endsAt: new Date('2026-09-12') })], { sellerId: SELLER }, NOW)).toBe(0);
+  });
+
+  it('выключенная акция не применяется', () => {
+    expect(bestPromotionPercent([promo({ isActive: false })], { sellerId: SELLER }, NOW)).toBe(0);
+  });
+
+  it('акции не складываются — берётся лучшая для покупателя', () => {
+    const best = bestPromotionPercent(
+      [promo({ discountPercent: 10 }), promo({ discountPercent: 25 }), promo({ discountPercent: 5 })],
+      { sellerId: SELLER, productId: PRODUCT },
+      NOW,
+    );
+    expect(best).toBe(25);
+    // Именно лучшая, а не сумма 40%: сумма обнулила бы цену при трёх акциях.
+    expect(applyPromotion(100000, best)).toBe(75000);
+  });
+
+  it('процент вне допустимого диапазона игнорируется', () => {
+    expect(applyPromotion(100000, -20)).toBe(100000);
+    expect(applyPromotion(100000, 0)).toBe(100000);
+    // 100% — законная акция «в подарок», больше 100 обрезается до неё.
+    expect(applyPromotion(100000, 100)).toBe(0);
+    expect(applyPromotion(100000, 150)).toBe(0);
+  });
+
+  it('акция применяется к цене с объёмной скидкой, а не к базовой', () => {
+    const withBreaks = { price: 100000, priceBreaks: [{ minQty: 10, price: 90000 }] };
+    expect(unitPriceFinal(withBreaks, 10, null, 10)).toBe(81000);
+    expect(unitPriceFinal(withBreaks, 1, null, 10)).toBe(90000);
+  });
+
+  it('покупатель платит меньшее из договорной цены и цены с акцией', () => {
+    // Договорная дешевле акционной — платит договорную.
+    expect(unitPriceFinal(offer, 1, 80000, 10)).toBe(80000);
+    // Акционная дешевле договорной — платит акционную.
+    expect(unitPriceFinal(offer, 1, 95000, 20)).toBe(80000);
+    // Без акции поведение прежнее.
+    expect(unitPriceFinal(offer, 1, 95000, 0)).toBe(95000);
+  });
+
+  it('договорная цена не уценивается акцией дополнительно', () => {
+    // 10% от публичной 100000 = 90000; договорная 85000 остаётся как есть,
+    // а не превращается в 76500.
+    expect(unitPriceFinal(offer, 1, 85000, 10)).toBe(85000);
   });
 });

@@ -27,6 +27,7 @@ import { useCart, useAuth } from '@/lib/store';
 import { Product, Offer } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 import { formatMoney } from '@/lib/utils';
+import { applyPromotion, effectiveUnitPrice, unitPriceForQty } from '@/lib/pricing';
 
 interface Review { id: string; buyerName: string; rating: number; comment: string; createdAt: string }
 
@@ -108,11 +109,13 @@ export default function ProductPage() {
     }).catch(() => {});
   }, [id, currentUser]);
 
-  // Эффективная цена оффера с учётом договорной цены (перебивает объёмные скидки).
-  const effPrice = (o: Offer | undefined, quantity: number): number | undefined => {
-    if (!o) return undefined;
-    return contractMap[o.id] != null ? contractMap[o.id] : unitPriceForQty(o, quantity);
-  };
+  // Эффективная цена оффера: объёмная скидка, затем акция, затем договорная цена
+  // как потолок — тем же правилом, которым сервер считает сумму заказа.
+  //
+  // Раньше договорная цена здесь перебивала расчёт, и при выгодной объёмной
+  // скидке витрина показывала цену выше той, что списывал сервер.
+  const effPrice = (o: Offer | undefined, quantity: number): number | undefined =>
+    effectiveUnitPrice(o, quantity, contractMap[o?.id ?? ''] ?? null, o?.promoPercent);
 
   if (!product) return <div className="py-24 text-center text-ink-subtle">{t('common.loading')}</div>;
 
@@ -121,7 +124,18 @@ export default function ProductPage() {
     offers.find((o) => o.id === selectedOfferId) ?? offers[0];
 
   // Эффективная цена/минимум/наличие: из выбранного оффера, иначе — базовый товар (легаси).
-  const unitPrice = effPrice(selectedOffer, qty) ?? product.price;
+  const hasPromo = (pct: number) => pct > 0;
+  const hasContractFor = (o: Offer | undefined) => !!o && contractMap[o.id] != null;
+
+  // Без оффера (легаси) акция применяется к цене товара: иначе скидка зависела
+  // бы от того, завёл ли продавец оффер.
+  const unitPrice = effPrice(selectedOffer, qty) ?? applyPromotion(product.price, product.promoPercent);
+  const promoPercent = selectedOffer?.promoPercent ?? product.promoPercent ?? 0;
+  // Цена до скидки — для зачёркивания. Договорная цена акцией не уценивается,
+  // поэтому при ней зачёркивать нечего.
+  const priceBeforePromo = hasPromo(promoPercent) && !hasContractFor(selectedOffer)
+    ? (unitPriceForQty(selectedOffer, qty) ?? product.price)
+    : null;
   const hasContract = selectedOffer ? contractMap[selectedOffer.id] != null : false;
   const effMinOrder = selectedOffer?.minOrder ?? product.minOrder;
   // «Под заказ», если товар помечен продавцом как не в наличии ИЛИ выбранный
@@ -265,6 +279,12 @@ export default function ProductPage() {
               {hasContract && (
                 <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">{tt('по договору', 'shartnoma boʻyicha')}</span>
               )}
+              {priceBeforePromo != null && (
+                <>
+                  <span className="text-lg text-ink-subtle line-through">{formatMoney(priceBeforePromo)}</span>
+                  <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600">−{promoPercent}%</span>
+                </>
+              )}
             </div>
             {selectedOffer && packNote(selectedOffer) && !hasContract && (
               <div className="mt-1 text-xs text-ink-subtle">{packNote(selectedOffer)}</div>
@@ -395,7 +415,15 @@ export default function ProductPage() {
                           </>
                         ) : (
                           <>
-                            <span className="font-heading font-bold">{formatMoney(o.packPrice ?? o.price)}</span>
+                            {/* Цена со скидкой, иначе в таблице одна цена, а в
+                                корзине и заказе другая. */}
+                            <span className="font-heading font-bold">{formatMoney(applyPromotion(o.packPrice ?? o.price, o.promoPercent))}</span>
+                            {!!o.promoPercent && o.promoPercent > 0 && (
+                              <>
+                                <span className="ml-2 text-xs text-ink-subtle line-through">{formatMoney(o.packPrice ?? o.price)}</span>
+                                <span className="ml-1 rounded bg-red-50 px-1 text-[10px] font-semibold text-red-600">−{o.promoPercent}%</span>
+                              </>
+                            )}
                             {o.packUnit && <span className="ml-1 text-xs text-ink-subtle">/ {o.packUnit}</span>}
                             {isCheapest && offers.length > 1 && (
                               <span className="ml-2 rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">{tt('мин. цена', 'min. narx')}</span>
@@ -603,16 +631,6 @@ function Detail({
       <div className={`font-medium ${toneCls}`}>{value}{note ? <span className="ml-1 text-[10px]">({note})</span> : null}</div>
     </div>
   );
-}
-
-// Цена за ЕДИНИЦУ ЗАКАЗА (флакон/канистра) с учётом фасовки и объёмных скидок.
-// packPrice приходит с бэкенда: price * packSize / priceUnitQty.
-function unitPriceForQty(offer: Offer | undefined, qty: number): number | undefined {
-  if (!offer) return undefined;
-  let price = offer.packPrice ?? offer.price;
-  const breaks = [...(offer.priceBreaks ?? [])].sort((a, b) => a.minQty - b.minQty);
-  for (const b of breaks) if (qty >= b.minQty) price = b.price;
-  return price;
 }
 
 // Подпись-расшифровка фасовки: «22 400 сум за 1000 доз · флакон 5000 доз».

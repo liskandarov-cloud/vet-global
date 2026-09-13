@@ -31,6 +31,22 @@ class PromotionDto {
   @IsOptional() @IsBoolean() isActive?: boolean;
 }
 
+// Правка акции: все поля необязательны.
+//
+// Раньше правка принимала тот же DTO, что создание, с обязательным названием —
+// и выключить акцию одним полем было нельзя: запрос падал на «title must be a
+// string». Продавец мог снять акцию только удалением, то есть потеряв её
+// историю, либо переслав название вместе с переключателем.
+class UpdatePromotionDto {
+  @IsOptional() @IsString() title?: string;
+  @IsOptional() @IsString() description?: string;
+  @IsOptional() @IsString() productId?: string;
+  @IsOptional() @IsInt() @Min(0) @Max(100) discountPercent?: number;
+  @IsOptional() @IsString() startsAt?: string;
+  @IsOptional() @IsString() endsAt?: string;
+  @IsOptional() @IsBoolean() isActive?: boolean;
+}
+
 @ApiTags('promotions')
 @Controller('promotions')
 export class PromotionsController {
@@ -89,7 +105,7 @@ export class PromotionsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SELLER, UserRole.ADMIN)
-  async update(@Param('id') id: string, @Body() dto: PromotionDto, @CurrentUser() user: AuthUser) {
+  async update(@Param('id') id: string, @Body() dto: UpdatePromotionDto, @CurrentUser() user: AuthUser) {
     await this.assertOwner(id, user);
     return this.prisma.promotion.update({
       where: { id },

@@ -24,7 +24,9 @@ import {
   orderTotal,
   packPriceOf,
   percentOf,
-  unitPriceWithContract,
+  unitPriceFinal,
+  applyPromotion,
+  bestPromotionPercent,
   vetPointsSpendable,
 } from '../common/pricing';
 import { isTransitionAllowed, transitionError } from './status';
@@ -100,6 +102,39 @@ export class OrdersService {
       for (const c of contracts) contractMap.set(c.offerId, Number(c.price));
     }
 
+    // Акции продавцов, участвующих в заказе.
+    //
+    // Цена с акцией считается здесь, а не берётся от клиента: заказ — это
+    // источник истины о сумме, и витрина обязана показывать то же самое.
+    // Одним запросом на всех продавцов: акция бывает на весь ассортимент
+    // (productId пуст) или на конкретный товар.
+    const now = new Date();
+    const sellerIdsInCart = [
+      ...new Set([
+        ...products.map((p) => p.sellerId),
+        ...offers.map((o) => o.sellerId),
+        ...[...bestOfferByProduct.values()].map((o) => o.sellerId),
+      ]),
+    ];
+    const promotions = sellerIdsInCart.length
+      ? await this.prisma.promotion.findMany({
+          where: {
+            isActive: true,
+            sellerId: { in: sellerIdsInCart },
+            startsAt: { lte: now },
+            OR: [{ endsAt: null }, { endsAt: { gte: now } }],
+          },
+          select: {
+            sellerId: true,
+            productId: true,
+            discountPercent: true,
+            startsAt: true,
+            endsAt: true,
+            isActive: true,
+          },
+        })
+      : [];
+
     // Есть ли в заказе позиция «под заказ» (нет в наличии). Такой заказ можно
     // оформить как предзаказ, но оплата блокируется до подтверждения продавцом.
     let requiresConfirmation = false;
@@ -110,7 +145,12 @@ export class OrdersService {
       // По умолчанию — базовый товар (легаси, когда офферов нет вовсе).
       let sellerId = p.sellerId;
       let minOrder = p.minOrder;
-      let unitPrice = Number(p.price);
+      // Акция владельца товара применяется и к этой, легаси-ветке: иначе
+      // скидка зависела бы от того, завёл ли продавец оффер.
+      let unitPrice = applyPromotion(
+        Number(p.price),
+        bestPromotionPercent(promotions, { sellerId: p.sellerId, productId: p.id }, now),
+      );
       let offerId: string | null = null;
 
       if (i.offerId && !offerMap.get(i.offerId)) {
@@ -129,7 +169,12 @@ export class OrdersService {
         }
         sellerId = o.sellerId;
         minOrder = o.minOrder;
-        unitPrice = unitPriceWithContract(o, i.quantity, contractMap.get(o.id));
+        unitPrice = unitPriceFinal(
+          o,
+          i.quantity,
+          contractMap.get(o.id),
+          bestPromotionPercent(promotions, { sellerId: o.sellerId, productId: p.id }, now),
+        );
         offerId = o.id;
       }
 

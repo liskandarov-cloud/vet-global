@@ -105,12 +105,24 @@ describe('VetGlobal integrations (e2e)', () => {
     expect((await req('/sync/price', { headers: { 'X-Sync-Key': 'bad' }, body: { items: [] } })).status).toBe(401);
   });
 
+  // Акция удаляется за собой. Теперь это не вопрос опрятности: акция снижает
+  // цену, и оставленная тестом скидка меняла бы суммы в других проверках. За два
+  // дня прогонов таких акций накопилось три десятка, и каждая давала −10%.
   it('promotions: seller creates → appears in public list', async () => {
     const title = `E2E promo ${Date.now()}`;
     const created = await req('/promotions', { token: seller, body: { title, discountPercent: 10, isActive: true } });
     expect(created.status).toBe(201);
     const pub = (await req('/promotions')).body;
     expect(pub.some((x: any) => x.title === title)).toBe(true);
+
+    // Частичная правка: выключить акцию одним полем. Раньше правка принимала тот
+    // же DTO, что создание, и такой запрос падал на «title must be a string».
+    const off = await req(`/promotions/${created.body.id}`, { method: 'PATCH', token: seller, body: { isActive: false } });
+    expect(off.status).toBe(200);
+    expect(off.body.isActive).toBe(false);
+    expect((await req('/promotions')).body.some((x: any) => x.title === title)).toBe(false);
+
+    await req(`/promotions/${created.body.id}`, { method: 'DELETE', token: seller });
   });
 
   it('blog: admin draft is hidden, then published, then deleted', async () => {
@@ -627,6 +639,72 @@ describe('VetGlobal integrations (e2e)', () => {
     it('позиция без товара каталога склад не трогает', async () => {
       const order = await awardRfq(buyer, 200000, [{ name: 'Услуга доставки силоса', quantity: 1 }]);
       expect(order.items.every((it: any) => !it.productId)).toBe(true);
+    });
+  });
+
+  // Акция обязана снижать цену. Процент существовал и не читался нигде за
+  // пределами страницы акций: продавец заводил «−15%», покупатель это видел, а
+  // в каталоге и в заказе цена оставалась прежней — платформа обещала скидку и
+  // не давала её. Решение владельца: скидка настоящая, акции не складываются,
+  // договорная цена дополнительно не уценивается.
+  describe('акция снижает цену', () => {
+    let promoId: string | null = null;
+
+    const price = async () => (await req(`/products/${sellerProduct.id}`)).body;
+    const orderUnitPrice = async () => {
+      const order = (await req('/orders', {
+        token: buyer,
+        body: { items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }] },
+      })).body;
+      return Number(order.items[0].price);
+    };
+
+    afterEach(async () => {
+      if (promoId) await req(`/promotions/${promoId}`, { method: 'DELETE', token: seller });
+      promoId = null;
+    });
+
+    it('цена в заказе падает на процент акции, и каталог показывает тот же процент', async () => {
+      const before = await orderUnitPrice();
+      expect((await price()).promoPercent).toBe(0);
+
+      const created = await req('/promotions', {
+        token: seller,
+        body: { title: `E2E скидка ${Date.now()}`, discountPercent: 25 },
+      });
+      expect(created.status).toBe(201);
+      promoId = created.body.id;
+
+      // Витрина отдаёт процент, а не готовую цену: цена зависит от количества и
+      // договорной цены, и фронт считает её тем же правилом, что сервер.
+      expect((await price()).promoPercent).toBe(25);
+      expect(await orderUnitPrice()).toBeCloseTo(before * 0.75, 2);
+    });
+
+    it('акции не складываются — берётся лучшая для покупателя', async () => {
+      const before = await orderUnitPrice();
+      const a = await req('/promotions', { token: seller, body: { title: `E2E 10 ${Date.now()}`, discountPercent: 10 } });
+      const b = await req('/promotions', { token: seller, body: { title: `E2E 30 ${Date.now()}`, discountPercent: 30 } });
+      promoId = a.body.id;
+
+      try {
+        // 10% и 30% вместе дали бы 37% при сложении — платит покупатель 30%.
+        expect((await price()).promoPercent).toBe(30);
+        expect(await orderUnitPrice()).toBeCloseTo(before * 0.7, 2);
+      } finally {
+        await req(`/promotions/${b.body.id}`, { method: 'DELETE', token: seller });
+      }
+    });
+
+    it('выключенная акция цену не меняет', async () => {
+      const before = await orderUnitPrice();
+      const created = await req('/promotions', {
+        token: seller,
+        body: { title: `E2E выключенная ${Date.now()}`, discountPercent: 50, isActive: false },
+      });
+      promoId = created.body.id;
+      expect((await price()).promoPercent).toBe(0);
+      expect(await orderUnitPrice()).toBeCloseTo(before, 2);
     });
   });
 
