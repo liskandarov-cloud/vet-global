@@ -77,14 +77,28 @@ jobs:
           ls -lh "vetglobal-$STAMP.dump"
           echo "STAMP=$STAMP" >> "$GITHUB_ENV"
 
-      - name: Проверка, что дамп не пустой
+      - name: Проверка, что дамп пригоден к восстановлению
         run: |
           set -euo pipefail
           SIZE=$(stat -c%s "vetglobal-$STAMP.dump")
           # Пустой дамп весит считанные байты. Молча сохранить такой файл
           # хуже, чем упасть: о потере узнали бы только при восстановлении.
           test "$SIZE" -gt 4096 || { echo "::error::дамп подозрительно мал ($SIZE байт)"; exit 1; }
-          pg_restore --list "vetglobal-$STAMP.dump" | head -5
+
+          # Содержимое читаем в файл, а не в конвейер с head: head закрывает
+          # конвейер после пятой строки, pg_restore получает «broken pipe» и
+          # шаг падает под pipefail — на этом первый успешный дамп и был
+          # забракован, хотя сам архив был целым.
+          pg_restore --list "vetglobal-$STAMP.dump" > toc.txt
+          ENTRIES=$(grep -c '^[0-9]' toc.txt || true)
+          echo "записей в архиве: $ENTRIES, размер: $SIZE байт"
+          head -5 toc.txt
+
+          # Размер проверяет, что файл не пуст, а число записей — что внутри
+          # действительно схема, а не один заголовок: схема VetGlobal это
+          # десятки таблиц, то есть сотни записей.
+          test "$ENTRIES" -ge 20 || { echo "::error::в архиве всего $ENTRIES записей — схема не попала в дамп"; exit 1; }
+          rm -f toc.txt
 
       - uses: actions/upload-artifact@v4
         with:
