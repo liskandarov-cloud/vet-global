@@ -6,7 +6,15 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { ApprovalStatus, OrderStatus, OrgRole, PaymentTerm, UserRole, VetPointsType } from '@prisma/client';
+import {
+  ApprovalStatus,
+  DeliveryMethod,
+  OrderStatus,
+  OrgRole,
+  PaymentTerm,
+  UserRole,
+  VetPointsType,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrderDto } from './dto/order.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
@@ -22,6 +30,7 @@ import {
 } from '../common/pricing';
 import { isTransitionAllowed, transitionError } from './status';
 import { invoiceNumberFor } from '../common/invoice-number';
+import { TariffsService } from '../delivery/tariffs.service';
 
 @Injectable()
 export class OrdersService {
@@ -36,6 +45,7 @@ export class OrdersService {
     private readonly pdf: PdfService,
     private readonly notifications: NotificationsService,
     private readonly alerts: AlertsService,
+    private readonly tariffs: TariffsService,
   ) {
     this.commissionPct = Number(config.get('PLATFORM_COMMISSION_PERCENT') ?? 12);
     this.earnPct = Number(config.get('VETPOINTS_EARN_PERCENT') ?? 1);
@@ -154,9 +164,32 @@ export class OrdersService {
       vetPointsUsed = vetPointsSpendable(subtotal, dto.vetPointsUsed, balance, this.maxSpendPct);
     }
 
-    // Доставка на этом шаге всегда нулевая: её стоимость назначает продавец
-    // позже, при оформлении отправки, и тогда сумма пересчитывается.
-    const total = orderTotal(subtotal, vetPointsUsed, 0);
+    // Доставка считается здесь же, по тарифам продавцов.
+    //
+    // Раньше она была нулевой, а стоимость назначал продавец позже, оформляя
+    // отправку. При предоплате это не работало вовсе: пересчитать сумму после
+    // оплаты нельзя (иначе документы разойдутся с платежом), поэтому доставка
+    // не попадала в заказ никогда. Теперь покупатель видит её в корзине и платит
+    // ровно то, что увидел.
+    //
+    // Продавцы без подходящего тарифа остаются как было: посчитать их доставку
+    // нечем, они назначат стоимость при отправке. В расчёт они не попадают, и
+    // потому их отправка сумму прибавит — см. deliveryTotalForOrder.
+    const deliveryMethod = dto.deliveryMethod ?? null;
+    const deliveryCity = dto.deliveryCity?.trim() || null;
+    const sellerIdsForDelivery = [...new Set(items.map((it) => it.sellerId).filter(Boolean))] as string[];
+    const deliveryQuote =
+      deliveryMethod == null
+        ? { total: 0, bySeller: [] as { sellerId: string; cost: number }[], unknown: [] as string[] }
+        : await this.tariffs.quoteForSellers(sellerIdsForDelivery, {
+            method: deliveryMethod,
+            city: deliveryCity,
+            subtotal,
+          });
+    const deliveryCost = deliveryQuote.total;
+    const quoteBySeller = Object.fromEntries(deliveryQuote.bySeller.map((q) => [q.sellerId, q.cost]));
+
+    const total = orderTotal(subtotal, vetPointsUsed, deliveryCost);
     // Комиссия считается от subtotal, то есть до списания баллов: лояльность
     // платформы не должна уменьшать её собственный доход.
     const commission = percentOf(subtotal, this.commissionPct);
@@ -236,6 +269,13 @@ export class OrdersService {
           subtotal,
           vetPointsUsed,
           total,
+          deliveryMethod,
+          deliveryCity,
+          deliveryAddress: dto.deliveryAddress?.trim() || null,
+          deliveryCost,
+          // Пустой расчёт — это «доставку не считали»: такой заказ ведёт себя
+          // как прежние, где стоимость целиком приходит из отправок.
+          deliveryQuote: deliveryMethod == null ? undefined : (quoteBySeller as any),
           vetPointsEarned,
           commission,
           paymentTerm,
@@ -498,10 +538,10 @@ export class OrdersService {
       })),
       subtotal: Number(order.subtotal),
       vetPointsUsed: Number(order.vetPointsUsed),
-      // Сумма по всем отправкам: в заказе от нескольких поставщиков доставка
-      // своя у каждого, и в счёте она должна быть общей строкой — иначе итог не
-      // сойдётся с перечнем позиций.
-      deliveryCost: order.shipments.reduce((sum, sh) => sum + Number(sh.cost), 0),
+      // Доставка берётся из заказа, а не из отправок: она входит в сумму к
+      // оплате с момента оформления, когда отправок ещё нет вовсе. Сложение
+      // отправок занижало бы строку счёта — и итог не сошёлся бы с перечнем.
+      deliveryCost: Number(order.deliveryCost),
       total: Number(order.total),
     });
 
@@ -523,6 +563,7 @@ export class OrdersService {
       ...o,
       subtotal: Number(o.subtotal),
       total: Number(o.total),
+      deliveryCost: Number(o.deliveryCost ?? 0),
       commission: Number(o.commission),
       vetPointsUsed: Number(o.vetPointsUsed),
       vetPointsEarned: Number(o.vetPointsEarned),

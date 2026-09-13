@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { SmsService } from '../sms/sms.service';
 import { orderTotal } from '../common/pricing';
+import { deliveryTotalForOrder } from './order-delivery';
 
 const SHIP_RU: Record<ShipmentStatus, string> = {
   PENDING: 'ожидает отгрузки',
@@ -94,7 +95,9 @@ export class DeliveryService {
 
   // Сумма заказа включает доставку, поэтому при её назначении пересчитывается.
   //
-  // Стоимость доставки задаёт продавец уже после создания заказа, а order.total —
+  // Продавцам с тарифом доставку считают при оформлении — их отправка сумму уже
+  // не меняет. Пересчёт остаётся для продавцов без тарифа: они назначают
+  // стоимость здесь, и order.total —
   // это сумма к оплате: по ней создаётся платёж, её сверяет Payme, из неё
   // складываются счёт и документ ЭДО. Поэтому менять её задним числом можно
   // только пока заказ не оплачен и счёт не выставлен: иначе покупатель заплатил
@@ -109,17 +112,31 @@ export class DeliveryService {
         subtotal: true,
         vetPointsUsed: true,
         total: true,
+        deliveryCost: true,
         invoice: { select: { id: true } },
         payments: { where: { status: PaymentStatus.PAID }, select: { id: true } },
+        // Расчёт, сделанный при оформлении: он определяет, чью отправку ещё
+        // нужно прибавить, а чья стоимость уже включена в сумму.
+        deliveryQuote: true,
         // Все отправки заказа: покупатель платит за доставку каждого поставщика.
-        shipments: { select: { cost: true } },
+        shipments: { select: { sellerId: true, cost: true } },
       },
     });
     if (!order) return;
 
-    const deliveryCost = order.shipments.reduce((sum, sh) => sum + Number(sh.cost), 0);
+    const deliveryCost = deliveryTotalForOrder(
+      order.deliveryQuote,
+      order.shipments.map((sh) => ({ sellerId: sh.sellerId, cost: Number(sh.cost) })),
+    );
     const next = orderTotal(Number(order.subtotal), Number(order.vetPointsUsed), deliveryCost);
-    if (next === Number(order.total)) return;
+    if (next === Number(order.total)) {
+      // Сумма не изменилась, но стоимость доставки могла: её держим в актуальном
+      // виде отдельно, на неё смотрят счёт и отчёты.
+      if (deliveryCost !== Number(order.deliveryCost)) {
+        await this.prisma.order.update({ where: { id: orderId }, data: { deliveryCost } });
+      }
+      return;
+    }
 
     if (order.payments.length || order.invoice) {
       const reason = order.payments.length ? 'заказ уже оплачен' : 'по заказу выставлен счёт';
@@ -129,7 +146,7 @@ export class DeliveryService {
       );
     }
 
-    await this.prisma.order.update({ where: { id: orderId }, data: { total: next } });
+    await this.prisma.order.update({ where: { id: orderId }, data: { total: next, deliveryCost } });
   }
 
   // Чью отправку правит вызывающий.

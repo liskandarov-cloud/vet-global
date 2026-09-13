@@ -515,6 +515,79 @@ describe('VetGlobal integrations (e2e)', () => {
       expect(d.total).toBe(45000);
     });
 
+    // Стоимость доставки попадает в сумму заказа при оформлении. До этого её
+    // назначал продавец позже, отправкой, а пересчёт после оплаты запрещён —
+    // поэтому при предоплате доставка не попадала в заказ никогда.
+    it('доставка входит в сумму заказа при оформлении', async () => {
+      const order = (await req('/orders', {
+        token: buyer,
+        body: {
+          items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }],
+          deliveryMethod: 'COURIER',
+          deliveryCity: CITY,
+          deliveryAddress: 'ул. Тестовая 1',
+        },
+      })).body;
+      expect(order.deliveryCost).toBe(45000);
+      expect(order.total).toBe(order.subtotal + 45000);
+    });
+
+    it('самовывоз не добавляет доставку, а отсутствие способа оставляет прежнее поведение', async () => {
+      const items = [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }];
+      const pickup = (await req('/orders', {
+        token: buyer,
+        body: { items, deliveryMethod: 'PICKUP', deliveryCity: CITY },
+      })).body;
+      expect(pickup.deliveryCost).toBe(0);
+      expect(pickup.total).toBe(pickup.subtotal);
+
+      const plain = (await req('/orders', { token: buyer, body: { items } })).body;
+      expect(plain.deliveryCost).toBe(0);
+      expect(plain.total).toBe(plain.subtotal);
+    });
+
+    // Продавец с тарифом получает деньги за доставку один раз: при оформлении.
+    // Его отправка сумму заказа больше не меняет, иначе покупатель заплатил бы
+    // за одну доставку дважды.
+    it('отправка продавца не удваивает посчитанную доставку', async () => {
+      const order = (await req('/orders', {
+        token: buyer,
+        body: {
+          items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }],
+          deliveryMethod: 'COURIER',
+          deliveryCity: CITY,
+        },
+      })).body;
+      expect(order.deliveryCost).toBe(45000);
+
+      const ship = await req(`/orders/${order.id}/shipments`, {
+        token: seller,
+        body: { method: 'COURIER', city: CITY, cost: 45000, carrier: 'BTS' },
+      });
+      expect(ship.status).toBe(201);
+
+      const after = (await req(`/orders/${order.id}`, { token: buyer })).body;
+      expect(after.total).toBe(order.total);
+      expect(after.deliveryCost).toBe(45000);
+    });
+
+    it('сумма заказа не зависит от стоимости, присланной клиентом', async () => {
+      // deliveryCost в запросе игнорируется: иначе сумму заказа можно было бы
+      // занизить, подделав её на стороне покупателя.
+      const order = (await req('/orders', {
+        token: buyer,
+        body: {
+          items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }],
+          deliveryMethod: 'COURIER',
+          deliveryCity: CITY,
+          deliveryCost: 0,
+          total: 1,
+        },
+      })).body;
+      expect(order.deliveryCost).toBe(45000);
+      expect(order.total).toBe(order.subtotal + 45000);
+    });
+
     it('покупатель не может заводить тарифы продавцу', async () => {
       const res = await req('/delivery/tariffs', { token: buyer, body: { method: 'COURIER', cost: 1 } });
       expect(res.status).toBe(403);

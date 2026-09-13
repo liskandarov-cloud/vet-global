@@ -7,5 +7,7 @@ import { TariffsService } from './tariffs.service';
 @Module({
   controllers: [DeliveryController, TariffsController],
   providers: [DeliveryService, TariffsService],
+  // Оформление заказа считает доставку тем же методом, что и корзина.
+  exports: [TariffsService],
 })
 export class DeliveryModule {}

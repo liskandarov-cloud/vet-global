@@ -3,10 +3,11 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Trash2, Minus, Plus, ShoppingBag, ShieldCheck, FileText, CreditCard, CalendarClock } from 'lucide-react';
+import { Trash2, Minus, Plus, ShoppingBag, ShieldCheck, FileText, CreditCard, CalendarClock, Truck, Store } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useCart, useAuth, cartKey } from '@/lib/store';
+import { estimateParams, isComplete, totalWithDelivery, type DeliveryEstimate, type DeliveryMethod } from '@/lib/delivery';
 import { useI18n } from '@/lib/i18n';
 import { formatMoney } from '@/lib/utils';
 
@@ -28,6 +29,12 @@ export default function CartPage() {
   const [netTermDays, setNetTermDays] = useState(30);
   const [installments, setInstallments] = useState(3);
   const [credit, setCredit] = useState<{ available: number; creditLimit: number } | null>(null);
+  // Доставка: способ и город выбирает покупатель, стоимость считает сервер по
+  // тарифам продавцов. Город нужен и гостю — доставку он тоже оплачивает.
+  const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod>('COURIER');
+  const [city, setCity] = useState('');
+  const [address, setAddress] = useState('');
+  const [estimate, setEstimate] = useState<DeliveryEstimate | null>(null);
   const [org, setOrg] = useState<{ myRole?: string; myLimit?: number; org: any } | null>(null);
 
   useEffect(() => {
@@ -44,7 +51,30 @@ export default function CartPage() {
   const sum = subtotal();
   const maxPoints = Math.min(user?.vetPointsBalance ?? 0, sum * 0.1);
   const pointsToUse = usePoints ? Math.floor(maxPoints) : 0;
-  const total = sum - pointsToUse;
+
+  // Пересчёт доставки при смене способа, города или состава корзины.
+  //
+  // С задержкой: город набирают по буквам, и запрос на каждую букву загрузил бы
+  // API впустую. Таймер снимается при следующем изменении, поэтому ответ на
+  // устаревший город не перезапишет актуальный расчёт.
+  const cartSig = items.map((i) => `${cartKey(i)}:${i.quantity}`).join(',');
+  useEffect(() => {
+    if (!items.length) return;
+    const timer = setTimeout(() => {
+      api
+        .get('/delivery/tariffs/estimate', { params: estimateParams(items, deliveryMethod, city, sum) })
+        .then((r) => setEstimate(r.data))
+        .catch(() => setEstimate(null));
+    }, 400);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cartSig, deliveryMethod, city, sum]);
+
+  // Пока расчёт неполный, доставка в итог не идёт: показать часть суммы как
+  // итог значит пообещать цену ниже той, что выставит продавец.
+  const deliveryKnown = isComplete(estimate);
+  const deliveryCost = deliveryKnown ? estimate!.total : 0;
+  const total = totalWithDelivery(sum, pointsToUse, deliveryCost);
   const available = credit?.available ?? 0;
   const creditShort = paymentTerm !== 'PREPAY' && total > available;
   const needsApproval = org?.org && org.myRole === 'PURCHASER' && total > (org.myLimit ?? 0);
@@ -63,6 +93,9 @@ export default function CartPage() {
         buyerCompany: user ? undefined : company,
         counterpartyId: user && counterpartyId ? counterpartyId : undefined,
         vetPointsUsed: pointsToUse,
+        deliveryMethod,
+        deliveryCity: city.trim() || undefined,
+        deliveryAddress: deliveryMethod === 'COURIER' ? address.trim() || undefined : undefined,
         paymentTerm,
         netTermDays: paymentTerm === 'NET_TERMS' ? netTermDays : undefined,
         installments: paymentTerm === 'INSTALLMENT' ? installments : undefined,
@@ -155,6 +188,65 @@ export default function CartPage() {
             </label>
           )}
 
+          <div className="border-t border-slate-100 pt-3">
+            <div className="mb-2 flex items-center gap-1.5 text-sm font-medium">
+              <Truck size={15} className="text-teal-700" /> {tt('Доставка', 'Yetkazib berish')}
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 text-xs">
+              {([
+                ['COURIER', 'Курьером', 'Kuryer bilan', Truck],
+                ['PICKUP', 'Самовывоз', 'Oʻzi olib ketish', Store],
+              ] as const).map(([val, label, labelUz, Icon]) => (
+                <button
+                  key={val}
+                  onClick={() => setDeliveryMethod(val)}
+                  className={`flex items-center justify-center gap-1 rounded-lg border px-2 py-2 font-medium transition-colors ${deliveryMethod === val ? 'border-teal-500 bg-teal-50 text-teal-700' : 'border-slate-200 text-ink-muted hover:border-teal-200'}`}
+                >
+                  <Icon size={13} /> {tt(label, labelUz)}
+                </button>
+              ))}
+            </div>
+
+            {deliveryMethod === 'COURIER' && (
+              <div className="mt-2 space-y-1.5">
+                <input
+                  value={city}
+                  onChange={(e) => setCity(e.target.value)}
+                  list="vg-cities"
+                  placeholder={tt('Город', 'Shahar')}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-400"
+                />
+                <datalist id="vg-cities">
+                  {['Ташкент', 'Самарканд', 'Бухара', 'Наманган', 'Андижан', 'Фергана', 'Нукус', 'Карши', 'Термез', 'Урганч', 'Навои', 'Джизак', 'Гулистан'].map((c) => (
+                    <option key={c} value={c} />
+                  ))}
+                </datalist>
+                <input
+                  value={address}
+                  onChange={(e) => setAddress(e.target.value)}
+                  placeholder={tt('Адрес доставки', 'Yetkazib berish manzili')}
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-400"
+                />
+                {!city.trim() && (
+                  <p className="text-xs text-ink-subtle">
+                    {tt('Укажите город — посчитаем доставку.', 'Shaharni kiriting — yetkazib berishni hisoblaymiz.')}
+                  </p>
+                )}
+              </div>
+            )}
+
+            {/* Продавцы без тарифа: доставку посчитать нечем, и молчать об этом
+                нельзя — иначе покупатель решит, что в итоге уже всё учтено. */}
+            {estimate && estimate.unknown.length > 0 && (
+              <p className="mt-2 rounded-md bg-amber-50 px-2 py-1.5 text-xs text-amber-700">
+                {tt(
+                  `Стоимость доставки от ${estimate.unknown.length} поставщ. уточнит продавец — она добавится к сумме после подтверждения.`,
+                  `${estimate.unknown.length} taʼminotchi yetkazib berish narxini keyin belgilaydi — summa tasdiqlangach qoʻshiladi.`,
+                )}
+              </p>
+            )}
+          </div>
+
           {user && (
             <div className="border-t border-slate-100 pt-3">
               <div className="mb-2 flex items-center gap-1.5 text-sm font-medium">
@@ -214,6 +306,18 @@ export default function CartPage() {
             {pointsToUse > 0 && (
               <div className="flex justify-between text-secondary"><span>VetPoints</span><span>-{formatMoney(pointsToUse)}</span></div>
             )}
+            <div className="flex justify-between">
+              <span className="text-ink-muted">{tt('Доставка', 'Yetkazib berish')}</span>
+              <span>
+                {deliveryMethod === 'PICKUP'
+                  ? tt('самовывоз', 'oʻzi olib ketadi')
+                  : deliveryKnown
+                    ? deliveryCost === 0
+                      ? tt('бесплатно', 'bepul')
+                      : formatMoney(deliveryCost)
+                    : <span className="text-ink-subtle">{city.trim() ? tt('уточняется', 'aniqlanmoqda') : tt('укажите город', 'shaharni kiriting')}</span>}
+              </span>
+            </div>
             <div className="flex items-baseline justify-between border-t border-slate-100 pt-2 font-heading font-bold">
               <span className="text-lg">{tt('Итого', 'Jami')}</span><span className="text-2xl text-gradient">{formatMoney(total)}</span>
             </div>

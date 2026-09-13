@@ -10,7 +10,7 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-import { OrderStatus, PaymentTerm } from '@prisma/client';
+import { DeliveryMethod, OrderStatus, PaymentTerm } from '@prisma/client';
 
 export class OrderItemInput {
   @IsString() productId: string;
@@ -32,6 +32,12 @@ export class CreateOrderDto {
 
   @IsOptional() @IsString() counterpartyId?: string;
   @IsOptional() @IsNumber() @Min(0) vetPointsUsed?: number;
+
+  // Доставка. Стоимость НЕ принимается от клиента: она считается на сервере по
+  // тарифам продавцов, иначе сумму заказа можно было бы занизить запросом.
+  @IsOptional() @IsEnum(DeliveryMethod) deliveryMethod?: DeliveryMethod;
+  @IsOptional() @IsString() deliveryCity?: string;
+  @IsOptional() @IsString() deliveryAddress?: string;
 
   // Финансирование (блок 2)
   @IsOptional() @IsEnum(PaymentTerm) paymentTerm?: PaymentTerm;

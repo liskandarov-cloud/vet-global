@@ -80,12 +80,24 @@ export class TariffsService {
       products.forEach((p) => sellerIds.add(p.sellerId));
     }
 
-    if (!sellerIds.size) {
-      return { total: 0, method: params.method, city: params.city ?? null, bySeller: [], unknown: [] };
-    }
+    const quote = await this.quoteForSellers([...sellerIds], params);
+    return { ...quote, method: params.method, city: params.city ?? null };
+  }
+
+  // Доставка по каждому продавцу: то же вычисление для корзины и для заказа.
+  //
+  // Один метод на оба случая намеренно: покупатель видит сумму в корзине, а
+  // платит ту, что посчитана при оформлении, и расхождение между двумя копиями
+  // этой логики было бы расхождением в деньгах.
+  async quoteForSellers(
+    sellerIds: string[],
+    params: { method: DeliveryMethod; city?: string | null; subtotal: number },
+  ): Promise<{ total: number; bySeller: { sellerId: string; cost: number }[]; unknown: string[] }> {
+    const ids = [...new Set(sellerIds)];
+    if (!ids.length) return { total: 0, bySeller: [], unknown: [] };
 
     const tariffs = await this.prisma.deliveryTariff.findMany({
-      where: { sellerId: { in: [...sellerIds] }, isActive: true },
+      where: { sellerId: { in: ids }, isActive: true },
     });
 
     const bySeller: { sellerId: string; cost: number }[] = [];
@@ -94,7 +106,7 @@ export class TariffsService {
     const unknown: string[] = [];
     let total = 0;
 
-    for (const sellerId of sellerIds) {
+    for (const sellerId of ids) {
       const own: Tariff[] = tariffs
         .filter((t) => t.sellerId === sellerId)
         .map((t) => ({
@@ -119,6 +131,6 @@ export class TariffsService {
       total += cost;
     }
 
-    return { total, method: params.method, city: params.city ?? null, bySeller, unknown };
+    return { total: Math.round(total * 100) / 100, bySeller, unknown };
   }
 }
