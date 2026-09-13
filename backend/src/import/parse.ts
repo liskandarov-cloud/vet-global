@@ -44,7 +44,7 @@ export function parseBool(v: string): boolean | null {
 export function parseDate(v: string): Date | null {
   if (!v) return null;
   // ДД.ММ.ГГГГ — самый частый формат в узбекских прайсах.
-  const m = v.match(/^(\d{1,2})[.\/-](\d{1,2})[.\/-](\d{2,4})$/);
+  const m = v.match(/^(\d{1,2})[./-](\d{1,2})[./-](\d{2,4})$/);
   if (m) {
     const day = Number(m[1]);
     const month = Number(m[2]);

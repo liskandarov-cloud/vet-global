@@ -77,10 +77,24 @@ jobs:
           npx prisma db push --accept-data-loss
           npm run prisma:seed
 
+      - name: Линт
+        working-directory: backend
+        # Линтера у бэкенда не было: скрипт lint в package.json был, а самого
+        # eslint в зависимостях нет — команда падала на отсутствии конфига.
+        run: npm run lint
+
       - name: Проверка типов
         working-directory: backend
         # Сборка падает на ошибках типов — это дешёвая проверка до тестов.
         run: npm run build
+
+      - name: Проверка типов тестов
+        working-directory: backend
+        # Основной tsconfig исключает test/, поэтому сами тесты типами не
+        # проверялись. Из-за этого набор интеграционных тестов месяц не
+        # запускался: в конце файла стояла синтаксическая ошибка, а jest узнаёт
+        # о такой только при запуске файла. Эта проверка ловит её до запуска.
+        run: npx tsc -p tsconfig.spec.json
 
       - name: Юнит-тесты
         working-directory: backend

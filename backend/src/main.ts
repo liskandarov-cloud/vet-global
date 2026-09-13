@@ -67,4 +67,11 @@ async function bootstrap() {
     `VetGlobal API listening on :${port}` + (swaggerEnabled ? ' (docs at /api/docs)' : ' (docs disabled)'),
   );
 }
-bootstrap();
+// Падение на старте должно завершать процесс с ошибкой: иначе необработанное
+// отклонение промиса выглядит в логах случайной трассировкой, а на Render
+// неудачная выкатка не отличается от удачной — старый контейнер продолжает
+// отвечать, и ошибку видно только по отсутствию изменений.
+bootstrap().catch((err) => {
+  console.error('VetGlobal API не поднялся:', err);
+  process.exit(1);
+});

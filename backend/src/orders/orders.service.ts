@@ -8,7 +8,6 @@ import {
 import { ConfigService } from '@nestjs/config';
 import {
   ApprovalStatus,
-  DeliveryMethod,
   OrderStatus,
   OrgRole,
   PaymentTerm,

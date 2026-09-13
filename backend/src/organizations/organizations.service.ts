@@ -52,7 +52,7 @@ export class OrganizationsService {
   async create(dto: CreateOrgDto, user: AuthUser) {
     const existing = await this.prisma.orgMembership.findFirst({ where: { userId: user.id } });
     if (existing) throw new BadRequestException('Вы уже состоите в организации');
-    const org = await this.prisma.organization.create({
+    await this.prisma.organization.create({
       data: {
         name: dto.name,
         inn: dto.inn ?? null,
