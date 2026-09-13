@@ -920,6 +920,71 @@ describe('VetGlobal integrations (e2e)', () => {
   // Счёт-фактура — документ налогового учёта: строки обязаны сходиться с
   // итогом, а два документа на одну поставку означают двойную реализацию.
   describe('ЭДО: счёт-фактура', () => {
+    // В заказе от нескольких поставщиков каждый выпускает свой документ: ИНН в
+    // нём его, реализация его. Раньше документ был один на заказ и выпускался
+    // от имени первого продавца — от чужого имени и на чужие позиции.
+    it('у каждого продавца свой документ, и суммы складываются в сумму заказа', async () => {
+      const all = (await req('/products?limit=100')).body.products as any[];
+      const mine = all.find((p) => p.sellerId === sellerId);
+      const foreign = all.find((p) => p.sellerId && p.sellerId !== sellerId);
+      if (!mine || !foreign) return; // в базе один продавец — проверять нечего
+
+      const order = (await req('/orders', {
+        token: buyer,
+        body: {
+          items: [
+            { productId: mine.id, quantity: mine.minOrder },
+            { productId: foreign.id, quantity: foreign.minOrder },
+          ],
+        },
+      })).body;
+      const sellers = [...new Set(order.items.map((it: any) => it.sellerId))];
+      if (sellers.length < 2) return; // позиции свелись к одному продавцу через офферы
+
+      const sent = await req(`/didox/send/${order.id}`, { token: admin, body: {} });
+      expect(sent.status).toBeLessThan(400);
+      expect(sent.body.documents).toHaveLength(sellers.length);
+
+      // Номера разные: номер счёта уникален, и одинаковые не сохранились бы.
+      const numbers = sent.body.documents.map((d: any) => d.number);
+      expect(new Set(numbers).size).toBe(numbers.length);
+
+      // Суммы документов складываются в сумму заказа — покупатель не должен
+      // получить счета, не сходящиеся с тем, что он платит.
+      const fresh = (await req(`/orders/${order.id}`, { token: admin })).body;
+      const sum = fresh.invoices.reduce((acc: number, inv: any) => acc + Number(inv.amount), 0);
+      expect(sum).toBeCloseTo(order.subtotal + order.deliveryCost, 2);
+    });
+
+    it('счёт PDF требует указать продавца, когда их несколько', async () => {
+      const all = (await req('/products?limit=100')).body.products as any[];
+      const mine = all.find((p) => p.sellerId === sellerId);
+      const foreign = all.find((p) => p.sellerId && p.sellerId !== sellerId);
+      if (!mine || !foreign) return;
+
+      const order = (await req('/orders', {
+        token: buyer,
+        body: {
+          items: [
+            { productId: mine.id, quantity: mine.minOrder },
+            { productId: foreign.id, quantity: foreign.minOrder },
+          ],
+        },
+      })).body;
+      const sellers = [...new Set(order.items.map((it: any) => it.sellerId))] as string[];
+      if (sellers.length < 2) return;
+
+      const noSeller = await req(`/orders/${order.id}/invoice`, { token: admin });
+      expect(noSeller.status).toBe(400);
+
+      const withSeller = await req(`/orders/${order.id}/invoice?sellerId=${sellers[0]}`, { token: admin });
+      expect(withSeller.status).toBe(200);
+
+      // Продавцу параметр не нужен — ему выдаётся его собственный счёт.
+      const own = await req(`/orders/${order.id}/invoice`, { token: seller });
+      expect(own.status).toBe(200);
+    });
+
     it('сумма документа — товары плюс доставка, без вычета баллов', async () => {
       await req('/delivery/tariffs', { token: seller, body: { method: 'COURIER', city: 'Ташкент', cost: 45000 } });
       const order = (await req('/orders', {
@@ -935,7 +1000,8 @@ describe('VetGlobal integrations (e2e)', () => {
 
       const sent = await req(`/didox/send/${order.id}`, { token: admin, body: {} });
       expect(sent.status).toBeLessThan(400);
-      expect(sent.body.didoxId).toBeTruthy();
+      // Ответ — список документов: по одному на продавца заказа.
+      expect(sent.body.documents[0].didoxId).toBeTruthy();
 
       // Баллы оплачивает платформа: продавцу выплачивается полная стоимость,
       // поэтому и реализация в документе полная.
@@ -953,8 +1019,8 @@ describe('VetGlobal integrations (e2e)', () => {
 
       const first = await req(`/didox/send/${order.id}`, { token: admin, body: {} });
       const second = await req(`/didox/send/${order.id}`, { token: admin, body: {} });
-      expect(second.body.didoxId).toBe(first.body.didoxId);
-      expect(second.body.alreadySent).toBe(true);
+      expect(second.body.documents[0].didoxId).toBe(first.body.documents[0].didoxId);
+      expect(second.body.documents.every((d: any) => d.alreadySent)).toBe(true);
     });
   });
 

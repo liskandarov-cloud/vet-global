@@ -8,6 +8,8 @@ import { MockDidoxAdapter } from './adapters/mock.adapter';
 import { LiveDidoxAdapter } from './adapters/live.adapter';
 import { invoiceNumberFor } from '../common/invoice-number';
 import { buildFactura } from './factura';
+import { splitInvoices } from '../orders/invoice-split';
+import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 
 @Injectable()
 export class DidoxService {
@@ -31,72 +33,136 @@ export class DidoxService {
     }
   }
 
-  // Create & send the factura for an order to Didox; persists didoxId + status.
+  // Выпуск счёта-фактуры по заказу — по одному документу на продавца.
+  //
+  // Счёт-фактура это документ между двумя юрлицами: ИНН продавца в нём его,
+  // реализация его. Раньше документ был один на заказ и выпускался от первого
+  // продавца — то есть от чужого имени и на чужие позиции. Продавец выпускает
+  // свой документ, администратор — все по заказу.
   async send(orderId: string, user: AuthUser) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: true, invoice: true, counterparty: true, buyer: true },
+      include: {
+        items: true,
+        invoices: true,
+        shipments: true,
+        counterparty: true,
+        buyer: true,
+      },
     });
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
 
-    // Повторная отправка документ не дублирует.
-    //
-    // Счёт-фактура — документ налогового учёта: два документа на одну поставку
-    // означают двойную реализацию у продавца. Раньше каждый вызов создавал новый
-    // документ, а в базе оставался только последний идентификатор — предыдущий
-    // висел в Didox, и о нём уже нельзя было узнать.
-    if (order.invoice?.didoxId) {
-      return {
-        mode: this.adapter.mode,
-        didoxId: order.invoice.didoxId,
-        didoxStatus: order.invoice.didoxStatus,
-        number: order.invoice.number,
-        alreadySent: true,
-      };
+    const split = splitInvoices(
+      order.items.map((it) => ({
+        sellerId: it.sellerId,
+        productName: it.productName,
+        quantity: it.quantity,
+        price: Number(it.price),
+      })),
+      deliveryBySellerForOrder(
+        order.deliveryQuote,
+        order.shipments.map((sh) => ({ sellerId: sh.sellerId, cost: Number(sh.cost) })),
+      ),
+      Number(order.vetPointsUsed),
+    );
+
+    // Продавец выпускает только свой документ: чужой он не выпускает даже по
+    // прямому запросу.
+    const parts = user.role === UserRole.SELLER ? split.filter((p) => p.sellerId === user.id) : split;
+    if (!parts.length) throw new NotFoundException('В заказе нет позиций этого продавца');
+
+    const documents: {
+      sellerId: string;
+      didoxId: string | null;
+      didoxStatus: string | null;
+      number: string;
+      alreadySent?: boolean;
+    }[] = [];
+    for (const part of parts) {
+      // Документ на весь заказ (пустой sellerId) — формат счетов, выпущенных до
+      // разделения по продавцам: при единственном продавце он им и остаётся.
+      const invoiceSellerId = split.length === 1 ? '' : part.sellerId;
+      const existing = order.invoices.find((inv) => inv.sellerId === invoiceSellerId);
+
+      // Повторная отправка документ не дублирует: два счёта-фактуры на одну
+      // поставку означают двойную реализацию у продавца.
+      if (existing?.didoxId) {
+        documents.push({
+          sellerId: part.sellerId,
+          didoxId: existing.didoxId,
+          didoxStatus: existing.didoxStatus,
+          number: existing.number,
+          alreadySent: true,
+        });
+        continue;
+      }
+
+      const number = existing?.number ?? invoiceNumberFor(order, invoiceSellerId || null);
+      const seller = await this.prisma.user.findUnique({ where: { id: part.sellerId } });
+
+      // Баллы в счёт-фактуру не идут: их оплачивает платформа, продавцу
+      // выплачивается полная стоимость позиций, значит и реализация полная.
+      const payload = buildFactura(
+        { ...order, items: part.items, deliveryCost: part.delivery },
+        seller,
+        number,
+      );
+
+      const result = await this.adapter.createInvoice(payload);
+      const invoice = await this.prisma.invoice.upsert({
+        where: { orderId_sellerId: { orderId, sellerId: invoiceSellerId } },
+        update: { didoxId: result.didoxId, didoxStatus: result.status },
+        create: {
+          orderId,
+          sellerId: invoiceSellerId,
+          number,
+          // Сумма документа, а не сумма заказа: они различаются на баллы.
+          amount: payload.total,
+          didoxId: result.didoxId,
+          didoxStatus: result.status,
+        },
+      });
+
+      documents.push({
+        sellerId: part.sellerId,
+        didoxId: invoice.didoxId,
+        didoxStatus: invoice.didoxStatus,
+        number: invoice.number,
+      });
     }
 
-    const number = order.invoice?.number ?? invoiceNumberFor(order);
-    const seller = await this.prisma.user.findUnique({ where: { id: order.items[0]?.sellerId } });
-
-    const payload = buildFactura(order, seller, number);
-    const total = payload.total;
-
-    const result = await this.adapter.createInvoice(payload);
-
-    const invoice = await this.prisma.invoice.upsert({
-      where: { orderId },
-      update: { didoxId: result.didoxId, didoxStatus: result.status },
-      create: {
-        orderId,
-        number,
-        // Сумма счёта — сумма документа, а не заказа: они различаются на
-        // списанные баллы, и хранить здесь сумму заказа значило бы расходиться
-        // с отправленным в ЭДО документом.
-        amount: total,
-        didoxId: result.didoxId,
-        didoxStatus: result.status,
-      },
-    });
-
-    return { mode: this.adapter.mode, didoxId: invoice.didoxId, didoxStatus: invoice.didoxStatus, number };
+    return { mode: this.adapter.mode, documents };
   }
 
-  // Re-sync the document status from Didox.
+  // Обновление статусов документов заказа из Didox.
+  //
+  // Документов может быть несколько — по одному на продавца, и статус у каждого
+  // свой: один продавец подписал, другой ещё нет.
   async syncStatus(orderId: string, user: AuthUser) {
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
-      include: { items: true, invoice: true },
+      include: { items: true, invoices: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
-    if (!order.invoice?.didoxId) {
-      return { mode: this.adapter.mode, didoxStatus: null, message: 'Документ ещё не отправлен в Didox' };
+
+    const own =
+      user.role === UserRole.SELLER
+        ? order.invoices.filter((inv) => inv.sellerId === user.id || inv.sellerId === '')
+        : order.invoices;
+    const sent = own.filter((inv) => inv.didoxId);
+    if (!sent.length) {
+      return { mode: this.adapter.mode, documents: [], message: 'Документ ещё не отправлен в Didox' };
     }
 
-    const status = await this.adapter.getStatus(order.invoice.didoxId);
-    await this.prisma.invoice.update({ where: { orderId }, data: { didoxStatus: status } });
-    return { mode: this.adapter.mode, didoxId: order.invoice.didoxId, didoxStatus: status };
+    const documents: { sellerId: string; didoxId: string | null; number: string; didoxStatus: string }[] = [];
+    for (const inv of sent) {
+      const status = await this.adapter.getStatus(inv.didoxId!);
+      await this.prisma.invoice.update({ where: { id: inv.id }, data: { didoxStatus: status } });
+      documents.push({ sellerId: inv.sellerId, didoxId: inv.didoxId, number: inv.number, didoxStatus: status });
+    }
+    return { mode: this.adapter.mode, documents };
   }
 
   private assertAccess(order: any, user: AuthUser) {

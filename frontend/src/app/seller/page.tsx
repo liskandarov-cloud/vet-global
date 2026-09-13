@@ -27,6 +27,14 @@ function ownShipment(order: any, sellerId?: string) {
   const list = order?.shipments ?? [];
   return list.find((sh: any) => sh.sellerId === sellerId) ?? list.find((sh: any) => !sh.sellerId);
 }
+
+// Свой счёт продавца. Счёт-фактура выпускается по одному на продавца: в заказе
+// от нескольких поставщиков продавец видит статус своего документа, а не чужого.
+// Пустой sellerId — счёт «на весь заказ», выпущенный до разделения.
+function ownInvoice(order: any, sellerId?: string) {
+  const list = order?.invoices ?? [];
+  return list.find((inv: any) => inv.sellerId === sellerId) ?? list.find((inv: any) => !inv.sellerId);
+}
 import { signWithEimzo } from '@/lib/eimzo';
 import { useI18n } from '@/lib/i18n';
 
@@ -136,10 +144,13 @@ function SellerContent() {
     } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
   };
 
+  // Ответ содержит список документов: их по одному на продавца, и продавцу
+  // возвращается ровно его собственный.
   const sendDidox = async (id: string) => {
     try {
       const { data } = await api.post(`/didox/send/${id}`);
-      toast.success(`${tt('Отправлено в Didox', 'Didoxga yuborildi')} (${data.mode}): ${didoxLabels[data.didoxStatus] ?? data.didoxStatus}`);
+      const doc = data.documents?.[0];
+      toast.success(`${tt('Отправлено в Didox', 'Didoxga yuborildi')} (${data.mode}): ${didoxLabels[doc?.didoxStatus] ?? doc?.didoxStatus ?? '—'}`);
       load();
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? tt('Ошибка ЭДО', 'EDI xatosi'));
@@ -147,7 +158,8 @@ function SellerContent() {
   };
   const syncDidox = async (id: string) => {
     const { data } = await api.get(`/didox/status/${id}`);
-    toast.success(`${tt('Статус Didox', 'Didox holati')}: ${didoxLabels[data.didoxStatus] ?? data.didoxStatus ?? '—'}`);
+    const doc = data.documents?.[0];
+    toast.success(`${tt('Статус Didox', 'Didox holati')}: ${didoxLabels[doc?.didoxStatus] ?? doc?.didoxStatus ?? '—'}`);
     load();
   };
   const signEimzo = async (id: string) => {
@@ -380,12 +392,12 @@ function SellerContent() {
                     </select>
                   </td>
                   <td>
-                    {o.invoice?.didoxStatus ? (
+                    {ownInvoice(o, user?.id)?.didoxStatus ? (
                       <span className="inline-flex items-center gap-2">
-                        <span className={`rounded-md px-2 py-0.5 text-xs ${o.invoice.didoxStatus === 'SIGNED' ? 'bg-teal-100 text-teal-700' : o.invoice.didoxStatus === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
-                          {didoxLabels[o.invoice.didoxStatus] ?? o.invoice.didoxStatus}
+                        <span className={`rounded-md px-2 py-0.5 text-xs ${ownInvoice(o, user?.id).didoxStatus === 'SIGNED' ? 'bg-teal-100 text-teal-700' : ownInvoice(o, user?.id).didoxStatus === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                          {didoxLabels[ownInvoice(o, user?.id).didoxStatus] ?? ownInvoice(o, user?.id).didoxStatus}
                         </span>
-                        {o.invoice.didoxStatus === 'SENT' && (
+                        {ownInvoice(o, user?.id).didoxStatus === 'SENT' && (
                           <button className="btn-ghost !px-2 !py-1 text-xs text-teal-700" onClick={() => signEimzo(o.id)}>{tt('Подписать ЭЦП', 'ERI bilan imzolash')}</button>
                         )}
                         <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => syncDidox(o.id)}>{tt('Обновить', 'Yangilash')}</button>

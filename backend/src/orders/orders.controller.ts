@@ -1,15 +1,4 @@
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  Param,
-  Patch,
-  Post,
-  Query,
-  Res,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import { Response } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { OrderStatus, UserRole } from '@prisma/client';
@@ -117,8 +106,16 @@ export class OrdersController {
   @Get(':id/invoice')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)
-  async invoice(@Param('id') id: string, @CurrentUser() user: AuthUser, @Res() res: Response) {
-    const { buffer, number } = await this.orders.invoicePdf(id, user);
+  async invoice(
+    @Param('id') id: string,
+    @CurrentUser() user: AuthUser,
+    @Res() res: Response,
+    // Чей счёт. Продавцу указывать не нужно — ему выдаётся свой; покупателю и
+    // администратору нужен, когда в заказе несколько поставщиков: счёт один на
+    // всех выставлялся бы от чужого имени.
+    @Query('sellerId') sellerId?: string,
+  ) {
+    const { buffer, number } = await this.orders.invoicePdf(id, user, sellerId);
     res.set({
       'Content-Type': 'application/pdf',
       'Content-Disposition': `inline; filename="invoice-${number}.pdf"`,

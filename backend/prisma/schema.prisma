@@ -621,7 +621,7 @@ model Order {
   counterparty Counterparty? @relation(fields: [counterpartyId], references: [id])
   org          Organization? @relation(fields: [orgId], references: [id])
   items        OrderItem[]
-  invoice      Invoice?
+  invoices     Invoice[]
   shipments    Shipment[]
   payments     Payment[]
 
@@ -656,9 +656,21 @@ model OrderItem {
 
 // PDF-счёт, сформированный после подтверждения заказа (ТЗ 6.3).
 model Invoice {
-  id        String   @id @default(uuid())
-  orderId   String   @unique
-  number    String   @unique // человекочитаемый номер счёта
+  id      String @id @default(uuid())
+  orderId String
+  // Продавец, от имени которого выпущен документ.
+  //
+  // Счёт-фактура — документ между двумя юрлицами, и в заказе от нескольких
+  // поставщиков каждый обязан выпустить свой: ИНН в документе его, реализация
+  // его. Раньше счёт был один на заказ и выпускался от первого продавца — то
+  // есть от чужого имени на чужие позиции.
+  //
+  // Пустая строка, а не NULL: Postgres считает NULL в составном уникальном
+  // ключе различными, и такой ключ не удержал бы второй документ от дубля.
+  // Пустое значение означает документ на весь заказ — так выглядят счета,
+  // выпущенные до разделения.
+  sellerId String @default("")
+  number   String @unique // человекочитаемый номер счёта
   fileUrl   String? // ссылка на PDF в S3
   amount    Decimal  @db.Decimal(12, 2)
   // Didox ЭДО (SRS 3.1): id документа в Didox и его статус (DRAFT/SENT/SIGNED/REJECTED)
@@ -670,6 +682,9 @@ model Invoice {
   createdAt DateTime @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, sellerId])
+  @@index([orderId])
 }
 
 // ─────────────────────────────── Delivery ───────────────────────────────

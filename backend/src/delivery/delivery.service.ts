@@ -113,7 +113,7 @@ export class DeliveryService {
         vetPointsUsed: true,
         total: true,
         deliveryCost: true,
-        invoice: { select: { id: true } },
+        invoices: { select: { id: true } },
         payments: { where: { status: PaymentStatus.PAID }, select: { id: true } },
         // Расчёт, сделанный при оформлении: он определяет, чью отправку ещё
         // нужно прибавить, а чья стоимость уже включена в сумму.
@@ -138,7 +138,7 @@ export class DeliveryService {
       return;
     }
 
-    if (order.payments.length || order.invoice) {
+    if (order.payments.length || order.invoices.length) {
       const reason = order.payments.length ? 'заказ уже оплачен' : 'по заказу выставлен счёт';
       throw new BadRequestException(
         `Стоимость доставки нельзя изменить: ${reason}. Сумма к оплате осталась бы прежней, ` +

@@ -11,6 +11,20 @@
 // между читаемостью и различимостью.
 const ID_CHARS = 8;
 
-export function invoiceNumberFor(order: { id: string; createdAt: Date }): string {
-  return `VG-${order.createdAt.getFullYear()}-${order.id.slice(0, ID_CHARS).toUpperCase()}`;
+// Столько знаков идентификатора продавца добавляется к номеру. В заказе от
+// нескольких поставщиков каждый выпускает свой документ, и номера обязаны
+// различаться: номер счёта уникален, и второй документ с тем же номером просто
+// не сохранился бы.
+const SELLER_CHARS = 4;
+
+export function invoiceNumberFor(
+  order: { id: string; createdAt: Date },
+  sellerId?: string | null,
+): string {
+  const base = `VG-${order.createdAt.getFullYear()}-${order.id.slice(0, ID_CHARS).toUpperCase()}`;
+  // Без продавца формат остаётся прежним: так выглядят счета, выпущенные до
+  // разделения по продавцам, и менять их номера задним числом нельзя — они уже
+  // в документах и в ЭДО.
+  if (!sellerId) return base;
+  return `${base}-${sellerId.slice(0, SELLER_CHARS).toUpperCase()}`;
 }

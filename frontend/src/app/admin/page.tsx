@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { Check, Ban, ShieldCheck, TrendingUp, Percent, Users, ShoppingCart, Download, Plus, Pencil, Trash2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { downloadInvoices } from '@/lib/invoices';
 import { RoleGuard, StatCard } from '@/components/RoleGuard';
 import { WeeklyBars } from '@/components/Charts';
 import { formatMoney } from '@/lib/utils';
@@ -99,11 +100,27 @@ function AdminContent() {
     toast.success(tt('Заказ удалён', 'Buyurtma oʻchirildi'));
     load();
   };
-  const orderInvoice = async (id: string) => {
-    const { data } = await api.get(`/orders/${id}/invoice`, { responseType: 'blob' });
-    const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
-    const a = document.createElement('a'); a.href = url; a.download = `invoice-${id.slice(0, 8)}.pdf`; a.click();
-    URL.revokeObjectURL(url);
+  // Счетов может быть несколько: в заказе от нескольких поставщиков каждый
+  // выпускает свой документ от своего имени.
+  const orderInvoice = async (order: any) => {
+    await downloadInvoices(
+      order,
+      async (orderId, sellerId) => {
+        const { data } = await api.get(`/orders/${orderId}/invoice`, {
+          params: sellerId ? { sellerId } : undefined,
+          responseType: 'blob',
+        });
+        return data;
+      },
+      (data, filename) => {
+        const url = URL.createObjectURL(new Blob([data as BlobPart], { type: 'application/pdf' }));
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        a.click();
+        URL.revokeObjectURL(url);
+      },
+    );
   };
   const verifyOffer = async (id: string) => {
     await api.post(`/offers/${id}/verify`, { verified: true });
@@ -224,7 +241,7 @@ function AdminContent() {
                     </select>
                   </td>
                   <td className="py-2 whitespace-nowrap">
-                    <button className="btn-ghost !px-2 !py-1" onClick={() => orderInvoice(o.id)} title={tt('Счёт PDF', 'Hisob PDF')}><Download size={15} /></button>
+                    <button className="btn-ghost !px-2 !py-1" onClick={() => orderInvoice(o)} title={tt('Счёт PDF', 'Hisob PDF')}><Download size={15} /></button>
                     <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => delOrder(o.id)} title={tt('Удалить', 'Oʻchirish')}><Trash2 size={15} /></button>
                   </td>
                 </tr>

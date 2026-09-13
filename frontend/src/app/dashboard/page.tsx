@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Download, FileText, RotateCcw, CreditCard, Gift, Wallet, Package, User, ChevronDown } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { downloadInvoices } from '@/lib/invoices';
 import { useAuth, useCart } from '@/lib/store';
 import { RoleGuard, StatCard, STATUS_LABELS } from '@/components/RoleGuard';
 import { SpendArea, CategoryPie } from '@/components/Charts';
@@ -69,9 +70,23 @@ function BuyerContent() {
     toast.success(tt('Товары добавлены в корзину', 'Mahsulotlar savatga qoʻshildi'));
   };
 
-  const invoice = async (id: string) => {
-    const { data } = await api.get(`/orders/${id}/invoice`, { responseType: 'blob' });
-    downloadBlob(data, `invoice-${id.slice(0, 8)}.pdf`, 'application/pdf');
+  // Счетов может быть несколько: в заказе от нескольких поставщиков каждый
+  // выпускает свой документ, и одним файлом их не собрать.
+  const invoice = async (order: any) => {
+    const count = await downloadInvoices(
+      order,
+      async (orderId, sellerId) => {
+        const { data } = await api.get(`/orders/${orderId}/invoice`, {
+          params: sellerId ? { sellerId } : undefined,
+          responseType: 'blob',
+        });
+        return data;
+      },
+      (data, filename) => downloadBlob(data as BlobPart, filename, 'application/pdf'),
+    );
+    if (count > 1) {
+      toast.success(tt(`Счетов по заказу: ${count} — по одному от каждого поставщика`, `Buyurtma bo'yicha hisob-fakturalar: ${count}`));
+    }
   };
 
   const pay = async (orderId: string, provider: string) => {
@@ -182,7 +197,7 @@ function BuyerContent() {
                     <PayControl onPay={(provider) => pay(o.id, provider)} />
                   ) : null}
                   <button className="btn-ghost !px-2 !py-1" onClick={() => repeat(o)} title={tt('Повторить', 'Takrorlash')}><RotateCcw size={15} /></button>
-                  <button className="btn-ghost !px-2 !py-1" onClick={() => invoice(o.id)} title={tt('Счёт PDF', 'Hisob-faktura PDF')}><FileText size={15} /></button>
+                  <button className="btn-ghost !px-2 !py-1" onClick={() => invoice(o)} title={tt('Счёт PDF', 'Hisob-faktura PDF')}><FileText size={15} /></button>
                 </td>
               </tr>
             ))}

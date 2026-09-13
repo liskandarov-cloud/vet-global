@@ -43,3 +43,30 @@ describe('invoiceNumberFor — номер счёта', () => {
     expect(a).toBe(b);
   });
 });
+
+describe('номер счёта по продавцам', () => {
+  const order = { id: '9fdbc996-1111-2222-3333-444444444444', createdAt: new Date('2026-09-13T10:00:00Z') };
+
+  it('без продавца формат остаётся прежним', () => {
+    expect(invoiceNumberFor(order)).toBe('VG-2026-9FDBC996');
+    expect(invoiceNumberFor(order, null)).toBe('VG-2026-9FDBC996');
+    expect(invoiceNumberFor(order, '')).toBe('VG-2026-9FDBC996');
+  });
+
+  it('с продавцом номер получает его метку', () => {
+    expect(invoiceNumberFor(order, '0cbccf65-a81e-4164-a505-0ec4305412c8')).toBe('VG-2026-9FDBC996-0CBC');
+  });
+
+  // Номер счёта уникален в базе: одинаковые номера у двух продавцов одного
+  // заказа означали бы, что второй документ не сохранится вовсе.
+  it('у разных продавцов одного заказа номера разные', () => {
+    const a = invoiceNumberFor(order, '0cbccf65-a81e-4164-a505-0ec4305412c8');
+    const b = invoiceNumberFor(order, 'd0068dd4-c4d1-4038-8054-e412be2cec79');
+    expect(a).not.toBe(b);
+  });
+
+  it('номер одного и того же продавца стабилен', () => {
+    const seller = '0cbccf65-a81e-4164-a505-0ec4305412c8';
+    expect(invoiceNumberFor(order, seller)).toBe(invoiceNumberFor(order, seller));
+  });
+});

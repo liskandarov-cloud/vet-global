@@ -33,6 +33,8 @@ import { isTransitionAllowed, transitionError } from './status';
 import { approvalFor } from './approval';
 import { OrderReleaseService } from './order-release.service';
 import { invoiceNumberFor } from '../common/invoice-number';
+import { splitInvoices } from './invoice-split';
+import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 import { TariffsService } from '../delivery/tariffs.service';
 
 @Injectable()
@@ -431,7 +433,7 @@ export class OrdersService {
     const orders = await this.prisma.order.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: { items: true, invoice: true, shipments: true, payments: true },
+      include: { items: true, invoices: true, shipments: true, payments: true },
       take: 200,
     });
     return orders.map((o) => this.serialize(o));
@@ -440,7 +442,7 @@ export class OrdersService {
   async getOne(id: string, user: AuthUser) {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: true, invoice: true, shipments: true, payments: true },
+      include: { items: true, invoices: true, shipments: true, payments: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
@@ -549,24 +551,73 @@ export class OrdersService {
     return this.getOne(id, user);
   }
 
-  // Generates (and records) the invoice PDF for a confirmed order.
-  async invoicePdf(id: string, user: AuthUser): Promise<{ buffer: Buffer; number: string }> {
+  // Счёт на оплату для одного продавца заказа.
+  //
+  // Документ выпускается от имени конкретного продавца: в заказе от нескольких
+  // поставщиков счёт один на всех был бы выставлен от чужого имени и на чужие
+  // позиции. Продавец получает свой счёт без параметров, покупателю и
+  // администратору нужно указать, чей именно, — кроме случая единственного
+  // продавца, где выбора нет.
+  async invoicePdf(
+    id: string,
+    user: AuthUser,
+    sellerId?: string,
+  ): Promise<{ buffer: Buffer; number: string }> {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: true, invoice: true, shipments: true, payments: true },
+      include: { items: true, invoices: true, shipments: true, payments: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
 
-    const number = order.invoice?.number ?? invoiceNumberFor(order);
-    if (!order.invoice) {
+    const split = splitInvoices(
+      order.items.map((it) => ({
+        sellerId: it.sellerId,
+        productName: it.productName,
+        quantity: it.quantity,
+        price: Number(it.price),
+      })),
+      deliveryBySellerForOrder(
+        order.deliveryQuote,
+        order.shipments.map((sh) => ({ sellerId: sh.sellerId, cost: Number(sh.cost) })),
+      ),
+      Number(order.vetPointsUsed),
+    );
+    if (!split.length) throw new BadRequestException('В заказе нет позиций');
+
+    // Продавец всегда получает свой счёт: чужой ему не выдаётся даже по прямому
+    // запросу — документ содержит реквизиты и суммы другого юрлица.
+    const wanted = user.role === UserRole.SELLER ? user.id : sellerId;
+    const part = wanted
+      ? split.find((p) => p.sellerId === wanted)
+      : split.length === 1
+        ? split[0]
+        : null;
+
+    if (!part) {
+      if (wanted) throw new NotFoundException('В заказе нет позиций этого продавца');
+      throw new BadRequestException(
+        `В заказе несколько поставщиков — укажите продавца: ${split.map((p) => p.sellerId).join(', ')}`,
+      );
+    }
+
+    const existing = order.invoices.find(
+      (inv) => inv.sellerId === part.sellerId || (inv.sellerId === '' && split.length === 1),
+    );
+    const number = existing?.number ?? invoiceNumberFor(order, split.length === 1 ? null : part.sellerId);
+    if (!existing) {
       await this.prisma.invoice.create({
-        data: { orderId: order.id, number, amount: order.total },
+        data: {
+          orderId: order.id,
+          sellerId: split.length === 1 ? '' : part.sellerId,
+          number,
+          amount: part.total,
+        },
       });
     }
 
     const seller = await this.prisma.user.findFirst({
-      where: { id: order.items[0]?.sellerId },
+      where: { id: part.sellerId },
       select: {
         company: true, inn: true,
         bankName: true, bankAccount: true, bankMfo: true, vatPayer: true,
@@ -589,18 +640,17 @@ export class OrdersService {
         company: order.buyerCompany,
         phone: order.buyerPhone,
       },
-      items: order.items.map((it) => ({
+      items: part.items.map((it) => ({
         name: it.productName,
         quantity: it.quantity,
-        price: Number(it.price),
+        price: it.price,
       })),
-      subtotal: Number(order.subtotal),
-      vetPointsUsed: Number(order.vetPointsUsed),
-      // Доставка берётся из заказа, а не из отправок: она входит в сумму к
-      // оплате с момента оформления, когда отправок ещё нет вовсе. Сложение
-      // отправок занижало бы строку счёта — и итог не сошёлся бы с перечнем.
-      deliveryCost: Number(order.deliveryCost),
-      total: Number(order.total),
+      subtotal: part.goods,
+      // Доля баллов этого продавца: покупатель списывал их с заказа целиком, и
+      // без распределения счета не сложились бы в сумму, которую он платит.
+      vetPointsUsed: part.vetPointsUsed,
+      deliveryCost: part.delivery,
+      total: part.total,
     });
 
     return { buffer, number };

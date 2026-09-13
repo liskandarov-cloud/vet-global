@@ -719,7 +719,9 @@ async function main() {
         await prisma.order.update({ where: { id: o.id }, data: { paymentTerm: PaymentTerm.NET_TERMS, netTermDays: 30, dueDate: new Date(Date.now() + 20 * 86400000) } });
         await prisma.shipment.create({ data: { orderId: o.id, sellerId: (await prisma.orderItem.findFirst({ where: { orderId: o.id }, select: { sellerId: true } }))?.sellerId, method: DeliveryMethod.TRANSPORT, status: ShipmentStatus.IN_TRANSIT, city: 'Ташкент', address: 'Юнусабадский р-н, ул. Амира Темура 15', recipientName: o.buyerName, recipientPhone: o.buyerPhone, cost: 120000, carrier: 'BTS Express', trackingNumber: 'BTS-2026-004417', estimatedDate: new Date(Date.now() + 3 * 86400000) } });
         await prisma.payment.create({ data: { orderId: o.id, provider: PaymentProvider.PAYME, amount: o.total, status: PaymentStatus.PAID, providerTransId: 'pm_demo_' + o.id.slice(0, 6) } });
-        await prisma.invoice.upsert({ where: { orderId: o.id }, create: { orderId: o.id, number: invoiceNumberFor(o), amount: o.total, didoxStatus: 'SIGNED', didoxId: 'dx_' + o.id.slice(0, 8), signedAt: new Date() }, update: { didoxStatus: 'SIGNED', signedAt: new Date() } });
+        // Демо-счёт выпускается «на весь заказ» (пустой sellerId) — так выглядят
+        // счета, созданные до разделения документов по продавцам.
+        await prisma.invoice.upsert({ where: { orderId_sellerId: { orderId: o.id, sellerId: '' } }, create: { orderId: o.id, sellerId: '', number: invoiceNumberFor(o), amount: o.total, didoxStatus: 'SIGNED', didoxId: 'dx_' + o.id.slice(0, 8), signedAt: new Date() }, update: { didoxStatus: 'SIGNED', signedAt: new Date() } });
       }
       // findFirst, а не findUnique: отправка теперь принадлежит продавцу, и
       // заказ может иметь их несколько — уникальности по orderId больше нет.
@@ -734,7 +736,7 @@ async function main() {
       if (myOrders[2] && !(await prisma.payment.findFirst({ where: { orderId: myOrders[2].id } }))) {
         const o = myOrders[2];
         await prisma.payment.create({ data: { orderId: o.id, provider: PaymentProvider.UZUM, amount: o.total, status: PaymentStatus.PAID, providerTransId: 'uz_demo_' + o.id.slice(0, 6) } });
-        await prisma.invoice.upsert({ where: { orderId: o.id }, create: { orderId: o.id, number: invoiceNumberFor(o), amount: o.total, didoxStatus: 'SIGNED', signedAt: new Date() }, update: {} });
+        await prisma.invoice.upsert({ where: { orderId_sellerId: { orderId: o.id, sellerId: '' } }, create: { orderId: o.id, sellerId: '', number: invoiceNumberFor(o), amount: o.total, didoxStatus: 'SIGNED', signedAt: new Date() }, update: {} });
       }
 
       // Организация: команда + согласование.
