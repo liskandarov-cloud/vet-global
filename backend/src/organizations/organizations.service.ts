@@ -9,12 +9,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateOrgDto, InviteMemberDto, UpdateMemberDto } from './dto/organization.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { AlertsService } from '../alerts/alerts.service';
+import { OrderReleaseService } from '../orders/order-release.service';
 
 @Injectable()
 export class OrganizationsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly alerts: AlertsService,
+    private readonly release: OrderReleaseService,
   ) {}
 
   // Организация текущего пользователя (первое членство) + участники.
@@ -145,14 +147,14 @@ export class OrganizationsService {
           ? { approvalStatus: ApprovalStatus.APPROVED, approvedById: user.id }
           : { approvalStatus: ApprovalStatus.REJECTED, approvedById: user.id, status: OrderStatus.CANCELLED },
       });
-      // При отклонении освобождаем зарезервированный кредитный лимит.
-      if (!approve && order.buyerId && order.paymentTerm !== 'PREPAY') {
-        await tx.user.update({
-          where: { id: order.buyerId },
-          data: { creditUsed: { decrement: Number(order.total) } },
-        });
-      }
     });
+
+    // Отклонение — это отмена заказа, поэтому возвращается всё занятое: лимит,
+    // баллы и остаток на складе. Раньше здесь освобождался только лимит, и
+    // своей копией расчёта: баллы покупателя сгорали, товар оставался списанным.
+    if (!approve) {
+      await this.release.onCancelled(orderId);
+    }
     if (order.buyerId) {
       void this.alerts.notify(order.buyerId, {
         title: approve ? 'Заказ согласован' : 'Заказ отклонён',

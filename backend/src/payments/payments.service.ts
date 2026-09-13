@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundEx
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus, PaymentProvider, PaymentStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { OrderReleaseService } from '../orders/order-release.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { buildCheckoutUrl } from './providers';
 
@@ -14,6 +15,7 @@ export class PaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly release: OrderReleaseService,
   ) {
     this.mock = (config.get<string>('PAYMENTS_MODE') ?? 'mock').toLowerCase() !== 'live';
     this.returnUrl = config.get<string>('PAYMENT_RETURN_URL') ?? config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
@@ -81,6 +83,9 @@ export class PaymentsService {
       where: { id: payment.orderId },
       data: { status: OrderStatus.CONFIRMED },
     });
+    // Лимит резервировался под неоплаченный долг: после оплаты он должен
+    // освободиться, иначе отсрочка расходует лимит покупателя навсегда.
+    await this.release.onPaid(payment.orderId);
     this.logger.log(`Payment ${paymentId} PAID (${payment.provider}) → order ${payment.orderId} CONFIRMED`);
     return { id: payment.id, status: payment.status, orderId: payment.orderId };
   }

@@ -29,6 +29,7 @@ import {
   vetPointsSpendable,
 } from '../common/pricing';
 import { isTransitionAllowed, transitionError } from './status';
+import { OrderReleaseService } from './order-release.service';
 import { invoiceNumberFor } from '../common/invoice-number';
 import { TariffsService } from '../delivery/tariffs.service';
 
@@ -46,6 +47,7 @@ export class OrdersService {
     private readonly notifications: NotificationsService,
     private readonly alerts: AlertsService,
     private readonly tariffs: TariffsService,
+    private readonly release: OrderReleaseService,
   ) {
     this.commissionPct = Number(config.get('PLATFORM_COMMISSION_PERCENT') ?? 12);
     this.earnPct = Number(config.get('VETPOINTS_EARN_PERCENT') ?? 1);
@@ -301,6 +303,13 @@ export class OrdersService {
           });
           if (dec.count === 0) throw new BadRequestException(`Недостаточно на складе: «${p.name}»`);
           await tx.product.updateMany({ where: { id: it.productId, stockQty: 0 }, data: { inStock: false } });
+          // Отмечаем, что остаток действительно списан: только такие позиции
+          // возвращаются на склад при отмене. Без отметки отмена завышала бы
+          // склад позициями «под заказ», которые его не трогали.
+          await tx.orderItem.updateMany({
+            where: { orderId: created.id, productId: it.productId },
+            data: { stockTaken: true },
+          });
         }
       }
 
@@ -428,6 +437,13 @@ export class OrdersService {
     }
 
     await this.prisma.order.update({ where: { id }, data: { status } });
+
+    // Отмена возвращает то, что заказ занял: остаток на склад, кредитный лимит
+    // и списанные баллы. Без этого лимит и баллы покупателя сгорали, а склад
+    // оставался уменьшенным на товар, который никто не забрал.
+    if (status === OrderStatus.CANCELLED) {
+      await this.release.onCancelled(id);
+    }
 
     // Credit earned VetPoints once, on delivery.
     if (status === OrderStatus.DELIVERED && order.buyerId) {

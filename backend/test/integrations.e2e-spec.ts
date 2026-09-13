@@ -431,6 +431,122 @@ describe('VetGlobal integrations (e2e)', () => {
     await req(`/products/${fresh.id}`, { method: 'DELETE', token: seller }).catch(() => {});
   });
 
+  // Создание заказа занимает три ресурса: остаток на складе, кредитный лимит и
+  // баллы покупателя. До этого отмена не возвращала ни одного: лимит и баллы
+  // сгорали, а склад оставался списанным на товар, который никто не забрал.
+  describe('отмена заказа возвращает занятое', () => {
+    // Остаток выставляется тестом, а не берётся из базы: прогоны расходуют
+    // запас, и тест, зависящий от оставшегося количества, рано или поздно
+    // начинает падать не из-за кода.
+    const withStock = async (qty: number) => {
+      await req(`/products/${sellerProduct.id}`, {
+        method: 'PUT',
+        token: seller,
+        body: {
+          name: sellerProduct.name,
+          description: sellerProduct.description ?? 'x',
+          categoryId: sellerProduct.categoryId,
+          price: sellerProduct.price,
+          minOrder: sellerProduct.minOrder,
+          stockQty: qty,
+          inStock: true,
+        },
+      });
+      return (await req(`/products/${sellerProduct.id}`)).body;
+    };
+
+    it('возвращает остаток на склад', async () => {
+      const product = await withStock(40);
+      expect(product.stockQty).toBe(40);
+      const before = product.stockQty;
+
+      const order = (await req('/orders', {
+        token: buyer,
+        body: { items: [{ productId: product.id, quantity: 3 }] },
+      })).body;
+      expect((await req(`/products/${product.id}`)).body.stockQty).toBe(before - 3);
+
+      await req(`/orders/${order.id}/status`, { method: 'PATCH', token: admin, body: { status: 'CANCELLED' } });
+      expect((await req(`/products/${product.id}`)).body.stockQty).toBe(before);
+    });
+
+    it('возвращает списанные баллы и пишет проводку', async () => {
+      const before = Number((await req('/vetpoints/balance', { token: buyer })).body.balance);
+      expect(before).toBeGreaterThanOrEqual(1000);
+
+      const order = (await req('/orders', {
+        token: buyer,
+        body: { items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }], vetPointsUsed: 1000 },
+      })).body;
+      expect(order.vetPointsUsed).toBe(1000);
+      expect(Number((await req('/vetpoints/balance', { token: buyer })).body.balance)).toBe(before - 1000);
+
+      await req(`/orders/${order.id}/status`, { method: 'PATCH', token: admin, body: { status: 'CANCELLED' } });
+      expect(Number((await req('/vetpoints/balance', { token: buyer })).body.balance)).toBe(before);
+
+      // Возврат виден в истории: остаток баллов должен объясняться проводками.
+      const tx = (await req('/vetpoints/transactions', { token: buyer })).body;
+      const rows = Array.isArray(tx) ? tx : tx.transactions;
+      expect(rows.some((t: any) => t.orderId === order.id && Number(t.amount) === 1000)).toBe(true);
+    });
+
+    it('повторная отмена не возвращает занятое второй раз', async () => {
+      const before = Number((await req('/vetpoints/balance', { token: buyer })).body.balance);
+      const order = (await req('/orders', {
+        token: buyer,
+        body: { items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }], vetPointsUsed: 500 },
+      })).body;
+
+      const cancel = () => req(`/orders/${order.id}/status`, { method: 'PATCH', token: admin, body: { status: 'CANCELLED' } });
+      await cancel();
+      await cancel();
+      expect(Number((await req('/vetpoints/balance', { token: buyer })).body.balance)).toBe(before);
+    });
+
+    // Лимит резервируется под неоплаченный долг. После оплаты держать резерв
+    // значит занимать лимит деньгами, которые покупатель уже отдал.
+    it('оплата отсрочки освобождает кредитный лимит', async () => {
+      const used = () => req('/financing/me', { token: buyer }).then((r) => Number(r.body.creditUsed));
+      const before = await used();
+
+      const order = (await req('/orders', {
+        token: buyer,
+        body: {
+          items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }],
+          paymentTerm: 'NET_TERMS',
+          netTermDays: 30,
+        },
+      })).body;
+      expect(await used()).toBeCloseTo(before + order.total, 2);
+
+      const pay = (await req('/payments', { token: buyer, body: { orderId: order.id, provider: 'PAYME' } })).body;
+      await req(`/payments/${pay.id}/mock-confirm`, { token: buyer, body: {} });
+      expect(await used()).toBeCloseTo(before, 2);
+
+      // Повторный колбэк провайдера не должен освободить лимит дважды.
+      await req(`/payments/${pay.id}/mock-confirm`, { token: buyer, body: {} });
+      expect(await used()).toBeCloseTo(before, 2);
+    });
+
+    it('отмена отсрочки освобождает кредитный лимит', async () => {
+      const used = () => req('/financing/me', { token: buyer }).then((r) => Number(r.body.creditUsed));
+      const before = await used();
+
+      const order = (await req('/orders', {
+        token: buyer,
+        body: {
+          items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }],
+          paymentTerm: 'NET_TERMS',
+          netTermDays: 30,
+        },
+      })).body;
+      expect(await used()).toBeCloseTo(before + order.total, 2);
+
+      await req(`/orders/${order.id}/status`, { method: 'PATCH', token: admin, body: { status: 'CANCELLED' } });
+      expect(await used()).toBeCloseTo(before, 2);
+    });
+  });
+
   // Отчёт по выплатам и общая статистика берут комиссию разными путями: первый
   // считает её от выручки по позициям, вторая суммирует записанную в заказах.
   // Расхождение означало бы, что продавцу выставляют счёт не на ту сумму.

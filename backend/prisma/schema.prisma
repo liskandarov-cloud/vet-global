@@ -603,6 +603,17 @@ model Order {
   approvalStatus ApprovalStatus @default(NONE)
   approvedById   String? // кто согласовал/отклонил
 
+  // Возврат ресурсов заказа. Создание заказа занимает остаток на складе,
+  // кредитный лимит покупателя и его баллы; при отмене всё это нужно вернуть,
+  // иначе лимит и баллы сгорают, а склад расходится с действительностью.
+  // Отметки времени, а не флаги: видно, когда вернули, и повторный вызов
+  // (отмена отменённого, повторный колбэк провайдера) ничего не делает дважды.
+  //
+  // Лимит освобождается и при оплате: зарезервирован он под неоплаченный долг.
+  creditReleasedAt DateTime?
+  stockReturnedAt  DateTime?
+  pointsRefundedAt DateTime?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
@@ -630,6 +641,10 @@ model OrderItem {
   sellerId    String // для маршрутизации заказа продавцу
   quantity    Int
   price       Decimal @db.Decimal(12, 2)
+  // Остаток со склада под эту позицию действительно списан. Списывается он не
+  // всегда: товар «под заказ» и позиции без учёта остатка его не трогают, и
+  // возвращать по ним нечего — иначе отмена завышала бы склад.
+  stockTaken  Boolean @default(false)
 
   order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
   product Product? @relation(fields: [productId], references: [id])
