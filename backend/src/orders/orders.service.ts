@@ -28,6 +28,7 @@ import {
   vetPointsSpendable,
 } from '../common/pricing';
 import { isTransitionAllowed, transitionError } from './status';
+import { approvalFor } from './approval';
 import { OrderReleaseService } from './order-release.service';
 import { invoiceNumberFor } from '../common/invoice-number';
 import { TariffsService } from '../delivery/tariffs.service';
@@ -244,18 +245,15 @@ export class OrdersService {
     }
 
     // ── Организация: согласование заказа сверх лимита закупщика ──
-    let orgId: string | null = null;
-    let approvalStatus: ApprovalStatus = ApprovalStatus.NONE;
-    if (user) {
-      const membership = await this.prisma.orgMembership.findFirst({ where: { userId: user.id } });
-      if (membership) {
-        orgId = membership.orgId;
-        // OWNER/MANAGER не требуют согласования; закупщик — если сумма превышает лимит (0 = всегда).
-        if (membership.role === OrgRole.PURCHASER && total > Number(membership.spendLimit)) {
-          approvalStatus = ApprovalStatus.PENDING;
-        }
-      }
-    }
+    // Правило общее с тендером и подпиской (см. approvalFor): иначе какой-то из
+    // путей заключения сделки обходил бы лимит закупщика.
+    const membership = user
+      ? await this.prisma.orgMembership.findFirst({ where: { userId: user.id } })
+      : null;
+    const { orgId, approvalStatus } = approvalFor(
+      membership ? { orgId: membership.orgId, role: membership.role, spendLimit: Number(membership.spendLimit) } : null,
+      total,
+    );
 
     // Create order + deduct spent points atomically.
     const order = await this.prisma.$transaction(async (tx) => {

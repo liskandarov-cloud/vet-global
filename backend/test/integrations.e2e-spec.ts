@@ -547,6 +547,89 @@ describe('VetGlobal integrations (e2e)', () => {
     });
   });
 
+  // Заказ по выигранному тендеру — такая же сделка, как покупка из каталога, и
+  // должен подчиняться тем же правилам. Раньше он создавался своим путём:
+  // согласование в организации обходилось, остаток склада не списывался.
+  describe('заказ по тендеру подчиняется общим правилам', () => {
+    // Закупщик организации с лимитом 3 млн (демо-данные сида).
+    let purchaser: string;
+
+    beforeAll(async () => {
+      purchaser = await login('farm2@vetglobal.com', 'buyer123');
+    });
+
+    const awardRfq = async (token: string, price: number, items: any[]) => {
+      const rfq = (await req('/rfq', {
+        token,
+        body: { title: `E2E тендер ${Date.now()}`, items },
+      })).body;
+      const quote = (await req(`/rfq/${rfq.id}/quote`, {
+        token: seller,
+        body: { totalPrice: price, leadTimeDays: 5 },
+      })).body;
+      const awarded = (await req(`/rfq/${rfq.id}/award/${quote.id}`, { method: 'POST', token })).body;
+      expect(awarded.orderId).toBeTruthy();
+      return (await req(`/orders/${awarded.orderId}`, { token: admin })).body;
+    };
+
+    it('сумма сверх лимита закупщика уходит на согласование', async () => {
+      const order = await awardRfq(purchaser, 5_000_000, [{ name: 'Корма', quantity: 10 }]);
+      expect(order.orgId).toBeTruthy();
+      expect(order.approvalStatus).toBe('PENDING');
+    });
+
+    it('сумма в пределах лимита согласования не требует, но заказ принадлежит организации', async () => {
+      const order = await awardRfq(purchaser, 1_000_000, [{ name: 'Корма', quantity: 1 }]);
+      expect(order.orgId).toBeTruthy();
+      expect(order.approvalStatus).toBe('NONE');
+    });
+
+    // Позиция тендера может ссылаться на товар каталога. Продажа обязана
+    // уменьшить остаток — иначе продавец продолжит продавать проданное.
+    it('списывает остаток по позициям с товаром каталога и возвращает его при отмене', async () => {
+      await req(`/products/${sellerProduct.id}`, {
+        method: 'PUT',
+        token: seller,
+        body: {
+          name: sellerProduct.name,
+          description: sellerProduct.description ?? 'x',
+          categoryId: sellerProduct.categoryId,
+          price: sellerProduct.price,
+          minOrder: sellerProduct.minOrder,
+          stockQty: 30,
+          inStock: true,
+        },
+      });
+
+      const rfq = (await req('/rfq', {
+        token: buyer,
+        body: {
+          title: `E2E тендер со складом ${Date.now()}`,
+          items: [{ productId: sellerProduct.id, name: sellerProduct.name, quantity: 4 }],
+        },
+      })).body;
+      const rfqItemId = rfq.items[0].id;
+      const quote = (await req(`/rfq/${rfq.id}/quote`, {
+        token: seller,
+        body: { totalPrice: 400000, items: [{ rfqItemId, unitPrice: 100000 }] },
+      })).body;
+      const awarded = (await req(`/rfq/${rfq.id}/award/${quote.id}`, { method: 'POST', token: buyer })).body;
+
+      expect((await req(`/products/${sellerProduct.id}`)).body.stockQty).toBe(26);
+
+      // Отмена возвращает ровно то, что списала.
+      await req(`/orders/${awarded.orderId}/status`, { method: 'PATCH', token: admin, body: { status: 'CANCELLED' } });
+      expect((await req(`/products/${sellerProduct.id}`)).body.stockQty).toBe(30);
+    });
+
+    // Позиция без товара каталога остаток не занимает, и возвращать по ней
+    // нечего: иначе отмена показала бы в наличии то, чего нет.
+    it('позиция без товара каталога склад не трогает', async () => {
+      const order = await awardRfq(buyer, 200000, [{ name: 'Услуга доставки силоса', quantity: 1 }]);
+      expect(order.items.every((it: any) => !it.productId)).toBe(true);
+    });
+  });
+
   // Отчёт по выплатам и общая статистика берут комиссию разными путями: первый
   // считает её от выручки по позициям, вторая суммирует записанную в заказах.
   // Расхождение означало бы, что продавцу выставляют счёт не на ту сумму.

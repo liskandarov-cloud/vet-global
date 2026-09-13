@@ -1,10 +1,11 @@
 import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { RfqStatus, UserRole } from '@prisma/client';
+import { Prisma, RfqStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateRfqDto, QuoteDto } from './dto/rfq.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { percentOf } from '../common/pricing';
+import { approvalFor } from '../orders/approval';
 
 @Injectable()
 export class RfqService {
@@ -197,15 +198,19 @@ export class RfqService {
     if (!quote) throw new NotFoundException('Котировка не найдена');
     if (rfq.status === RfqStatus.AWARDED) throw new BadRequestException('Победитель уже выбран');
 
-    await this.prisma.$transaction([
-      this.prisma.rfqQuote.updateMany({ where: { rfqId }, data: { isAwarded: false } }),
-      this.prisma.rfqQuote.update({ where: { id: quoteId }, data: { isAwarded: true } }),
-      this.prisma.rfq.update({ where: { id: rfqId }, data: { status: RfqStatus.AWARDED } }),
-    ]);
-
-    // Выбор победителя = заключение сделки: создаём обычный заказ, чтобы дальше
+    // Выбор победителя = заключение сделки: создаётся обычный заказ, чтобы дальше
     // работали статусы, счёт, ЭДО и доставка — как при покупке из каталога.
-    const order = await this.createOrderFromQuote(rfq, quote);
+    //
+    // Одной транзакцией с отметкой победителя. Раньше заказ создавался после неё,
+    // и сбой на создании оставлял тендер в тупике: статус AWARDED выставлен,
+    // повторная попытка отвечает «победитель уже выбран», а заказа нет.
+    const order = await this.prisma.$transaction(async (tx) => {
+      await tx.rfqQuote.updateMany({ where: { rfqId }, data: { isAwarded: false } });
+      await tx.rfqQuote.update({ where: { id: quoteId }, data: { isAwarded: true } });
+      await tx.rfq.update({ where: { id: rfqId }, data: { status: RfqStatus.AWARDED } });
+      return this.createOrderFromQuote(tx, rfq, quote);
+    });
+
     const result = await this.getOne(rfqId, user);
     return { ...result, orderId: order.id };
   }
@@ -214,8 +219,8 @@ export class RfqService {
   // Если продавец дал разбивку по позициям — заказ создаётся строка-в-строку
   // (каждая позиция запроса своей ценой). Иначе (единая сумма) — одной позицией:
   // дробить лумп-сумму значило бы выдумывать цены, которых продавец не называл.
-  private async createOrderFromQuote(rfq: any, quote: any) {
-    const buyer = await this.prisma.user.findUnique({ where: { id: rfq.buyerId } });
+  private async createOrderFromQuote(tx: Prisma.TransactionClient, rfq: any, quote: any) {
+    const buyer = await tx.user.findUnique({ where: { id: rfq.buyerId } });
     const total = Number(quote.totalPrice);
     const commission = percentOf(total, this.commissionPct);
     const vetPointsEarned = percentOf(total, this.earnPct);
@@ -245,7 +250,19 @@ export class RfqService {
           },
         ];
 
-    return this.prisma.order.create({
+    // Согласование в организации — по тому же правилу, что и покупка из каталога.
+    // Раньше тендерный заказ создавался согласованным и без привязки к
+    // организации: закупщик с лимитом выбирал победителя на любую сумму, и заказ
+    // не попадал ни под согласование, ни в отчёты организации.
+    const membership = await tx.orgMembership.findFirst({ where: { userId: rfq.buyerId } });
+    const { orgId, approvalStatus } = approvalFor(
+      membership
+        ? { orgId: membership.orgId, role: membership.role, spendLimit: Number(membership.spendLimit) }
+        : null,
+      total,
+    );
+
+    const order = await tx.order.create({
       data: {
         buyerId: rfq.buyerId,
         buyerName: buyer?.fullName ?? 'Покупатель',
@@ -256,9 +273,30 @@ export class RfqService {
         total,
         commission,
         vetPointsEarned,
+        orgId,
+        approvalStatus,
         items: { create: lines },
       },
+      include: { items: true },
     });
+
+    // Остаток склада. Позиция тендера может ссылаться на товар каталога — тогда
+    // продажа обязана уменьшить остаток, иначе продавец продолжит продавать
+    // проданное. Нехватка остатка сделку НЕ отменяет: победитель уже выбран, и
+    // отказ здесь оставил бы тендер без заказа. Списываем только то, что есть
+    // целиком, и только списанное потом вернётся при отмене (stockTaken).
+    for (const line of order.items) {
+      if (!line.productId) continue;
+      const taken = await tx.product.updateMany({
+        where: { id: line.productId, stockQty: { gte: line.quantity } },
+        data: { stockQty: { decrement: line.quantity } },
+      });
+      if (!taken.count) continue;
+      await tx.orderItem.update({ where: { id: line.id }, data: { stockTaken: true } });
+      await tx.product.updateMany({ where: { id: line.productId, stockQty: 0 }, data: { inStock: false } });
+    }
+
+    return order;
   }
 
   // Удаление запроса: админ — как модерация (нарушение правил), покупатель —
