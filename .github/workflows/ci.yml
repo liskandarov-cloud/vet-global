@@ -50,6 +50,18 @@ jobs:
       VETPOINTS_MAX_SPEND_PERCENT: '10'
       PAYMENTS_MODE: mock
       DIDOX_MODE: mock
+      # Тестовые ключи платёжных протоколов. Боевых здесь нет и быть не может:
+      # это значения, против которых проверяется логика подписи и авторизации.
+      #
+      # Без них набор молча пропускал проверки Payme и Click — а это самый
+      # денежный код в проекте. Когда их наконец задали, оба теста упали: они
+      # брали произвольный товар каталога, и к этому моменту прогона он
+      # оказывался «под заказ», оплата которого запрещена.
+      PAYME_KEY: ci-payme-test-key
+      PAYME_MERCHANT_ID: ci-payme-merchant
+      CLICK_SERVICE_ID: '12345'
+      CLICK_MERCHANT_ID: '54321'
+      CLICK_SECRET_KEY: ci-click-test-secret
       ADMIN_EMAIL: admin@vetglobal.com
       ADMIN_PASSWORD: ci-admin-password
       # Демо-данные нужны: часть e2e опирается на товары и продавцов из сида.

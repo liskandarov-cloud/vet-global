@@ -1,8 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus, PaymentStatus } from '@prisma/client';
+import { PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from './payments.service';
+import { notPayableReason } from './payable';
 
 // Payme JSON-RPC error. Carries the Payme error code + optional data field.
 export class PaymeError extends Error {
@@ -53,11 +54,24 @@ export class PaymeService {
 
   private async orderFor(params: any) {
     const orderId = params?.account?.order_id;
-    const order = orderId ? await this.prisma.order.findUnique({ where: { id: orderId } }) : null;
+    const order = orderId
+      ? await this.prisma.order.findUnique({
+          where: { id: orderId },
+          include: { payments: { select: { status: true } } },
+        })
+      : null;
     if (!order) throw new PaymeError(-31050, 'Order not found', 'order_id');
     if (params.amount !== Math.round(Number(order.total) * 100)) {
       throw new PaymeError(-31001, 'Invalid amount');
     }
+    // Состояние заказа проверяется тем же правилом, что в кабинете. Без этого
+    // Payme получал allow:true на отменённый заказ, а по уже оплаченному можно
+    // было провести вторую транзакцию — то есть списать с покупателя дважды.
+    //
+    // Код −31050 из диапазона, который Payme отводит ошибкам счёта продавца:
+    // текст уходит покупателю в приложении, поэтому он человеческий.
+    const notPayable = notPayableReason(order);
+    if (notPayable) throw new PaymeError(-31050, notPayable.message, 'order_id');
     return order;
   }
 
@@ -121,8 +135,10 @@ export class PaymeService {
         meta: { ...m, paymeState: state, cancel_time, reason: params.reason },
       },
     });
+    // Возврат уже проведённого платежа: заказ отменяется и всё занятое
+    // возвращается покупателю и на склад. Раньше здесь правился только статус.
     if (state === -2) {
-      await this.prisma.order.update({ where: { id: payment.orderId }, data: { status: OrderStatus.CANCELLED } });
+      await this.payments.onRefunded(payment.orderId);
     }
     return { transaction: payment.id, cancel_time, state };
   }

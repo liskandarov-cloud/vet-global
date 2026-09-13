@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { OrderStatus, PaymentProvider, PaymentStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderReleaseService } from '../orders/order-release.service';
+import { notPayableReason } from './payable';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { buildCheckoutUrl } from './providers';
 
@@ -22,19 +23,20 @@ export class PaymentsService {
   }
 
   async create(orderId: string, provider: PaymentProvider, user: AuthUser) {
-    const order = await this.prisma.order.findUnique({ where: { id: orderId } });
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      // Платежи нужны, чтобы не создать второй платёж по оплаченному заказу.
+      include: { payments: { select: { status: true } } },
+    });
     if (!order) throw new NotFoundException('Order not found');
     if (user.role === UserRole.BUYER && order.buyerId !== user.id) {
       throw new ForbiddenException('Not authorized');
     }
-    if (order.approvalStatus === 'PENDING') {
-      throw new BadRequestException('Заказ ожидает согласования в организации');
-    }
-    // Заказ «под заказ»: оплата только после того, как продавец подтвердит
-    // наличие (переведёт заказ из статуса «Новый»).
-    if (order.requiresConfirmation && order.status === 'PENDING') {
-      throw new BadRequestException('Заказ содержит позицию «под заказ» — оплата будет доступна после подтверждения продавцом');
-    }
+    // Правило оплатимости общее с протоколами Payme и Click: провайдеры
+    // попадают в систему минуя эту проверку, и держать её здесь в одиночку
+    // значит разрешить им то, что запрещено в кабинете.
+    const notPayable = notPayableReason(order);
+    if (notPayable) throw new BadRequestException(notPayable.message);
 
     const amount = Number(order.total);
     const payment = await this.prisma.payment.create({
@@ -88,6 +90,17 @@ export class PaymentsService {
     await this.release.onPaid(payment.orderId);
     this.logger.log(`Payment ${paymentId} PAID (${payment.provider}) → order ${payment.orderId} CONFIRMED`);
     return { id: payment.id, status: payment.status, orderId: payment.orderId };
+  }
+
+  // Возврат денег провайдером: заказ отменяется и всё занятое возвращается.
+  //
+  // Раньше протокол Payme правил статус заказа напрямую, и возврат проходил
+  // мимо возврата ресурсов: деньги покупателю возвращались, а его баллы
+  // оставались списанными, товар — снятым со склада.
+  async onRefunded(orderId: string): Promise<void> {
+    await this.prisma.order.update({ where: { id: orderId }, data: { status: OrderStatus.CANCELLED } });
+    await this.release.onCancelled(orderId);
+    this.logger.log(`возврат по заказу ${orderId}: заказ отменён, занятое возвращено`);
   }
 
   private async getOwned(id: string, user: AuthUser) {

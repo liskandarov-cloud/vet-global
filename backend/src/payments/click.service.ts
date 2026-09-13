@@ -4,6 +4,7 @@ import { createHash } from 'crypto';
 import { PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from './payments.service';
+import { notPayableReason } from './payable';
 
 // Click Shop API error codes.
 const ERR = {
@@ -49,6 +50,11 @@ export class ClickService {
       return this.err(p, ERR.AMOUNT, 'Incorrect amount');
     }
 
+    const blocked = await this.orderNotPayable(payment.orderId);
+    if (blocked) {
+      return this.err(p, blocked.code === 'ALREADY_PAID' ? ERR.ALREADY_PAID : ERR.CANCELLED, blocked.message);
+    }
+
     const meta: any = payment.meta ?? {};
     await this.prisma.payment.update({
       where: { id: payment.id },
@@ -75,6 +81,11 @@ export class ClickService {
     if (!payment) return this.err(p, ERR.TX_NOT_FOUND, 'Transaction does not exist');
     if (payment.status === PaymentStatus.PAID) return this.err(p, ERR.ALREADY_PAID, 'Already paid');
 
+    const blocked = await this.orderNotPayable(payment.orderId);
+    if (blocked) {
+      return this.err(p, blocked.code === 'ALREADY_PAID' ? ERR.ALREADY_PAID : ERR.CANCELLED, blocked.message);
+    }
+
     // Click reports its own failure via a negative `error`.
     if (Number(p.error) < 0) {
       await this.prisma.payment.update({ where: { id: payment.id }, data: { status: PaymentStatus.CANCELLED } });
@@ -89,6 +100,20 @@ export class ClickService {
       error: ERR.OK,
       error_note: 'Success',
     };
+  }
+
+  // Состояние заказа по тем же правилам, что в кабинете и у Payme.
+  //
+  // Платёж создаётся до ухода на Click, и между созданием и подтверждением
+  // заказ могли отменить: без этой проверки Click подтверждал оплату уже
+  // отменённого заказа.
+  private async orderNotPayable(orderId: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { payments: { select: { status: true } } },
+    });
+    if (!order) return { code: 'CANCELLED' as const, message: 'Заказ не найден' };
+    return notPayableReason(order);
   }
 
   private err(p: any, error: number, note: string) {

@@ -53,6 +53,40 @@ describe('VetGlobal integrations (e2e)', () => {
     sellerProduct = (await req(`/products?sellerId=${sellerId}&limit=1`)).body.products[0];
   });
 
+  // Остаток и наличие товара продавца выставляются тестом.
+  //
+  // Прогон меняет состояние: другие проверки переводят товар в «под заказ» и
+  // расходуют остаток. Тест, полагающийся на то, что осталось, падает не из-за
+  // кода — именно так оба платёжных теста падали, когда их наконец запустили:
+  // они брали произвольный товар каталога, и он оказывался «под заказ», оплата
+  // которого запрещена до подтверждения продавцом.
+  const restoreStock = async (qty = 50) => {
+    await req(`/products/${sellerProduct.id}`, {
+      method: 'PUT',
+      token: seller,
+      body: {
+        name: sellerProduct.name,
+        description: sellerProduct.description ?? 'x',
+        categoryId: sellerProduct.categoryId,
+        price: sellerProduct.price,
+        minOrder: sellerProduct.minOrder,
+        stockQty: qty,
+        inStock: true,
+      },
+    });
+    return (await req(`/products/${sellerProduct.id}`)).body;
+  };
+
+  // Заказ, который точно можно оплачивать: товар в наличии, согласование не
+  // требуется.
+  const payableOrder = async () => {
+    const product = await restoreStock();
+    return (await req('/orders', {
+      token: buyer,
+      body: { items: [{ productId: product.id, quantity: product.minOrder }] },
+    })).body;
+  };
+
   it('delivery: seller creates a shipment, buyer sees it', async () => {
     const order = (await req('/orders', {
       token: buyer,
@@ -152,8 +186,7 @@ describe('VetGlobal integrations (e2e)', () => {
   // ── Payment protocols (conditional on keys) ──
   const PAYME_KEY = process.env.PAYME_KEY;
   (PAYME_KEY ? it : it.skip)('payme: auth + CheckPerformTransaction', async () => {
-    const product = (await req('/products?limit=50')).body.products.find((p: any) => p.minOrder === 1);
-    const order = (await req('/orders', { token: buyer, body: { items: [{ productId: product.id, quantity: 1 }] } })).body;
+    const order = await payableOrder();
     const authHeader = 'Basic ' + Buffer.from(`Paycom:${PAYME_KEY}`).toString('base64');
     const bad = await req('/payments/payme', { headers: { Authorization: 'Basic ' + Buffer.from('Paycom:wrong').toString('base64') }, body: { id: 1, method: 'CheckPerformTransaction', params: { amount: order.total * 100, account: { order_id: order.id } } } });
     expect(bad.body.error.code).toBe(-32504);
@@ -163,11 +196,86 @@ describe('VetGlobal integrations (e2e)', () => {
     expect(wrongAmt.body.error.code).toBe(-31001);
   });
 
+  // Оплата запрещена там, где она не имеет смысла. Проверки стояли только на
+  // кнопке в кабинете, а провайдеры попадают в систему минуя её: через Payme
+  // можно было оплатить отменённый заказ, а по уже оплаченному — провести
+  // вторую транзакцию, то есть списать с покупателя дважды.
+  describe('оплатить нельзя то, что оплачивать нечего', () => {
+    const payme = (method: string, params: any) =>
+      req('/payments/payme', {
+        headers: { Authorization: 'Basic ' + Buffer.from(`Paycom:${PAYME_KEY}`).toString('base64') },
+        body: { id: 1, method, params },
+      });
+
+    (PAYME_KEY ? it : it.skip)('отменённый заказ не оплатить ни кнопкой, ни через Payme', async () => {
+      const order = await payableOrder();
+      await req(`/orders/${order.id}/status`, { method: 'PATCH', token: admin, body: { status: 'CANCELLED' } });
+
+      const byButton = await req('/payments', { token: buyer, body: { orderId: order.id, provider: 'PAYME' } });
+      expect(byButton.status).toBe(400);
+
+      const check = await payme('CheckPerformTransaction', {
+        amount: Math.round(Number(order.total) * 100),
+        account: { order_id: order.id },
+      });
+      expect(check.body.result).toBeUndefined();
+      expect(check.body.error.code).toBe(-31050);
+    });
+
+    (PAYME_KEY ? it : it.skip)('оплаченный заказ нельзя оплатить второй раз', async () => {
+      const order = await payableOrder();
+      const pay = (await req('/payments', { token: buyer, body: { orderId: order.id, provider: 'PAYME' } })).body;
+      await req(`/payments/${pay.id}/mock-confirm`, { token: buyer, body: {} });
+
+      const second = await req('/payments', { token: buyer, body: { orderId: order.id, provider: 'PAYME' } });
+      expect(second.status).toBe(400);
+
+      const check = await payme('CheckPerformTransaction', {
+        amount: Math.round(Number(order.total) * 100),
+        account: { order_id: order.id },
+      });
+      expect(check.body.error.code).toBe(-31050);
+    });
+
+    // Возврат проведённого платежа — это отмена заказа, а значит и возврат
+    // занятого: раньше протокол правил только статус, и баллы покупателя
+    // оставались списанными, товар — снятым со склада.
+    (PAYME_KEY ? it : it.skip)('возврат платежа отменяет заказ и возвращает остаток на склад', async () => {
+      const product = await restoreStock(40);
+      const order = (await req('/orders', {
+        token: buyer,
+        body: { items: [{ productId: product.id, quantity: 3 }] },
+      })).body;
+      expect((await req(`/products/${product.id}`)).body.stockQty).toBe(37);
+
+      const trans = `e2e-payme-${Date.now()}`;
+      const amount = Math.round(Number(order.total) * 100);
+      const created = await payme('CreateTransaction', {
+        id: trans,
+        time: Date.now(),
+        amount,
+        account: { order_id: order.id },
+      });
+      expect(created.body.result.state).toBe(1);
+
+      const performed = await payme('PerformTransaction', { id: trans });
+      expect(performed.body.result.state).toBe(2);
+      expect((await req(`/orders/${order.id}`, { token: admin })).body.status).toBe('CONFIRMED');
+
+      const cancelled = await payme('CancelTransaction', { id: trans, reason: 5 });
+      // −2: отмена уже проведённого платежа, то есть возврат денег.
+      expect(cancelled.body.result.state).toBe(-2);
+
+      const after = (await req(`/orders/${order.id}`, { token: admin })).body;
+      expect(after.status).toBe('CANCELLED');
+      expect((await req(`/products/${product.id}`)).body.stockQty).toBe(40);
+    });
+  });
+
   const CLICK_SECRET = process.env.CLICK_SECRET_KEY;
   const CLICK_SERVICE = process.env.CLICK_SERVICE_ID ?? '12345';
   (CLICK_SECRET ? it : it.skip)('click: prepare accepts valid signature, rejects bad', async () => {
-    const product = (await req('/products?limit=50')).body.products.find((p: any) => p.minOrder === 1);
-    const order = (await req('/orders', { token: buyer, body: { items: [{ productId: product.id, quantity: 1 }] } })).body;
+    const order = await payableOrder();
     const pay = (await req('/payments', { token: buyer, body: { orderId: order.id, provider: 'CLICK' } })).body;
     const ct = 'clk_' + Date.now();
     const st = '2026-07-04 08:00:00';
