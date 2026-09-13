@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { AppThrottlerGuard } from './common/guards/app-throttler.guard';
@@ -43,6 +44,8 @@ import { AppController } from './app.controller';
 
 @Module({
   imports: [
+    // Планировщик в самом приложении: подписки должны обрабатываться сами.
+    ScheduleModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
     // Общий потолок частоты запросов. Без него пароль можно было подбирать
     // бесконечно: 12 неверных попыток подряд получали 401 и ни одного отказа.

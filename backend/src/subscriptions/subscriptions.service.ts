@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
@@ -64,6 +65,28 @@ export class SubscriptionsService {
     const sub = await this.getOwned(id, user);
     const order = await this.generateOrder(sub.id);
     return { orderId: order?.id ?? null };
+  }
+
+  // Плановая обработка подписок.
+  //
+  // Планировщика не существовало: `runDue` вызывался только вручную по HTTP, а
+  // комментарий обещал «вызывается планировщиком с админ-токеном», которого не
+  // было нигде. Повторяющиеся заказы не создавались вовсе — покупатель оформлял
+  // подписку и не получал по ней ничего.
+  //
+  // Расписание внутри приложения, а не внешним cron: внешний требовал бы
+  // админ-токен в секретах и отдельного сервиса. Процесс на Render держится
+  // живым пингом keepalive, поэтому ночной запуск до него доходит.
+  // Зона указана явно: сервер живёт в UTC, и без неё «3 часа ночи» означало бы
+  // 8 утра по Ташкенту — время, когда покупатель уже работает и видит, как
+  // заказы появляются у него на глазах.
+  @Cron(CronExpression.EVERY_DAY_AT_3AM, { name: 'subscriptions-run-due', timeZone: 'Asia/Tashkent' })
+  async runDueScheduled() {
+    const res = await this.runDue();
+    // Ноль обработанных — нормальное состояние, но в логах он должен быть
+    // виден: иначе молчание планировщика не отличить от его отсутствия.
+    this.logger.log(`плановая обработка подписок: сроков ${res.checked}, создано заказов ${res.processed}`);
+    return res;
   }
 
   // Обработка всех подписок, у которых наступил срок (для планировщика/cron).

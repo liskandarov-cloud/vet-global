@@ -24,6 +24,9 @@ class PromotionDto {
   @IsOptional() @IsString() description?: string;
   @IsOptional() @IsString() productId?: string;
   @IsOptional() @IsInt() @Min(0) @Max(100) discountPercent?: number;
+  // Начало акции: без него акцию нельзя было назначить на будущее — поле в базе
+  // есть, но задать его было нечем, и любая акция начиналась немедленно.
+  @IsOptional() @IsString() startsAt?: string;
   @IsOptional() @IsString() endsAt?: string;
   @IsOptional() @IsBoolean() isActive?: boolean;
 }
@@ -33,11 +36,20 @@ class PromotionDto {
 export class PromotionsController {
   constructor(private readonly prisma: PrismaService) {}
 
-  // Public: active promotions (for the «Акции» page & homepage).
+  // Публичный список акций — для страницы «Акции» и главной.
+  //
+  // Начало акции учитывается наравне с окончанием: раньше фильтр смотрел только
+  // на endsAt, и акция, назначенная на следующую неделю, показывалась сразу —
+  // покупатель видел скидку, которая ещё не началась.
   @Get()
   list() {
+    const now = new Date();
     return this.prisma.promotion.findMany({
-      where: { isActive: true, OR: [{ endsAt: null }, { endsAt: { gte: new Date() } }] },
+      where: {
+        isActive: true,
+        startsAt: { lte: now },
+        OR: [{ endsAt: null }, { endsAt: { gte: now } }],
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         seller: { select: { id: true, company: true, isVerified: true } },
@@ -66,6 +78,7 @@ export class PromotionsController {
         description: dto.description,
         productId: dto.productId,
         discountPercent: dto.discountPercent ?? 0,
+        startsAt: dto.startsAt ? new Date(dto.startsAt) : new Date(),
         endsAt: dto.endsAt ? new Date(dto.endsAt) : null,
         isActive: dto.isActive ?? true,
       },
@@ -82,6 +95,9 @@ export class PromotionsController {
       where: { id },
       data: {
         ...dto,
+        // Даты приходят строками и должны быть приведены обеими: тело
+        // разворачивается целиком, и строка в поле даты валит запрос Prisma.
+        startsAt: dto.startsAt ? new Date(dto.startsAt) : undefined,
         endsAt: dto.endsAt ? new Date(dto.endsAt) : undefined,
       },
     });

@@ -630,6 +630,77 @@ describe('VetGlobal integrations (e2e)', () => {
     });
   });
 
+  // Акция, назначенная на будущее, не должна быть видна покупателю: раньше
+  // публичный список смотрел только на дату окончания, и скидка «со следующей
+  // недели» показывалась сразу. Само поле начала вдобавок нельзя было задать —
+  // его не принимал ни один запрос, поэтому любая акция начиналась немедленно.
+  it('акции: будущая не видна в публичном списке, начавшаяся видна', async () => {
+    const future = `E2E будущая ${Date.now()}`;
+    const started = `E2E активная ${Date.now()}`;
+    const day = 86400000;
+
+    const f = await req('/promotions', {
+      token: seller,
+      body: { title: future, discountPercent: 15, startsAt: new Date(Date.now() + 7 * day).toISOString() },
+    });
+    const a = await req('/promotions', {
+      token: seller,
+      body: { title: started, discountPercent: 10, startsAt: new Date(Date.now() - day).toISOString() },
+    });
+    expect(f.status).toBe(201);
+    expect(a.status).toBe(201);
+
+    const list = (await req('/promotions')).body;
+    expect(list.some((p: any) => p.title === started)).toBe(true);
+    expect(list.some((p: any) => p.title === future)).toBe(false);
+
+    // Своя акция видна продавцу независимо от даты начала — иначе он не смог бы
+    // её найти и поправить до старта.
+    const mine = (await req('/promotions/mine', { token: seller })).body;
+    expect(mine.some((p: any) => p.title === future)).toBe(true);
+
+    await req(`/promotions/${f.body.id}`, { method: 'DELETE', token: seller });
+    await req(`/promotions/${a.body.id}`, { method: 'DELETE', token: seller });
+  });
+
+  // Подписка — повторяющийся заказ. Плановой обработки не существовало:
+  // `run-due` вызывался только вручную по HTTP, планировщика не было нигде, и
+  // покупатель, оформивший подписку, не получал по ней ничего. Теперь задание
+  // зарегистрировано в самом приложении (проверено по реестру планировщика),
+  // а здесь проверяется то, что оно вызывает.
+  describe('подписки', () => {
+    it('«заказать сейчас» создаёт заказ и сдвигает следующий срок', async () => {
+      const sub = (await req('/subscriptions', {
+        token: buyer,
+        body: { productId: sellerProduct.id, quantity: sellerProduct.minOrder, intervalDays: 7 },
+      })).body;
+      expect(sub.id).toBeTruthy();
+      const firstDue = new Date(sub.nextRunAt).getTime();
+
+      const run = (await req(`/subscriptions/${sub.id}/run`, { method: 'POST', token: buyer })).body;
+      expect(run.orderId).toBeTruthy();
+
+      // Заказ по подписке — обычный заказ: он виден покупателю и содержит позицию.
+      const order = (await req(`/orders/${run.orderId}`, { token: buyer })).body;
+      expect(order.items.length).toBe(1);
+      expect(order.total).toBeGreaterThan(0);
+
+      const after = (await req('/subscriptions', { token: buyer })).body.find((x: any) => x.id === sub.id);
+      expect(new Date(after.nextRunAt).getTime()).toBeGreaterThan(firstDue - 1);
+      expect(after.lastOrderId).toBe(run.orderId);
+
+      await req(`/subscriptions/${sub.id}`, { method: 'DELETE', token: buyer });
+    });
+
+    it('плановая обработка доступна только администратору', async () => {
+      expect((await req('/subscriptions/run-due', { method: 'POST', token: buyer, body: {} })).status).toBe(403);
+      const res = await req('/subscriptions/run-due', { method: 'POST', token: admin, body: {} });
+      expect(res.status).toBeLessThan(400);
+      expect(typeof res.body.processed).toBe('number');
+      expect(typeof res.body.checked).toBe('number');
+    });
+  });
+
   // Отчёт по выплатам и общая статистика берут комиссию разными путями: первый
   // считает её от выручки по позициям, вторая суммирует записанную в заказах.
   // Расхождение означало бы, что продавцу выставляют счёт не на ту сумму.
