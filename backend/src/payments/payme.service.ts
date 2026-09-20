@@ -4,6 +4,7 @@ import { PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from './payments.service';
 import { notPayableReason } from './payable';
+import { statementFor } from './statement';
 
 // Payme JSON-RPC error. Carries the Payme error code + optional data field.
 export class PaymeError extends Error {
@@ -46,7 +47,7 @@ export class PaymeService {
       case 'CheckTransaction':
         return this.checkTransaction(params);
       case 'GetStatement':
-        return { transactions: [] };
+        return this.getStatement(params);
       default:
         throw new PaymeError(-32601, 'Method not found');
     }
@@ -141,6 +142,39 @@ export class PaymeService {
       await this.payments.onRefunded(payment.orderId);
     }
     return { transaction: payment.id, cancel_time, state };
+  }
+
+  // Выписка за период: Payme сверяет её со своим списком транзакций.
+  //
+  // Метод отвечал пустым списком — с точки зрения провайдера транзакций у нас не
+  // было вовсе, и любое расхождение (потерянный платёж, двойное списание,
+  // зависшая транзакция) оставалось невидимым с обеих сторон, пока его не
+  // заметит покупатель.
+  private async getStatement(params: any) {
+    const from = Number(params?.from ?? 0);
+    const to = Number(params?.to ?? Date.now());
+
+    // Запас в сутки по краям: в выборку по времени записи должны попасть и те
+    // транзакции, чьё время создания в Payme отличается от нашего на часовой
+    // пояс или задержку колбэка. Точная граница проверяется дальше, по времени
+    // самой транзакции.
+    const MARGIN = 24 * 60 * 60 * 1000;
+    const payments = await this.prisma.payment.findMany({
+      where: {
+        provider: 'PAYME',
+        providerTransId: { not: null },
+        createdAt: { gte: new Date(from - MARGIN), lte: new Date(to + MARGIN) },
+      },
+      select: { id: true, orderId: true, amount: true, providerTransId: true, createdAt: true, meta: true },
+    });
+
+    return {
+      transactions: statementFor(
+        payments.map((p) => ({ ...p, amount: Number(p.amount) })),
+        from,
+        to,
+      ),
+    };
   }
 
   private async checkTransaction(params: any) {

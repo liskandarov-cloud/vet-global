@@ -262,6 +262,46 @@ describe('VetGlobal integrations (e2e)', () => {
       expect(check.body.error.code).toBe(-31050);
     });
 
+    // Выписка за период: по ней Payme сверяет свои транзакции с нашими. Метод
+    // отвечал пустым списком, и расхождение — потерянный платёж или двойное
+    // списание — оставалось невидимым с обеих сторон.
+    (PAYME_KEY ? it : it.skip)('выписка отдаёт проведённую транзакцию в формате протокола', async () => {
+      const order = await payableOrder();
+      const trans = `e2e-stmt-${Date.now()}`;
+      const amount = Math.round(Number(order.total) * 100);
+
+      await payme('CreateTransaction', { id: trans, time: Date.now(), amount, account: { order_id: order.id } });
+      await payme('PerformTransaction', { id: trans });
+
+      const from = Date.now() - 60 * 60 * 1000;
+      const to = Date.now() + 60 * 1000;
+      const res = await payme('GetStatement', { from, to });
+      const mine = res.body.result.transactions.find((t: any) => t.id === trans);
+
+      expect(mine).toBeTruthy();
+      // Сумма в тийинах — как и при проверке суммы на создании транзакции.
+      expect(mine.amount).toBe(amount);
+      expect(mine.account.order_id).toBe(order.id);
+      expect(mine.state).toBe(2);
+      expect(mine.perform_time).toBeGreaterThan(0);
+      expect(mine.cancel_time).toBe(0);
+    });
+
+    (PAYME_KEY ? it : it.skip)('в выписку за прошлый период транзакция не попадает', async () => {
+      const order = await payableOrder();
+      const trans = `e2e-stmt-old-${Date.now()}`;
+      await payme('CreateTransaction', {
+        id: trans,
+        time: Date.now(),
+        amount: Math.round(Number(order.total) * 100),
+        account: { order_id: order.id },
+      });
+
+      const dayAgo = Date.now() - 24 * 60 * 60 * 1000;
+      const res = await payme('GetStatement', { from: dayAgo - 3600000, to: dayAgo });
+      expect(res.body.result.transactions.some((t: any) => t.id === trans)).toBe(false);
+    });
+
     // Возврат проведённого платежа — это отмена заказа, а значит и возврат
     // занятого: раньше протокол правил только статус, и баллы покупателя
     // оставались списанными, товар — снятым со склада.
