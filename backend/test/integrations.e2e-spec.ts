@@ -81,6 +81,27 @@ describe('VetGlobal integrations (e2e)', () => {
     return (await req(`/products/${sellerProduct.id}`)).body;
   };
 
+  // Баллы покупателя, которых хватит на проверку.
+  //
+  // Прогоны их расходуют: часть заказов списывает баллы и не отменяется, и
+  // рано или поздно остаток кончается — тест падает не из-за кода. Вместо
+  // надежды на остаток баллы зарабатываются как в жизни: заказ доводится до
+  // «Доставлен», и начисление происходит само.
+  const ensurePoints = async (need: number) => {
+    const balance = async () => Number((await req('/vetpoints/balance', { token: buyer })).body.balance);
+    if ((await balance()) >= need) return;
+
+    const product = await restoreStock();
+    const order = (await req('/orders', {
+      token: buyer,
+      body: { items: [{ productId: product.id, quantity: Math.max(product.minOrder, 3) }] },
+    })).body;
+    for (const status of ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED']) {
+      await req(`/orders/${order.id}/status`, { method: 'PATCH', token: admin, body: { status } });
+    }
+    expect(await balance()).toBeGreaterThanOrEqual(need);
+  };
+
   // Заказ, который точно можно оплачивать: товар в наличии, согласование не
   // требуется.
   const payableOrder = async () => {
@@ -595,8 +616,8 @@ describe('VetGlobal integrations (e2e)', () => {
     });
 
     it('возвращает списанные баллы и пишет проводку', async () => {
+      await ensurePoints(1000);
       const before = Number((await req('/vetpoints/balance', { token: buyer })).body.balance);
-      expect(before).toBeGreaterThanOrEqual(1000);
 
       const order = (await req('/orders', {
         token: buyer,
@@ -615,6 +636,7 @@ describe('VetGlobal integrations (e2e)', () => {
     });
 
     it('повторная отмена не возвращает занятое второй раз', async () => {
+      await ensurePoints(500);
       const before = Number((await req('/vetpoints/balance', { token: buyer })).body.balance);
       const order = (await req('/orders', {
         token: buyer,
@@ -1059,6 +1081,7 @@ describe('VetGlobal integrations (e2e)', () => {
     });
 
     it('сумма документа — товары плюс доставка, без вычета баллов', async () => {
+      await ensurePoints(1000);
       await req('/delivery/tariffs', { token: seller, body: { method: 'COURIER', city: 'Ташкент', cost: 45000 } });
       const order = (await req('/orders', {
         token: buyer,

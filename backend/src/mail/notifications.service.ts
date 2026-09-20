@@ -4,6 +4,8 @@ import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { MailService } from './mail.service';
 import { SmsService } from '../sms/sms.service';
+import { summariesBySeller } from './order-summary';
+import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 
 const STATUS_RU: Record<OrderStatus, string> = {
   PENDING: 'Новый',
@@ -56,7 +58,10 @@ export class NotificationsService {
 
   // Fire-and-forget: notify buyer (if registered), each involved seller, and admin.
   async onOrderCreated(orderId: string): Promise<void> {
-    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
+    const order = await this.prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true, shipments: true },
+    });
     if (!order) return;
 
     const shortId = order.id.slice(0, 8);
@@ -77,17 +82,41 @@ export class NotificationsService {
       }
     }
 
-    // Sellers involved in this order
-    const sellerIds = [...new Set(order.items.map((i) => i.sellerId))];
-    const sellers = await this.prisma.user.findMany({ where: { id: { in: sellerIds } } });
-    for (const s of sellers) {
-      if (s.email) {
-        await this.mail.send({
-          to: s.email,
-          subject: `Новый заказ #${shortId} — VetGlobal`,
-          html: layout('Новый заказ', summary),
-        });
-      }
+    // Продавцам — только их позиции.
+    //
+    // Письмо было одно на всех, и в заказе от нескольких поставщиков каждый
+    // продавец получал перечень чужих товаров с количествами и ценами: прямая
+    // утечка коммерческих условий конкуренту, которую нельзя было заметить —
+    // письма уходят молча.
+    const parts = summariesBySeller(
+      order.items.map((i) => ({
+        sellerId: i.sellerId,
+        productName: i.productName,
+        quantity: i.quantity,
+        price: Number(i.price),
+      })),
+      deliveryBySellerForOrder(
+        order.deliveryQuote,
+        order.shipments.map((sh) => ({ sellerId: sh.sellerId, cost: Number(sh.cost) })),
+      ),
+      Number(order.vetPointsUsed),
+    );
+    const sellers = await this.prisma.user.findMany({
+      where: { id: { in: parts.map((p) => p.sellerId) } },
+    });
+    for (const part of parts) {
+      const seller = sellers.find((s) => s.id === part.sellerId);
+      if (!seller?.email) continue;
+      await this.mail.send({
+        to: seller.email,
+        subject: `Новый заказ #${shortId} — VetGlobal`,
+        html: layout(
+          'Новый заказ',
+          `<p style="color:#475569">Заказ <b>#${shortId}</b> от ${order.buyerName} (${order.buyerPhone})${order.buyerCompany ? `, ${order.buyerCompany}` : ''}.</p>
+           ${itemsTable(part.items)}
+           <p style="font-size:16px;color:#0f172a"><b>К получению по вашим позициям: ${money(part.total)}</b></p>`,
+        ),
+      });
     }
 
     // Admin
