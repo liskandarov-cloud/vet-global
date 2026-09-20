@@ -20,6 +20,7 @@ RUN npx tsc -p tsconfig.seed.json
 # Проверка сразу в сборке: иначе расхождение пути снова обнаружилось бы только
 # при старте контейнера, когда деплой уже идёт.
 RUN test -f dist-seed/prisma/seed.js || (echo "сид не собрался по ожидаемому пути" && ls -R dist-seed | head -30 && exit 1)
+RUN test -f dist-seed/prisma/migrate.js || (echo "скрипт миграций не собрался" && ls -R dist-seed | head -30 && exit 1)
 
 FROM node:22-alpine AS runtime
 RUN apk add --no-cache openssl bash font-dejavu
@@ -35,4 +36,15 @@ COPY --from=builder /app/dist ./dist
 COPY --from=builder /app/dist-seed ./dist-seed
 COPY backend/prisma ./prisma
 EXPOSE 8000
-CMD ["bash", "-c", "npx prisma db push --skip-generate --accept-data-loss && node dist-seed/prisma/seed.js && node dist/main.js"]
+# Схема применяется миграциями, а не подгонкой базы под код.
+#
+# Раньше здесь стояло `prisma db push --accept-data-loss`: Prisma приводила базу
+# к схеме сама, и флаг разрешал ей удалять мешающее. Миграция — это
+# зафиксированный в репозитории SQL, который применяется один раз и одинаково на
+# всех контурах; `migrate deploy` не удаляет ничего, о чём не сказано в самой
+# миграции, а при расхождении отказывается работать вместо самодеятельности.
+#
+# migrate.js перед этим принимает уже существующую базу (таблицы есть, журнала
+# миграций нет) — иначе первая миграция попыталась бы создать существующие
+# таблицы и контейнер не поднялся бы.
+CMD ["bash", "-c", "node dist-seed/prisma/migrate.js && node dist-seed/prisma/seed.js && node dist/main.js"]

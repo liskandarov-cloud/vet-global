@@ -18,6 +18,9 @@ COPY . .
 
 EXPOSE 8000
 
-# On container start: regenerate client (picks up schema changes into the
-# node_modules volume), sync schema to the DB, seed idempotently, then watch.
-CMD ["bash", "-c", "npx prisma generate && npx prisma db push --accept-data-loss && npm run prisma:seed && npm run start:dev"]
+# На старте: пересобрать клиент (схема могла измениться), применить миграции
+# тем же путём, что и на проде, идемпотентно засеять, затем следить за файлами.
+#
+# Локально тоже миграции, а не db push: иначе расхождение схем между разработкой
+# и продом обнаруживалось бы только на выкатке.
+CMD ["bash", "-c", "npx prisma generate && npm run migrate:deploy && npm run prisma:seed && npm run start:dev"]

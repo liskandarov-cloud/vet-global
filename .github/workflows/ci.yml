@@ -84,9 +84,12 @@ jobs:
 
       - name: Схема и демо-данные
         working-directory: backend
+        # Миграциями, а не подгонкой базы под схему: CI обязан применять их тем
+        # же способом, что и прод, иначе «работает в CI» ничего не говорит о
+        # выкатке. База здесь пустая, поэтому миграции создают схему с нуля.
         run: |
           npx prisma generate
-          npx prisma db push --accept-data-loss
+          npx prisma migrate deploy
           npm run prisma:seed
 
       - name: Линт
