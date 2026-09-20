@@ -17,26 +17,9 @@ import { TopProductsBar, WeeklyBars } from '@/components/Charts';
 import { Category, Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
 
-// Своя отправка продавца в заказе.
-//
-// Отправок в заказе столько же, сколько поставщиков, и продавец распоряжается
-// только своей. Запасной вариант по пустому продавцу — для записей, созданных
-// до разделения отправок: у них поле не заполнено, если восстановление ещё не
-// прогоняли.
-function ownShipment(order: any, sellerId?: string) {
-  const list = order?.shipments ?? [];
-  return list.find((sh: any) => sh.sellerId === sellerId) ?? list.find((sh: any) => !sh.sellerId);
-}
-
-// Свой счёт продавца. Счёт-фактура выпускается по одному на продавца: в заказе
-// от нескольких поставщиков продавец видит статус своего документа, а не чужого.
-// Пустой sellerId — счёт «на весь заказ», выпущенный до разделения.
-function ownInvoice(order: any, sellerId?: string) {
-  const list = order?.invoices ?? [];
-  return list.find((inv: any) => inv.sellerId === sellerId) ?? list.find((inv: any) => !inv.sellerId);
-}
 import { signWithEimzo } from '@/lib/eimzo';
 import { useI18n } from '@/lib/i18n';
+import { ownInvoice, ownShipment } from '@/lib/seller-order';
 
 const EMPTY = {
   name: '', description: '', categoryId: '', price: 0, activeSubstance: '', manufacturer: '',
@@ -392,12 +375,12 @@ function SellerContent() {
                     </select>
                   </td>
                   <td>
-                    {ownInvoice(o, user?.id)?.didoxStatus ? (
+                    {ownInvoice<any>(o, user?.id)?.didoxStatus ? (
                       <span className="inline-flex items-center gap-2">
-                        <span className={`rounded-md px-2 py-0.5 text-xs ${ownInvoice(o, user?.id).didoxStatus === 'SIGNED' ? 'bg-teal-100 text-teal-700' : ownInvoice(o, user?.id).didoxStatus === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
-                          {didoxLabels[ownInvoice(o, user?.id).didoxStatus] ?? ownInvoice(o, user?.id).didoxStatus}
+                        <span className={`rounded-md px-2 py-0.5 text-xs ${ownInvoice<any>(o, user?.id).didoxStatus === 'SIGNED' ? 'bg-teal-100 text-teal-700' : ownInvoice<any>(o, user?.id).didoxStatus === 'REJECTED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                          {didoxLabels[ownInvoice<any>(o, user?.id).didoxStatus] ?? ownInvoice<any>(o, user?.id).didoxStatus}
                         </span>
-                        {ownInvoice(o, user?.id).didoxStatus === 'SENT' && (
+                        {ownInvoice<any>(o, user?.id).didoxStatus === 'SENT' && (
                           <button className="btn-ghost !px-2 !py-1 text-xs text-teal-700" onClick={() => signEimzo(o.id)}>{tt('Подписать ЭЦП', 'ERI bilan imzolash')}</button>
                         )}
                         <button className="btn-ghost !px-2 !py-1 text-xs" onClick={() => syncDidox(o.id)}>{tt('Обновить', 'Yangilash')}</button>
@@ -407,10 +390,10 @@ function SellerContent() {
                     )}
                   </td>
                   <td>
-                    {ownShipment(o, user?.id) ? (
+                    {ownShipment<any>(o, user?.id) ? (
                       <button className="inline-flex items-center gap-1" onClick={() => setDeliveryOrder(o)}>
-                        <span className={`rounded-md px-2 py-0.5 text-xs ${ownShipment(o, user?.id).status === 'DELIVERED' ? 'bg-teal-100 text-teal-700' : ownShipment(o, user?.id).status === 'RETURNED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
-                          {shipLabels[ownShipment(o, user?.id).status] ?? ownShipment(o, user?.id).status}
+                        <span className={`rounded-md px-2 py-0.5 text-xs ${ownShipment<any>(o, user?.id).status === 'DELIVERED' ? 'bg-teal-100 text-teal-700' : ownShipment<any>(o, user?.id).status === 'RETURNED' ? 'bg-red-100 text-red-600' : 'bg-amber-100 text-amber-700'}`}>
+                          {shipLabels[ownShipment<any>(o, user?.id).status] ?? ownShipment<any>(o, user?.id).status}
                         </span>
                       </button>
                     ) : (
@@ -584,7 +567,7 @@ function DeliveryForm({ order, onClose, onSaved }: any) {
     IN_TRANSIT: tt('В пути', 'Yoʻlda'), DELIVERED: tt('Доставлено', 'Yetkazilgan'),
     RETURNED: tt('Возврат', 'Qaytarilgan'),
   };
-  const s = ownShipment(order, user?.id) ?? {};
+  const s = ownShipment<any>(order, user?.id) ?? {};
   const [form, setForm] = useState<any>({
     method: s.method ?? 'COURIER', status: s.status ?? 'PENDING',
     city: s.city ?? '', address: s.address ?? '',

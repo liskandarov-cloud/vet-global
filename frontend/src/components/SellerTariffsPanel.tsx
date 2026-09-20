@@ -33,8 +33,12 @@ export function SellerTariffsPanel() {
   useEffect(() => { load(); }, []);
 
   const save = async () => {
-    const cost = Number(form.cost);
-    if (!Number.isFinite(cost) || cost < 0) {
+    // Пустое поле — не ноль. Number('') даёт 0, и пустая форма сохраняла тариф
+    // с нулевой стоимостью: продавец, не заполнив цену, обещал покупателям
+    // бесплатную доставку. Явный ноль остаётся допустимым — это «вожу бесплатно».
+    const raw = form.cost.trim();
+    const cost = Number(raw);
+    if (!raw || !Number.isFinite(cost) || cost < 0) {
       toast.error(tt('Укажите стоимость доставки', 'Yetkazib berish narxini kiriting'));
       return;
     }
