@@ -20,6 +20,10 @@ export function ProductCard({ product }: { product: Product }) {
   const isFav = favIds.includes(product.id);
 
   const displayName = lang === 'uz' && product.nameUz ? product.nameUz : product.name;
+  // Минимум берётся из того же предложения, что и цена «от». Раньше карточка
+  // показывала минимум товара, а заказ требовал минимум предложения: покупатель
+  // добавлял одну упаковку и получал отказ уже в корзине.
+  const minOrder = product.offerMinOrder ?? product.minOrder;
   const image = product.images?.[0] ?? PLACEHOLDER;
 
   const onFav = (e: React.MouseEvent) => {
@@ -111,7 +115,7 @@ export function ProductCard({ product }: { product: Product }) {
             {product.offersCount && product.offersCount > 1 ? (
               <div className="text-xs font-medium text-teal-700">{product.offersCount} {tt('предложений', 'taklif')}</div>
             ) : (
-              <div className="text-xs text-ink-subtle">{t('product.minOrder')}: {product.minOrder}</div>
+              <div className="text-xs text-ink-subtle">{t('product.minOrder')}: {minOrder}</div>
             )}
           </div>
           {product.offersCount && product.offersCount > 1 ? (
@@ -130,10 +134,10 @@ export function ProductCard({ product }: { product: Product }) {
                     // сервером по тому же правилу, и иначе корзина обещала бы
                     // одну цену, а списалась другая.
                     price: applyPromotion(product.minPrice ?? product.price, product.promoPercent),
-                    minOrder: product.minOrder,
+                    minOrder,
                     image,
                   },
-                  product.minOrder,
+                  minOrder,
                 );
                 toast.success(tt('Добавлено в корзину', 'Savatga qoʻshildi'));
               }}

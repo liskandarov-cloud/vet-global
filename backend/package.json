@@ -18,7 +18,8 @@
     "backfill:shipment-seller": "ts-node --transpile-only prisma/backfill-shipment-seller.ts",
     "lint:fix": "eslint \"src/**/*.ts\" \"test/**/*.ts\" --fix",
     "migrate:deploy": "ts-node --transpile-only prisma/migrate.ts",
-    "migrate:new": "prisma migrate dev"
+    "migrate:new": "prisma migrate dev",
+    "backfill:offer-min-order": "ts-node --transpile-only prisma/backfill-offer-min-order.ts"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"

@@ -60,6 +60,10 @@ export interface Product {
   price: number;
   // Процент действующей акции продавца (0 — акции нет).
   promoPercent?: number;
+  // Минимальный заказ по лучшему предложению — тот, что потребует сервер.
+  // У товара есть свой minOrder, но он относится к карточке, а не к
+  // предложению, по цене которого показывается «от».
+  offerMinOrder?: number | null;
   activeSubstance?: string;
   manufacturer?: string;
   form?: string;

@@ -51,6 +51,10 @@ describe('VetGlobal integrations (e2e)', () => {
     admin = await login('admin@vetglobal.com', ADMIN_PW);
     sellerId = (await req('/auth/me', { token: seller })).body.id;
     sellerProduct = (await req(`/products?sellerId=${sellerId}&limit=1`)).body.products[0];
+    // Заказ проверяет минимум предложения, а не карточки товара: это разные
+    // числа, и карточка каталога показывает именно первый. Тесты заказывают то
+    // же количество, что предложит покупателю интерфейс.
+    sellerProduct.minOrder = sellerProduct.offerMinOrder ?? sellerProduct.minOrder;
   });
 
   // Остаток и наличие товара продавца выставляются тестом.
@@ -750,6 +754,75 @@ describe('VetGlobal integrations (e2e)', () => {
     });
   });
 
+  // Импорт прайса. Повторная загрузка не должна стирать то, чего в файле нет:
+  // продавец, заливший прайс из одних цен, терял срок годности, номер серии и
+  // регистрационный номер — сведения, обязательные для ветпрепаратов.
+  describe('импорт прайса', () => {
+    const NAME = `E2E импорт ${Date.now()}`;
+    let categoryId: string;
+
+    const importRows = async (mapping: Record<string, number>, rows: string[][]) =>
+      req('/import/commit', { token: seller, body: { rows, mapping, defaultCategoryId: categoryId } });
+
+    const myOffer = async () => {
+      const offers = (await req('/offers/mine', { token: seller })).body as any[];
+      return offers.find((o) => o.product?.name === NAME);
+    };
+
+    beforeAll(async () => {
+      categoryId = (await req('/categories')).body[0].id;
+    });
+
+    it('полная строка заводит карточку с регистрационными сведениями', async () => {
+      const res = await importRows(
+        { name: 0, price: 1, stockQty: 2, expiryDate: 3, batchNumber: 4, regNumber: 5, minOrder: 6 },
+        [[NAME, '120000', '7', '31.12.2027', 'SER-42', 'UZ-77', '3']],
+      );
+      expect(res.status).toBeLessThan(400);
+      expect(res.body.failed).toBe(0);
+
+      const offer = await myOffer();
+      expect(offer).toBeTruthy();
+      expect(Number(offer.price)).toBe(120000);
+      expect(offer.batchNumber).toBe('SER-42');
+      expect(offer.regNumber).toBe('UZ-77');
+      expect(offer.minOrder).toBe(3);
+      expect(offer.expiryDate).toBeTruthy();
+    });
+
+    it('повторная загрузка одних цен не стирает остальное', async () => {
+      const before = await myOffer();
+      const res = await importRows({ name: 0, price: 1 }, [[NAME, '150000']]);
+      expect(res.body.failed).toBe(0);
+
+      const after = await myOffer();
+      expect(Number(after.price)).toBe(150000);
+      expect(after.batchNumber).toBe(before.batchNumber);
+      expect(after.regNumber).toBe(before.regNumber);
+      expect(after.expiryDate).toBe(before.expiryDate);
+      expect(after.minOrder).toBe(before.minOrder);
+    });
+
+    // Ноль в остатке означает «нет на складе». Импорт раньше всегда ставил
+    // «в наличии», и покупатель мог заказать то, чего у продавца нет.
+    it('нулевой остаток снимает товар с наличия, ненулевой возвращает', async () => {
+      await importRows({ name: 0, price: 1, stockQty: 2 }, [[NAME, '150000', '0']]);
+      expect((await myOffer()).inStock).toBe(false);
+
+      await importRows({ name: 0, price: 1, stockQty: 2 }, [[NAME, '150000', '9']]);
+      const back = await myOffer();
+      expect(back.inStock).toBe(true);
+      expect(back.stockQty).toBe(9);
+    });
+
+    it('невозможная дата в прайсе не записывается как правдоподобная', async () => {
+      const before = await myOffer();
+      await importRows({ name: 0, price: 1, expiryDate: 2 }, [[NAME, '150000', '13.13.2026']]);
+      // Срок годности остался прежним, а не превратился в январь 2027-го.
+      expect((await myOffer()).expiryDate).toBe(before.expiryDate);
+    });
+  });
+
   // Акция обязана снижать цену. Процент существовал и не читался нигде за
   // пределами страницы акций: продавец заводил «−15%», покупатель это видел, а
   // в каталоге и в заказе цена оставалась прежней — платформа обещала скидку и
@@ -933,8 +1006,8 @@ describe('VetGlobal integrations (e2e)', () => {
         token: buyer,
         body: {
           items: [
-            { productId: mine.id, quantity: mine.minOrder },
-            { productId: foreign.id, quantity: foreign.minOrder },
+            { productId: mine.id, quantity: mine.offerMinOrder ?? mine.minOrder },
+            { productId: foreign.id, quantity: foreign.offerMinOrder ?? foreign.minOrder },
           ],
         },
       })).body;
@@ -966,8 +1039,8 @@ describe('VetGlobal integrations (e2e)', () => {
         token: buyer,
         body: {
           items: [
-            { productId: mine.id, quantity: mine.minOrder },
-            { productId: foreign.id, quantity: foreign.minOrder },
+            { productId: mine.id, quantity: mine.offerMinOrder ?? mine.minOrder },
+            { productId: foreign.id, quantity: foreign.offerMinOrder ?? foreign.minOrder },
           ],
         },
       })).body;

@@ -105,10 +105,14 @@ describe('VetGlobal API (e2e)', () => {
   it('creates an order with commission and earned VetPoints', async () => {
     const products = (await req('/products?limit=50')).body.products;
     const p = products[0];
+    // Минимум берётся из лучшего предложения — ровно как это делает карточка
+    // каталога. Минимум самого товара к цене «от» отношения не имеет, и заказ
+    // по нему отвечал бы отказом.
+    const minOrder = p.offerMinOrder ?? p.minOrder;
     const r = await req('/orders', {
       method: 'POST',
       token: buyer,
-      body: { items: [{ productId: p.id, quantity: p.minOrder }] },
+      body: { items: [{ productId: p.id, quantity: minOrder }] },
     });
     expect(r.status).toBe(201);
     expect(r.body.id).toBeTruthy();
@@ -119,7 +123,7 @@ describe('VetGlobal API (e2e)', () => {
     // должен платить покупатель. Раньше заказ без offerId считался по
     // product.price, и списывалось не то, что видел покупатель.
     const shownUnitPrice = p.minPrice ?? p.price;
-    expect(r.body.total).toBe(shownUnitPrice * p.minOrder);
+    expect(r.body.total).toBe(shownUnitPrice * minOrder);
   });
 
   it('never grants ADMIN through public registration', async () => {

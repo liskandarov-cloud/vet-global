@@ -62,6 +62,16 @@ describe('карточка товара и акция', () => {
     expect(useCart.getState().subtotal()).toBe(160000);
   });
 
+  // Минимум берётся из того же предложения, что и цена «от»: иначе покупатель
+  // добавляет одну упаковку, а заказ требует три и отвечает отказом.
+  it('минимальный заказ показывается по лучшему предложению', async () => {
+    render(<ProductCard product={product({ minOrder: 1, offerMinOrder: 3, offersCount: 1, minPrice: 50000 })} />);
+    expect(screen.getByText(/product\.minOrder: 3|Мин\. заказ: 3/)).toBeTruthy();
+
+    await userEvent.setup().click(screen.getByRole('button', { name: /корзин|cart|savat/i }));
+    expect(useCart.getState().items[0].quantity).toBe(3);
+  });
+
   it('цена «от» по офферам тоже со скидкой', () => {
     render(<ProductCard product={product({ promoPercent: 10, offersCount: 1, minPrice: 90000 })} />);
     expect(screen.getByText(/81\s?000/)).toBeTruthy();

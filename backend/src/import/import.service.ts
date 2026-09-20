@@ -9,10 +9,26 @@ import { OffersService } from '../offers/offers.service';
 import { packPriceOf } from '../common/pricing';
 import { CommitImportDto, ImportRowResult } from './dto/import.dto';
 import { IMPORT_FIELDS, suggestMapping } from './import.fields';
-import { parseAnimal, parseBool, parseDate, parseImages, parseNumber } from './parse';
+import { parseAnimal, parseImages, parseNumber } from './parse';
+import { offerFieldsFromRow } from './offer-fields';
 
 // Потолок строк за один импорт: защищает от выгрузки всего 1С одним файлом.
 const MAX_ROWS = 2000;
+
+// Колонки, которые относятся к офферу продавца, а не к карточке товара.
+const OFFER_COLUMNS = [
+  'priceUnit',
+  'priceUnitQty',
+  'packSize',
+  'packUnit',
+  'minOrder',
+  'stockQty',
+  'leadTimeDays',
+  'batchNumber',
+  'expiryDate',
+  'regNumber',
+  'isRx',
+] as const;
 // Разбор ищет строку заголовков в первых строках — прайсы часто начинаются с шапки.
 const HEADER_SCAN_DEPTH = 10;
 
@@ -227,22 +243,16 @@ export class ImportService {
           action = 'offer_only';
         }
 
-        // Оффер продавца: цена + фасовка.
-        const offerData: Record<string, unknown> = {
+        // Оффер продавца: цена, фасовка и всё, что продавец указал в файле.
+        //
+        // Обновляется только то, что в прайсе есть. Раньше поля записывались
+        // безусловно, и повторная загрузка прайса из одних цен затирала срок
+        // годности, номер серии и регистрационный номер — сведения, которые для
+        // ветпрепаратов обязательны и восстановить которые уже неоткуда.
+        const { provided: offerData, defaults: offerDefaults } = offerFieldsFromRow(
+          Object.fromEntries(OFFER_COLUMNS.map((key) => [key, at(key)])),
           price,
-          priceUnit: at('priceUnit') || null,
-          priceUnitQty: parseNumber(at('priceUnitQty')) ?? 1,
-          packSize: parseNumber(at('packSize')) ?? 1,
-          packUnit: at('packUnit') || null,
-          minOrder: parseNumber(at('minOrder')) ?? 1,
-          stockQty: parseNumber(at('stockQty')),
-          leadTimeDays: parseNumber(at('leadTimeDays')),
-          batchNumber: at('batchNumber') || null,
-          expiryDate: parseDate(at('expiryDate')),
-          regNumber: at('regNumber') || null,
-          isRx: parseBool(at('isRx')) ?? false,
-          inStock: true,
-        };
+        );
 
         if (!dto.dryRun && product) {
           await this.prisma.offer.upsert({
@@ -250,6 +260,9 @@ export class ImportService {
             create: {
               productId: product.id,
               sellerId: user.id,
+              // Значения по умолчанию только для нового оффера: у существующего
+              // они уже свои, и подставлять их заново значит их стирать.
+              ...offerDefaults,
               ...offerData,
             } as Prisma.OfferUncheckedCreateInput,
             update: offerData as Prisma.OfferUncheckedUpdateInput,

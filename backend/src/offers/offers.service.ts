@@ -123,11 +123,18 @@ export class OffersService {
     const offers = await this.prisma.offer.findMany({
       where: { productId, isActive: true, inStock: true },
     });
-    const prices = offers.map((o) => packPriceOf(o));
+    // Лучшее предложение — то же, которое подберёт заказ без явного оффера:
+    // самое дешёвое с учётом фасовки. Из него берутся и цена, и минимальный
+    // заказ, иначе карточка обещает цену одного предложения, а минимум — другого.
+    const best = offers.reduce<(typeof offers)[number] | null>(
+      (cheapest, o) => (!cheapest || packPriceOf(o) < packPriceOf(cheapest) ? o : cheapest),
+      null,
+    );
     await this.prisma.product.update({
       where: { id: productId },
       data: {
-        minPrice: prices.length ? Math.min(...prices) : null,
+        minPrice: best ? packPriceOf(best) : null,
+        offerMinOrder: best ? best.minOrder : null,
         offersCount: offers.length,
       },
     });
