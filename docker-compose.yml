@@ -97,6 +97,8 @@ services:
       MAIL_FROM: ${MAIL_FROM}
       # Payments (mock | live)
       PAYMENTS_MODE: ${PAYMENTS_MODE}
+      # Решение по кредитной заявке принимает администратор (как на проде).
+      FINANCING_MODE: ${FINANCING_MODE:-manual}
       PAYMENT_RETURN_URL: ${PAYMENT_RETURN_URL}
       CLICK_SERVICE_ID: ${CLICK_SERVICE_ID}
       CLICK_MERCHANT_ID: ${CLICK_MERCHANT_ID}

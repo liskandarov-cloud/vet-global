@@ -733,6 +733,102 @@ describe('VetGlobal integrations (e2e)', () => {
     });
   });
 
+  // Кредитный лимит выдаёт администратор.
+  //
+  // Умолчанием в коде был демо-режим с мгновенным автоскорингом, а переменная не
+  // задавалась нигде — ни в render.yaml, ни в compose. То есть на боевом контуре
+  // любой зарегистрированный покупатель выдавал себе лимит до 100 млн сум и
+  // забирал товар по отсрочке, ничего не заплатив.
+  it('заявка на лимит не повышает его сама — решение принимает администратор', async () => {
+    const applicant = await login('farm2@vetglobal.com', 'buyer123');
+    const limit = async () => Number((await req('/financing/me', { token: applicant })).body.creditLimit);
+
+    const before = await limit();
+    const app = (await req('/financing/apply', {
+      token: applicant,
+      body: { requestedLimit: 90_000_000, purpose: `E2E ${Date.now()}` },
+    })).body;
+
+    expect(app.status).toBe('PENDING');
+    expect(app.approvedLimit).toBeNull();
+    expect(await limit()).toBe(before);
+
+    const decided = (await req(`/financing/${app.id}/decide`, {
+      token: admin,
+      body: { approve: true, approvedLimit: before + 1_000_000, note: 'E2E' },
+    })).body;
+    expect(decided.status).toBe('APPROVED');
+    // Лимит не уменьшается решением: берётся наибольший из текущего и одобренного.
+    expect(await limit()).toBe(before + 1_000_000);
+  });
+
+  it('решение по заявке принимает только администратор', async () => {
+    const applicant = await login('farm2@vetglobal.com', 'buyer123');
+    const app = (await req('/financing/apply', {
+      token: applicant,
+      body: { requestedLimit: 1_000_000, purpose: `E2E права ${Date.now()}` },
+    })).body;
+
+    const self = await req(`/financing/${app.id}/decide`, {
+      token: applicant,
+      body: { approve: true, approvedLimit: 90_000_000 },
+    });
+    expect(self.status).toBe(403);
+  });
+
+  // Состав организации. Права управляющего и владельца были равны: обе роли
+  // проходили одну проверку. Из этого следовало то, чего никто не имел в виду —
+  // управляющий мог понизить владельца (в том числе единственного, оставив
+  // организацию без него) и повысить себя.
+  describe('права в организации', () => {
+    let manager: string;
+    let owner: string;
+    let members: any[];
+
+    const member = (role: string) => members.find((m) => m.role === role);
+    const patch = (token: string, id: string, body: any) =>
+      req(`/org/members/${id}`, { method: 'PATCH', token, body });
+
+    beforeAll(async () => {
+      // Демо-организация сида: владелец, управляющий и закупщик с лимитом.
+      manager = await login('clinic@vetglobal.com', 'buyer123');
+      owner = await login('buyer@vetglobal.com', 'buyer123');
+      const org = (await req('/org/me', { token: manager })).body;
+      members = org.org?.members ?? org.members ?? [];
+    });
+
+    it('управляющий не меняет роли — ни владельцу, ни себе', async () => {
+      const asOwner = await patch(manager, member('OWNER').id, { role: 'PURCHASER' });
+      expect(asOwner.status).toBe(403);
+
+      const selfPromote = await patch(manager, member('MANAGER').id, { role: 'OWNER' });
+      expect(selfPromote.status).toBe(403);
+    });
+
+    // Иначе управляющий выставил бы владельцу нулевой лимит и отправлял бы его
+    // заказы на согласование самому себе.
+    it('управляющий не трогает лимит владельца, но настраивает лимиты закупщиков', async () => {
+      expect((await patch(manager, member('OWNER').id, { spendLimit: 0 })).status).toBe(403);
+      expect((await patch(manager, member('PURCHASER').id, { spendLimit: 3000000 })).status).toBe(200);
+    });
+
+    // Организацию без владельца изнутри уже не починить: некому согласовывать
+    // заказы и менять состав.
+    it('единственного владельца нельзя понизить даже ему самому', async () => {
+      const res = await patch(owner, member('OWNER').id, { role: 'MANAGER' });
+      expect(res.status).toBe(403);
+      expect(res.body.message).toMatch(/без владельца/);
+    });
+
+    it('приглашать управляющих может только владелец', async () => {
+      const res = await req('/org/members', {
+        token: manager,
+        body: { email: 'seller@vetglobal.com', role: 'MANAGER' },
+      });
+      expect(res.status).toBe(403);
+    });
+  });
+
   // Заказ по выигранному тендеру — такая же сделка, как покупка из каталога, и
   // должен подчиняться тем же правилам. Раньше он создавался своим путём:
   // согласование в организации обходилось, остаток склада не списывался.

@@ -10,6 +10,7 @@ import { CreateOrgDto, InviteMemberDto, UpdateMemberDto } from './dto/organizati
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { AlertsService } from '../alerts/alerts.service';
 import { OrderReleaseService } from '../orders/order-release.service';
+import { inviteRoleError, memberChangeError } from './permissions';
 
 @Injectable()
 export class OrganizationsService {
@@ -72,6 +73,11 @@ export class OrganizationsService {
 
   async invite(dto: InviteMemberDto, user: AuthUser) {
     const me = await this.assertManager(user);
+    // Приглашение с ролью владельца или управляющего — дело владельца: иначе
+    // управляющий заводит себе второго владельца и меняет состав через него.
+    const inviteError = inviteRoleError(me.role, dto.role ?? OrgRole.PURCHASER);
+    if (inviteError) throw new ForbiddenException(inviteError);
+
     const target = await this.prisma.user.findUnique({ where: { email: dto.email } });
     if (!target) throw new NotFoundException('Пользователь с таким email не зарегистрирован');
     const dup = await this.prisma.orgMembership.findFirst({ where: { userId: target.id } });
@@ -91,6 +97,21 @@ export class OrganizationsService {
     const me = await this.assertManager(user);
     const target = await this.prisma.orgMembership.findUnique({ where: { id: membershipId } });
     if (!target || target.orgId !== me.orgId) throw new NotFoundException('Участник не найден');
+
+    // Права управляющего и владельца были равны, и управляющий мог понизить
+    // владельца, в том числе единственного, оставив организацию без него, —
+    // а заодно повысить себя.
+    const owners = await this.prisma.orgMembership.count({
+      where: { orgId: me.orgId, role: OrgRole.OWNER },
+    });
+    const error = memberChangeError(
+      { membershipId: me.id, role: me.role },
+      { membershipId: target.id, role: target.role },
+      { role: dto.role, spendLimit: dto.spendLimit },
+      owners,
+    );
+    if (error) throw new ForbiddenException(error);
+
     await this.prisma.orgMembership.update({
       where: { id: membershipId },
       data: {

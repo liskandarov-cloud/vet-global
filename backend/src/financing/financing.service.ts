@@ -1,4 +1,4 @@
-import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { CreditStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -7,7 +7,8 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 
 @Injectable()
 export class FinancingService {
-  private readonly mode: string; // 'mock' | 'manual'
+  private readonly logger = new Logger(FinancingService.name);
+  private readonly mode: string; // 'manual' (по умолчанию) | 'mock' (демо)
   private readonly maxLimit: number;
   private readonly bankName: string;
 
@@ -15,7 +16,14 @@ export class FinancingService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
-    this.mode = config.get('FINANCING_MODE') ?? 'mock';
+    // По умолчанию — ручное решение.
+    //
+    // Раньше умолчанием был mock, а переменная не задавалась нигде: ни в
+    // render.yaml, ни в compose. То есть на боевом контуре любой
+    // зарегистрированный покупатель мгновенно выдавал себе кредитный лимит до
+    // 100 млн сум и забирал товар по отсрочке, ничего не заплатив. Демо-режим
+    // должен включаться намеренно, а не доставаться по умолчанию.
+    this.mode = (config.get('FINANCING_MODE') ?? 'manual').toLowerCase();
     this.maxLimit = Number(config.get('FINANCING_MAX_LIMIT') ?? 100_000_000);
     this.bankName = config.get('FINANCING_BANK_NAME') ?? 'Банк-партнёр VetGlobal';
   }
@@ -34,6 +42,9 @@ export class FinancingService {
     });
 
     if (this.mode === 'mock') {
+      this.logger.warn(
+        `FINANCING_MODE=mock — заявка ${app.id} одобряется автоматически. Допустимо только для демонстраций.`,
+      );
       // Мгновенный скоринг: одобряем до maxLimit.
       const approved = Math.min(dto.requestedLimit, this.maxLimit);
       return this.decide(app.id, { approve: true, approvedLimit: approved, note: 'Авто-скоринг (демо)' });
