@@ -733,6 +733,75 @@ describe('VetGlobal integrations (e2e)', () => {
     });
   });
 
+  // Акция снижает цену, и эта цена должна быть одинаковой везде, где товар
+  // показывается. Пока расчёт жил только в каталоге, в избранном, на странице
+  // бренда и в боте покупатель видел цену выше той, что спишется при заказе.
+  describe('акция видна не только в каталоге', () => {
+    let promoId: string | null = null;
+    let product: any;
+
+    beforeAll(async () => {
+      const list = (await req(`/products?sellerId=${sellerId}&limit=20`)).body.products as any[];
+      product = list.find((p) => p.manufacturer) ?? list[0];
+    });
+
+    afterEach(async () => {
+      if (promoId) await req(`/promotions/${promoId}`, { method: 'DELETE', token: seller });
+      promoId = null;
+    });
+
+    it('в избранном цена та же, что в каталоге', async () => {
+      const created = await req('/promotions', {
+        token: seller,
+        body: { title: `E2E видимость ${Date.now()}`, discountPercent: 30, productId: product.id },
+      });
+      promoId = created.body.id;
+
+      await req('/favorites', { token: buyer, body: { productId: product.id } });
+      const favorites = (await req('/favorites', { token: buyer })).body as any[];
+      const fav = favorites.find((p) => p.id === product.id);
+
+      expect(fav).toBeTruthy();
+      expect(fav.promoPercent).toBe(30);
+      expect(fav.promoPercent).toBe((await req(`/products/${product.id}`)).body.promoPercent);
+
+      await req(`/favorites/${product.id}`, { method: 'DELETE', token: buyer });
+    });
+
+    // Подборка «Акции» собиралась по пометке isPromotion в карточке товара:
+    // продавец ставит её вручную, и со скидкой она не связана — товар с
+    // пометкой мог не иметь акции, а товар с настоящей скидкой в подборку не
+    // попадал.
+    it('подборка «Акции» собирается по настоящим скидкам', async () => {
+      const before = (await req('/products?discounted=true&limit=50')).body;
+      expect(before.products.every((p: any) => (p.promoPercent ?? 0) > 0)).toBe(true);
+
+      const created = await req('/promotions', {
+        token: seller,
+        body: { title: `E2E подборка ${Date.now()}`, discountPercent: 20, productId: product.id },
+      });
+      promoId = created.body.id;
+
+      const after = (await req('/products?discounted=true&limit=50')).body;
+      expect(after.products.some((p: any) => p.id === product.id)).toBe(true);
+    });
+
+    // Поиск занимает тот же ключ условия, что и подборка: присваивание молча
+    // отменило бы его, и «акции» искались бы по всему каталогу.
+    it('поиск внутри подборки не теряется', async () => {
+      const created = await req('/promotions', {
+        token: seller,
+        body: { title: `E2E поиск ${Date.now()}`, discountPercent: 20, productId: product.id },
+      });
+      promoId = created.body.id;
+
+      const word = encodeURIComponent(String(product.name).split(' ')[0]);
+      const found = (await req(`/products?discounted=true&search=${word}&limit=50`)).body;
+      expect(found.products.every((p: any) => String(p.name).includes(decodeURIComponent(word)))).toBe(true);
+      expect(found.products.some((p: any) => p.id === product.id)).toBe(true);
+    });
+  });
+
   // Кредитный лимит выдаёт администратор.
   //
   // Умолчанием в коде был демо-режим с мгновенным автоскорингом, а переменная не

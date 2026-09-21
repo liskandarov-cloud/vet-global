@@ -3,7 +3,8 @@ import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
-import { bestPromotionPercent, serializeOffer } from '../common/pricing';
+import { serializeOffer } from '../common/pricing';
+import { PromotionsService } from '../promotions/promotions.service';
 import { AlertsService } from '../alerts/alerts.service';
 
 @Injectable()
@@ -12,6 +13,7 @@ export class ProductsService {
 
   constructor(
     private readonly prisma: PrismaService,
+    private readonly promotions: PromotionsService,
     private readonly alerts: AlertsService,
   ) {}
 
@@ -30,6 +32,39 @@ export class ProductsService {
     if (!q.sellerId) where.isActive = true;
     if (typeof q.inStock === 'boolean') where.inStock = q.inStock;
     if (typeof q.isPromotion === 'boolean') where.isPromotion = q.isPromotion;
+
+    // Подборка «Акции»: товары с действующей скидкой. Акция бывает на весь
+    // ассортимент продавца (товар не указан) — тогда в подборку идут все его
+    // товары.
+    if (q.discounted) {
+      const now = new Date();
+      const promotions = await this.prisma.promotion.findMany({
+        where: {
+          isActive: true,
+          discountPercent: { gt: 0 },
+          startsAt: { lte: now },
+          OR: [{ endsAt: null }, { endsAt: { gte: now } }],
+        },
+        select: { sellerId: true, productId: true },
+      });
+      const productIds = promotions.map((p) => p.productId).filter(Boolean) as string[];
+      const sellerIds = promotions.filter((p) => !p.productId).map((p) => p.sellerId);
+      // Через AND, а не присваиванием where.OR: этот же ключ занимает поиск по
+      // названию, и присваивание молча отменило бы его — подборка «Акции» с
+      // поисковым запросом показывала бы акции по всему каталогу.
+      //
+      // Ни одной акции — и подборка пуста, а не «все товары».
+      where.AND = [
+        ...(Array.isArray(where.AND) ? where.AND : where.AND ? [where.AND] : []),
+        {
+          OR: [
+            ...(productIds.length ? [{ id: { in: productIds } }] : []),
+            ...(sellerIds.length ? [{ sellerId: { in: sellerIds } }] : []),
+            ...(productIds.length || sellerIds.length ? [] : [{ id: '' }]),
+          ],
+        },
+      ];
+    }
     if (q.priceMin != null || q.priceMax != null) {
       where.price = {};
       if (q.priceMin != null) (where.price as any).gte = q.priceMin;
@@ -70,7 +105,7 @@ export class ProductsService {
       }),
     ]);
 
-    await this.annotatePromotions(products);
+    await this.promotions.annotate(products);
     return { total, skip, limit: take, products: products.map((p) => this.serialize(p)) };
   }
 
@@ -112,7 +147,7 @@ export class ProductsService {
       include: { seller: { select: { id: true, company: true, isVerified: true } } },
     });
 
-    await this.annotatePromotions([product, ...related]);
+    await this.promotions.annotate([product, ...related]);
     return { ...this.serialize(product), related: related.map((r) => this.serialize(r)) };
   }
 
@@ -257,52 +292,6 @@ export class ProductsService {
   private async assertCategory(categoryId: string) {
     const cat = await this.prisma.category.findUnique({ where: { id: categoryId } });
     if (!cat) throw new NotFoundException('Category not found');
-  }
-
-  // Процент действующей акции для каждого товара и каждого его оффера.
-  //
-  // Витрина обязана показывать ту же цену, что спишется при заказе, поэтому
-  // акция приезжает на фронт процентом, а не готовой ценой: цена зависит от
-  // количества (объёмные скидки) и от договорной цены покупателя, и считать её
-  // на сервере для всех возможных количеств невозможно.
-  //
-  // Одним запросом на всех продавцов выдачи: акция бывает на весь ассортимент
-  // продавца (productId пуст) или на конкретный товар.
-  private async annotatePromotions(products: any[]): Promise<void> {
-    const sellerIds = new Set<string>();
-    for (const p of products) {
-      if (p?.sellerId) sellerIds.add(p.sellerId);
-      for (const o of Array.isArray(p?.offers) ? p.offers : []) {
-        if (o?.sellerId) sellerIds.add(o.sellerId);
-      }
-    }
-    if (!sellerIds.size) return;
-
-    const now = new Date();
-    const promotions = await this.prisma.promotion.findMany({
-      where: {
-        isActive: true,
-        sellerId: { in: [...sellerIds] },
-        startsAt: { lte: now },
-        OR: [{ endsAt: null }, { endsAt: { gte: now } }],
-      },
-      select: {
-        sellerId: true,
-        productId: true,
-        discountPercent: true,
-        startsAt: true,
-        endsAt: true,
-        isActive: true,
-      },
-    });
-    if (!promotions.length) return;
-
-    for (const p of products) {
-      p.promoPercent = bestPromotionPercent(promotions, { sellerId: p.sellerId, productId: p.id }, now);
-      for (const o of Array.isArray(p?.offers) ? p.offers : []) {
-        o.promoPercent = bestPromotionPercent(promotions, { sellerId: o.sellerId, productId: p.id }, now);
-      }
-    }
   }
 
   private serialize(p: any) {

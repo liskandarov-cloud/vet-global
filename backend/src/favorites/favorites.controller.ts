@@ -2,6 +2,7 @@ import { Body, Controller, Delete, Get, Param, Post, UseGuards } from '@nestjs/c
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsString } from 'class-validator';
 import { PrismaService } from '../prisma/prisma.service';
+import { PromotionsService } from '../promotions/promotions.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 
@@ -14,7 +15,10 @@ class AddFavoriteDto {
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 export class FavoritesController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly promotions: PromotionsService,
+  ) {}
 
   // Product ids only — for quick UI toggle state.
   @Get('ids')
@@ -37,10 +41,17 @@ export class FavoritesController {
         },
       },
     });
-    return favs
-      .map((f) => f.product)
-      .filter(Boolean)
-      .map((p: any) => ({ ...p, price: Number(p.price), rating: Number(p.rating) }));
+    const products = favs.map((f) => f.product).filter(Boolean) as any[];
+    // Акция снижает цену, и в избранном она должна быть той же, что в каталоге:
+    // иначе покупатель видит здесь цену выше той, что спишется при заказе.
+    await this.promotions.annotate(products);
+    return products.map((p: any) => ({
+      ...p,
+      price: Number(p.price),
+      minPrice: p.minPrice != null ? Number(p.minPrice) : null,
+      rating: Number(p.rating),
+      promoPercent: Number(p.promoPercent ?? 0),
+    }));
   }
 
   @Post()

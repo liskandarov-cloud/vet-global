@@ -1,9 +1,13 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PromotionsService } from '../promotions/promotions.service';
 
 @Injectable()
 export class BrandsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly promotions: PromotionsService,
+  ) {}
 
   // Список брендов: спонсируемые — первыми (retail media).
   async list() {
@@ -28,12 +32,15 @@ export class BrandsService {
       take: 60,
       include: { seller: { select: { id: true, company: true, isVerified: true } } },
     });
+    // Та же цена, что в каталоге: акция действует и здесь.
+    await this.promotions.annotate(products);
     return {
       ...brand,
       products: products.map((p) => ({
         ...p,
         price: Number(p.price),
         minPrice: p.minPrice != null ? Number(p.minPrice) : null,
+        promoPercent: Number((p as any).promoPercent ?? 0),
         rating: Number(p.rating),
       })),
     };

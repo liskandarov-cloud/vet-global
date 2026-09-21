@@ -50,6 +50,12 @@ export class ProductQueryDto {
   @IsOptional() @Transform(toBool) @IsBoolean() inStock?: boolean;
   @IsOptional() @Transform(toBool) @IsBoolean() isActive?: boolean;
   @IsOptional() @Transform(toBool) @IsBoolean() isPromotion?: boolean;
+  // Товары, на которые прямо сейчас действует скидка.
+  //
+  // Отдельно от isPromotion: тот флаг продавец ставит в карточке вручную и со
+  // скидкой он не связан — товар с флагом мог не иметь акции, а товар с
+  // настоящей скидкой в подборку «Акции» не попадал.
+  @IsOptional() @Transform(toBool) @IsBoolean() discounted?: boolean;
   @IsOptional() @IsString() sellerId?: string;
   @IsOptional() @IsNumber() priceMin?: number;
   @IsOptional() @IsNumber() priceMax?: number;

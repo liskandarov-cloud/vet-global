@@ -3,6 +3,8 @@ import { ConfigService } from '@nestjs/config';
 import { LeadSource } from '@prisma/client';
 import { Bot, InlineKeyboard, Keyboard } from 'grammy';
 import { PrismaService } from '../prisma/prisma.service';
+import { PromotionsService } from '../promotions/promotions.service';
+import { applyPromotion } from '../common/pricing';
 import { LeadsService } from '../leads/leads.service';
 import { BotLang, t } from './telegram.i18n';
 
@@ -27,6 +29,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly leads: LeadsService,
+    private readonly promotions: PromotionsService,
   ) {
     this.frontendUrl = config.get<string>('FRONTEND_URL') ?? 'https://vetglobal-web.l-iskandarov.workers.dev';
     this.adminChatId = config.get<string>('TELEGRAM_ADMIN_CHAT_ID');
@@ -193,6 +196,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       this.prisma.product.count({ where }),
       this.prisma.product.findMany({ where, orderBy: { createdAt: 'asc' }, skip: page * PAGE, take: PAGE }),
     ]);
+    await this.promotions.annotate(products);
     if (total === 0) return ctx.reply(t('category_empty', lang), { reply_markup: this.mainMenu(lang) });
 
     const kb = new InlineKeyboard();
@@ -246,7 +250,10 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async showPromotions(ctx: any, lang: BotLang) {
-    const products = await this.prisma.product.findMany({ where: { isPromotion: true }, take: 10 });
+    // Список по настоящим скидкам, а не по пометке isPromotion в карточке: это
+    // отдельный флаг продавца, никак не связанный с акцией — товар с флагом мог
+    // не иметь скидки, а товар с настоящей скидкой в список не попадал.
+    const products = await this.promotions.discountedProducts(10);
     if (products.length === 0) return ctx.reply(t('no_promotions', lang), { reply_markup: this.mainMenu(lang) });
     await ctx.reply(t('promotions_header', lang));
     for (const p of products) {
@@ -277,8 +284,12 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   // ── helpers ──
+  // Цена в боте — та же, что в каталоге: со снятым процентом акции. Пока
+  // скидка применялась только на сайте, бот показывал цену выше той, что
+  // спишется при заказе.
   private minPrice(p: any): number {
-    return p.minPrice != null ? Number(p.minPrice) : Number(p.price);
+    const base = p.minPrice != null ? Number(p.minPrice) : Number(p.price);
+    return applyPromotion(base, p.promoPercent);
   }
   private money(v: number): string {
     return `${Math.round(v).toLocaleString('ru-RU')} сум`;

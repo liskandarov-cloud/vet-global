@@ -32,7 +32,9 @@ export default function HomePage() {
 
   useEffect(() => {
     api.get('/categories').then((r) => setCategories(r.data)).catch(() => {});
-    api.get('/products', { params: { isPromotion: true, limit: 4 } }).then((r) => setPromos(r.data.products)).catch(() => {});
+    // Подборка по настоящим скидкам, а не по пометке isPromotion в карточке:
+    // тот флаг продавец ставит вручную и со скидкой он не связан.
+    api.get('/products', { params: { discounted: true, limit: 4 } }).then((r) => setPromos(r.data.products)).catch(() => {});
     api.get('/sellers', { params: { verifiedOnly: true } }).then((r) => setSellers(r.data.slice(0, 3))).catch(() => {});
     api.get('/blog', { params: { limit: 3 } }).then((r) => setPosts(r.data.posts)).catch(() => {});
     // Реальные счётчики для hero.
