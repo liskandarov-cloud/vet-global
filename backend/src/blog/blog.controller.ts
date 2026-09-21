@@ -14,7 +14,7 @@ import { ApiBearerAuth, ApiTags, PartialType } from '@nestjs/swagger';
 import { IsBoolean, IsOptional, IsString } from 'class-validator';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { JwtAuthGuard, OptionalJwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
@@ -54,9 +54,20 @@ function slugify(s: string): string {
 export class BlogController {
   constructor(private readonly prisma: PrismaService) {}
 
+  // Список статей. Черновики видит только администратор.
+  //
+  // Параметр all снимал фильтр публикации, а охраны на эндпоинте не было: любой
+  // посетитель читал неопубликованные статьи, запросив ?all=true.
   @Get()
-  async list(@Query('skip') skip = 0, @Query('limit') limit = 12, @Query('all') all?: string) {
-    const where = all === 'true' ? {} : { published: true };
+  @UseGuards(OptionalJwtAuthGuard)
+  async list(
+    @CurrentUser() user?: AuthUser,
+    @Query('skip') skip = 0,
+    @Query('limit') limit = 12,
+    @Query('all') all?: string,
+  ) {
+    const isAdmin = user?.role === UserRole.ADMIN;
+    const where = all === 'true' && isAdmin ? {} : { published: true };
     const [total, posts] = await this.prisma.$transaction([
       this.prisma.blogPost.count({ where }),
       this.prisma.blogPost.findMany({
@@ -69,10 +80,18 @@ export class BlogController {
     return { total, posts };
   }
 
+  // Статья по адресу. Неопубликованная доступна только администратору: раньше
+  // черновик открывался всем, кто знает или угадал адрес.
   @Get(':slug')
-  async getBySlug(@Param('slug') slug: string) {
+  @UseGuards(OptionalJwtAuthGuard)
+  async getBySlug(@Param('slug') slug: string, @CurrentUser() user?: AuthUser) {
     const post = await this.prisma.blogPost.findUnique({ where: { slug } });
     if (!post) throw new NotFoundException('Post not found');
+    if (!post.published && user?.role !== UserRole.ADMIN) {
+      // Тот же ответ, что и для несуществующей статьи: иначе по коду ответа
+      // видно, какие черновики существуют.
+      throw new NotFoundException('Post not found');
+    }
     return post;
   }
 

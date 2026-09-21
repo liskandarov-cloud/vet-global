@@ -733,6 +733,33 @@ describe('VetGlobal integrations (e2e)', () => {
     });
   });
 
+  // Черновики блога. Параметр all снимал фильтр публикации, а охраны на
+  // эндпоинте не было: любой посетитель читал неопубликованные статьи, запросив
+  // ?all=true, а по адресу черновик открывался и подавно.
+  it('черновик блога виден только администратору', async () => {
+    const created = await req('/blog', {
+      token: admin,
+      body: { title: `E2E черновик ${Date.now()}`, content: 'текст до публикации', published: false },
+    });
+    expect(created.status).toBe(201);
+    const { id, slug } = created.body;
+
+    const guestList = (await req('/blog?all=true&limit=50')).body.posts;
+    expect(guestList.some((p: any) => p.slug === slug)).toBe(false);
+    // Тот же ответ, что и для несуществующей статьи: иначе по коду видно,
+    // какие черновики существуют.
+    expect((await req(`/blog/${slug}`)).status).toBe(404);
+
+    const adminList = (await req('/blog?all=true&limit=50', { token: admin })).body.posts;
+    expect(adminList.some((p: any) => p.slug === slug)).toBe(true);
+    expect((await req(`/blog/${slug}`, { token: admin })).status).toBe(200);
+
+    await req(`/blog/${id}`, { method: 'PATCH', token: admin, body: { published: true } });
+    expect((await req(`/blog/${slug}`)).status).toBe(200);
+
+    await req(`/blog/${id}`, { method: 'DELETE', token: admin });
+  });
+
   // Акция снижает цену, и эта цена должна быть одинаковой везде, где товар
   // показывается. Пока расчёт жил только в каталоге, в избранном, на странице
   // бренда и в боте покупатель видел цену выше той, что спишется при заказе.
