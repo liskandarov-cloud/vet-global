@@ -1,6 +1,16 @@
 {
   "compilerOptions": {
     "module": "commonjs",
+    // Старое разрешение модулей объявлено устаревшим в TypeScript 6 и перестанет
+    // работать в 7.0. Перевести на node16 нельзя, пока приложение собирается в
+    // CommonJS: пакеты Nest 12 поставляются как ES-модули, и при новом
+    // разрешении компилятор запрещает их импорт. Работает всё это благодаря
+    // тому, что Node 22 умеет require() для ES-модулей.
+    //
+    // Отложенная работа: перевод приложения на ES-модули (импорты с
+    // расширениями, конфигурации jest и ts-node, сборка сида). Отдельная задача,
+    // не часть обновления Nest.
+    "ignoreDeprecations": "6.0",
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -9,7 +19,6 @@
     "target": "ES2021",
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
     "incremental": true,
     // Кэш инкрементальной сборки держим внутри outDir: nest-cli.json задаёт
     // deleteOutDir, поэтому каждый `nest start` стирает dist. Кэш, лежащий вне
@@ -19,6 +28,12 @@
     "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
     "skipLibCheck": true,
     "strictNullChecks": true,
+    // Поля DTO заполняет валидация из тела запроса, а не конструктор, и
+    // компилятор этого не видит. Nest 12 включает проверку по умолчанию, из-за
+    // чего каждое поле каждого DTO требовало бы восклицательного знака — сорок
+    // пять мест без единой настоящей ошибки. Значение задано явно, чтобы
+    // умолчание инструмента больше ничего не решало за нас.
+    "strictPropertyInitialization": false,
     "noImplicitAny": false,
     "strictBindCallApply": false,
     "forceConsistentCasingInFileNames": false,
