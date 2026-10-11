@@ -1,4 +1,4 @@
-// VetGlobal — B2B veterinary marketplace data model.
+// VetHub — B2B veterinary marketplace data model.
 // PostgreSQL + Prisma. Derived from the legacy FastAPI models + «Первичное ТЗ» + SRS.
 
 generator client {

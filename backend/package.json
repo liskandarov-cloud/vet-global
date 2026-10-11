@@ -1,7 +1,7 @@
 {
   "name": "vetglobal-backend",
   "version": "0.1.0",
-  "description": "VetGlobal B2B marketplace — NestJS API",
+  "description": "VetHub B2B marketplace — NestJS API",
   "private": true,
   "scripts": {
     "build": "nest build",

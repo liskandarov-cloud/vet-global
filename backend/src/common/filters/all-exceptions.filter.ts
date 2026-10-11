@@ -66,7 +66,7 @@ export class AllExceptionsFilter implements ExceptionFilter {
 
     const msg = exception instanceof Error ? exception.message : String(exception);
     const text =
-      `🔴 VetGlobal ${status}\n${req.method} ${req.originalUrl}\n` +
+      `🔴 VetHub ${status}\n${req.method} ${req.originalUrl}\n` +
       `${userId ? `user ${userId}` : 'guest'}\n${msg}`.slice(0, 900);
 
     try {

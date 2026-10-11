@@ -3,7 +3,7 @@ import { serverFetch, SITE_URL } from '@/lib/server-api';
 
 // Метаданные статьи блога — серверный layout рядом с клиентской страницей.
 // Блог существует ради поискового трафика, без этого все статьи выглядели
-// в выдаче и в мессенджерах одинаково («VetGlobal — B2B-платформа»).
+// в выдаче и в мессенджерах одинаково («VetHub — B2B-платформа»).
 
 interface Post {
   title: string;
@@ -38,7 +38,7 @@ export async function generateMetadata(
     post.metaDesc ||
     post.excerpt ||
     post.content?.replace(/\s+/g, ' ').slice(0, 160) ||
-    'Экспертные материалы о ветеринарии и закупках на VetGlobal.';
+    'Экспертные материалы о ветеринарии и закупках на VetHub.';
   const image = absolute(post.image) ?? `${SITE_URL}/icon-512.png`;
   const url = `${SITE_URL}/blog/${post.slug}`;
 

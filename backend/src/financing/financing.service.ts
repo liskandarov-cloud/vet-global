@@ -25,7 +25,7 @@ export class FinancingService {
     // должен включаться намеренно, а не доставаться по умолчанию.
     this.mode = (config.get('FINANCING_MODE') ?? 'manual').toLowerCase();
     this.maxLimit = Number(config.get('FINANCING_MAX_LIMIT') ?? 100_000_000);
-    this.bankName = config.get('FINANCING_BANK_NAME') ?? 'Банк-партнёр VetGlobal';
+    this.bankName = config.get('FINANCING_BANK_NAME') ?? 'Банк-партнёр VetHub';
   }
 
   // Покупатель подаёт заявку. В mock-режиме — мгновенный скоринг и авто-решение.

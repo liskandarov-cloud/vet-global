@@ -1,4 +1,4 @@
-# ── VetGlobal frontend — production multi-stage build (Next standalone) ──
+# ── VetHub frontend — production multi-stage build (Next standalone) ──
 FROM node:22-alpine AS builder
 WORKDIR /app
 ENV NEXT_TELEMETRY_DISABLED=1

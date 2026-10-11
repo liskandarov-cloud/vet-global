@@ -42,7 +42,7 @@ export default function BlogPostPage() {
   const content = (lang === 'uz' && post?.contentUz) || post?.content || '';
 
   useEffect(() => {
-    if (title) document.title = `${title} — VetGlobal`;
+    if (title) document.title = `${title} — VetHub`;
   }, [title]);
 
   if (status === 'loading') {

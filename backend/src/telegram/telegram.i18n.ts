@@ -4,8 +4,8 @@ type Dict = Record<string, { ru: string; uz: string }>;
 
 export const T: Dict = {
   welcome: {
-    ru: '👋 Добро пожаловать в VetGlobal — B2B-платформу ветеринарных препаратов и кормов.\n\nВыберите язык:',
-    uz: '👋 VetGlobal — veterinariya preparatlari va ozuqalar B2B platformasiga xush kelibsiz.\n\nTilni tanlang:',
+    ru: '👋 Добро пожаловать в VetHub — B2B-платформу ветеринарных препаратов и кормов.\n\nВыберите язык:',
+    uz: '👋 VetHub — veterinariya preparatlari va ozuqalar B2B platformasiga xush kelibsiz.\n\nTilni tanlang:',
   },
   menu_hint: { ru: 'Выберите действие в меню ниже 👇', uz: 'Quyidagi menyudan amalni tanlang 👇' },
   btn_search: { ru: '🔍 Поиск товара', uz: '🔍 Mahsulot qidirish' },

@@ -38,7 +38,7 @@ const login = async (email: string, password: string) =>
 // по умолчанию (иначе прод получал бы админа с паролем из репозитория).
 const ADMIN_PW = process.env.ADMIN_PASSWORD ?? 'admin123';
 
-describe('VetGlobal API (e2e)', () => {
+describe('VetHub API (e2e)', () => {
   let buyer: string;
   let seller: string;
   let admin: string;

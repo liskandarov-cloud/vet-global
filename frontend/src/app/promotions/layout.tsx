@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: 'Действующие скидки и специальные условия от поставщиков ветеринарных препаратов.',
   alternates: { canonical: '/promotions' },
   openGraph: {
-    title: 'Акции и спецпредложения — VetGlobal',
+    title: 'Акции и спецпредложения — VetHub',
     description: 'Действующие скидки и специальные условия от поставщиков ветеринарных препаратов.',
     url: '/promotions',
   },

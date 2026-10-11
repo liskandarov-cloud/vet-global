@@ -2,8 +2,8 @@ import type { MetadataRoute } from 'next';
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: 'VetGlobal — B2B ветеринарный маркетплейс',
-    short_name: 'VetGlobal',
+    name: 'VetHub — B2B ветеринарный маркетплейс',
+    short_name: 'VetHub',
     description: 'Оптовые закупки ветпрепаратов, вакцин и кормов от проверенных поставщиков.',
     start_url: '/',
     display: 'standalone',

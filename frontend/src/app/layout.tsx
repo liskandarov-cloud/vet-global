@@ -6,7 +6,7 @@ import { Footer } from '@/components/Footer';
 import { PWARegister } from '@/components/PWARegister';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://vetglobal-web.l-iskandarov.workers.dev';
-const TITLE = 'VetGlobal — B2B-платформа ветеринарных решений';
+const TITLE = 'VetHub — B2B-платформа ветеринарных решений';
 const DESCRIPTION =
   'Оптовые закупки ветеринарных препаратов, вакцин, кормов и добавок напрямую от проверенных поставщиков. Прозрачно, удобно, безопасно.';
 
@@ -14,20 +14,20 @@ export const metadata: Metadata = {
   // metadataBase разворачивает относительные пути картинок в абсолютные —
   // без него превью ссылки остаётся без изображения.
   metadataBase: new URL(SITE_URL),
-  title: { default: TITLE, template: '%s — VetGlobal' },
+  title: { default: TITLE, template: '%s — VetHub' },
   description: DESCRIPTION,
-  appleWebApp: { capable: true, title: 'VetGlobal', statusBarStyle: 'default' },
+  appleWebApp: { capable: true, title: 'VetHub', statusBarStyle: 'default' },
   icons: { icon: '/icon.svg', apple: '/icon-192.png' },
   // Рынок общается в Telegram: ссылка должна разворачиваться карточкой,
   // а не голым URL.
   openGraph: {
     type: 'website',
-    siteName: 'VetGlobal',
+    siteName: 'VetHub',
     locale: 'ru_RU',
     url: SITE_URL,
     title: TITLE,
     description: DESCRIPTION,
-    images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'VetGlobal' }],
+    images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'VetHub' }],
   },
   twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
 };

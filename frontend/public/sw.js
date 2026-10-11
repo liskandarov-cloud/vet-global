@@ -1,4 +1,4 @@
-// VetGlobal PWA service worker — офлайн-оболочка + runtime-кэш статики.
+// VetHub PWA service worker — офлайн-оболочка + runtime-кэш статики.
 const CACHE = 'vg-v1';
 const OFFLINE_URL = '/offline';
 
@@ -45,7 +45,7 @@ self.addEventListener('fetch', (e) => {
 
 // Web-push: показать уведомление.
 self.addEventListener('push', (e) => {
-  let data = { title: 'VetGlobal', body: '', url: '/' };
+  let data = { title: 'VetHub', body: '', url: '/' };
   try { data = { ...data, ...e.data.json() }; } catch (_) {}
   e.waitUntil(
     self.registration.showNotification(data.title, {

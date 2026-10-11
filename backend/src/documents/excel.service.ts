@@ -16,7 +16,7 @@ export class ExcelService {
     rows: Record<string, any>[],
   ): Promise<Buffer> {
     const wb = new Workbook();
-    wb.creator = 'VetGlobal';
+    wb.creator = 'VetHub';
     const ws = wb.addWorksheet(title.slice(0, 31));
 
     ws.columns = columns.map((c) => ({ header: c.header, key: c.key, width: c.width ?? 20 }));

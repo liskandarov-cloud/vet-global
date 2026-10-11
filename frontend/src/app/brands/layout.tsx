@@ -7,7 +7,7 @@ export const metadata: Metadata = {
   description: 'Производители ветеринарных препаратов, представленные на платформе: Bioveta, Intracare, CID LINES, Cenavisa и другие.',
   alternates: { canonical: '/brands' },
   openGraph: {
-    title: 'Бренды-производители — VetGlobal',
+    title: 'Бренды-производители — VetHub',
     description: 'Производители ветеринарных препаратов, представленные на платформе: Bioveta, Intracare, CID LINES, Cenavisa и другие.',
     url: '/brands',
   },

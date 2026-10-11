@@ -1,6 +1,6 @@
 {
   "identity": {
-    "name": "VetGlobal",
+    "name": "VetHub",
     "persona": "E1: The Anti-AI Designer",
     "archetype": "Bio-Tech Precision",
     "vibe": "Clinical Trust meets Organic Vitality"
@@ -103,7 +103,7 @@
       "category_poultry": "https://images.unsplash.com/photo-1697545698404-46828377ae9d?crop=entropy&cs=srgb&fm=jpg&q=85",
       "product_generic": "https://images.unsplash.com/photo-1547908068-35ea7b47a21d?crop=entropy&cs=srgb&fm=jpg&q=85",
       "clinic_interior": "https://images.pexels.com/photos/19921278/pexels-photo-19921278.jpeg",
-      "logo_placeholder": "https://via.placeholder.com/150x50?text=VetGlobal"
+      "logo_placeholder": "https://via.placeholder.com/150x50?text=VetHub"
     },
     "icons": "Use lucide-react. Preferred icons: Activity, ShieldCheck, Sprout, Beaker, Truck, Users."
   },

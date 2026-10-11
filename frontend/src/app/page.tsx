@@ -80,7 +80,7 @@ export default function HomePage() {
           <div className="relative animate-up" style={{ animationDelay: '0.15s' }}>
             <div className="animate-float overflow-hidden rounded-3xl border border-white/50 shadow-glow">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={HERO} alt="VetGlobal" className="h-full w-full object-cover" />
+              <img src={HERO} alt="VetHub" className="h-full w-full object-cover" />
             </div>
             {/* floating chips (hidden on mobile to avoid horizontal overflow) */}
             <div className="glass absolute -left-4 top-8 hidden items-center gap-2 rounded-xl px-3 py-2 shadow-soft sm:flex">
@@ -220,7 +220,7 @@ export default function HomePage() {
         <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-teal-600 to-emerald-500 px-8 py-14 text-center text-white shadow-glow">
           <div className="absolute inset-0 bg-grid opacity-20" />
           <div className="relative">
-            <h2 className="font-heading text-3xl font-extrabold md:text-4xl">{tt('Начните закупки на VetGlobal', 'VetGlobalʼda xaridlarni boshlang')}</h2>
+            <h2 className="font-heading text-3xl font-extrabold md:text-4xl">{tt('Начните закупки на VetHub', 'VetHubʼda xaridlarni boshlang')}</h2>
             <p className="mx-auto mt-3 max-w-xl text-white/90">{tt('Прозрачные цены, проверенные поставщики и юридически значимый цикл сделки — в одном месте.', 'Shaffof narxlar, tekshirilgan yetkazib beruvchilar va yuridik ahamiyatga ega bitim sikli — bir joyda.')}</p>
             <div className="mt-8 flex justify-center gap-3">
               <Link href="/register" className="inline-flex items-center gap-2 rounded-lg bg-white px-6 py-3 font-semibold text-teal-700 transition-transform hover:-translate-y-0.5">{tt('Создать аккаунт', 'Hisob yaratish')}</Link>

@@ -22,14 +22,14 @@ function layout(title: string, body: string): string {
   return `<!doctype html><html><body style="margin:0;background:#f8fafc;font-family:Arial,sans-serif">
   <div style="max-width:560px;margin:24px auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0">
     <div style="background:linear-gradient(90deg,#0d9488,#10b981);padding:20px 24px;color:#fff">
-      <div style="font-size:20px;font-weight:800">VetGlobal</div>
+      <div style="font-size:20px;font-weight:800">VetHub</div>
     </div>
     <div style="padding:24px">
       <h2 style="margin:0 0 12px;color:#0f172a;font-size:18px">${title}</h2>
       ${body}
     </div>
     <div style="padding:16px 24px;border-top:1px solid #f1f5f9;color:#94a3b8;font-size:12px">
-      Это автоматическое уведомление платформы VetGlobal.
+      Это автоматическое уведомление платформы VetHub.
     </div>
   </div></body></html>`;
 }
@@ -76,7 +76,7 @@ export class NotificationsService {
       if (buyer?.email) {
         await this.mail.send({
           to: buyer.email,
-          subject: `Ваш заказ #${shortId} принят — VetGlobal`,
+          subject: `Ваш заказ #${shortId} принят — VetHub`,
           html: layout('Заказ принят', `<p style="color:#475569">Мы свяжемся с вами для подтверждения.</p>${summary}`),
         });
       }
@@ -109,7 +109,7 @@ export class NotificationsService {
       if (!seller?.email) continue;
       await this.mail.send({
         to: seller.email,
-        subject: `Новый заказ #${shortId} — VetGlobal`,
+        subject: `Новый заказ #${shortId} — VetHub`,
         html: layout(
           'Новый заказ',
           `<p style="color:#475569">Заказ <b>#${shortId}</b> от ${order.buyerName} (${order.buyerPhone})${order.buyerCompany ? `, ${order.buyerCompany}` : ''}.</p>
@@ -148,7 +148,7 @@ export class NotificationsService {
     if (adminEmail) {
       await this.mail.send({
         to: adminEmail,
-        subject: `Новая заявка от ${lead.fullName} — VetGlobal`,
+        subject: `Новая заявка от ${lead.fullName} — VetHub`,
         html: layout('Новая заявка (CRM)', body),
       });
     }
@@ -158,7 +158,7 @@ export class NotificationsService {
       if (seller?.email) {
         await this.mail.send({
           to: seller.email,
-          subject: `Заявка на ваш товар — VetGlobal`,
+          subject: `Заявка на ваш товар — VetHub`,
           html: layout('Заявка на ваш товар', body),
         });
       }
@@ -173,7 +173,7 @@ export class NotificationsService {
     if (!adminEmail) return;
     await this.mail.send({
       to: adminEmail,
-      subject: `Новая ветконсультация: ${c.topic} — VetGlobal`,
+      subject: `Новая ветконсультация: ${c.topic} — VetHub`,
       html: layout(
         'Новая ветконсультация',
         `<table style="width:100%;border-collapse:collapse;font-size:14px;margin:12px 0">
@@ -192,7 +192,7 @@ export class NotificationsService {
 
     // SMS to the buyer's phone (transactional — ТЗ 3.4 / SRS).
     if (order.buyerPhone) {
-      await this.sms.send(order.buyerPhone, `VetGlobal: заказ #${shortId} — ${STATUS_RU[status]}`);
+      await this.sms.send(order.buyerPhone, `VetHub: заказ #${shortId} — ${STATUS_RU[status]}`);
     }
 
     // Email (only for registered buyers with an email).
@@ -201,7 +201,7 @@ export class NotificationsService {
       if (buyer?.email) {
         await this.mail.send({
           to: buyer.email,
-          subject: `Заказ #${shortId}: ${STATUS_RU[status]} — VetGlobal`,
+          subject: `Заказ #${shortId}: ${STATUS_RU[status]} — VetHub`,
           html: layout(
             `Статус заказа обновлён`,
             `<p style="color:#475569">Заказ <b>#${shortId}</b> теперь в статусе:</p>

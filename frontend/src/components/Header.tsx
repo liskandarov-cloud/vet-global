@@ -51,7 +51,7 @@ export function Header() {
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-r from-teal-600 to-emerald-500 text-white shadow-md shadow-teal-900/20">
             <Sprout size={20} />
           </span>
-          <span className="font-heading text-xl font-extrabold tracking-tight">VetGlobal</span>
+          <span className="font-heading text-xl font-extrabold tracking-tight">VetHub</span>
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">

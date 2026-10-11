@@ -58,7 +58,7 @@ export class PdfService {
     const money = (n: number) => `${n.toLocaleString('ru-RU')} сум`;
 
     // Header
-    doc.fillColor(teal).fontSize(22).text('VetGlobal', 50, 50);
+    doc.fillColor(teal).fontSize(22).text('VetHub', 50, 50);
     doc.fillColor('#0F172A').fontSize(16).text(`Счёт на оплату № ${data.number}`, 50, 85);
     doc
       .fontSize(10)
@@ -150,7 +150,7 @@ export class PdfService {
     doc.fillColor('#94A3B8').fontSize(9).text('М.П.', 50, y + 22);
 
     doc.fontSize(8).fillColor('#94A3B8').text(
-      'Документ сформирован автоматически на платформе VetGlobal.',
+      'Документ сформирован автоматически на платформе VetHub.',
       50,
       790,
       { align: 'center', width: 495 },

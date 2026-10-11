@@ -52,7 +52,7 @@ async function bootstrap() {
   const swaggerEnabled = process.env.SWAGGER_ENABLED !== 'false';
   if (swaggerEnabled) {
     const config = new DocumentBuilder()
-      .setTitle('VetGlobal API')
+      .setTitle('VetHub API')
       .setDescription('B2B veterinary marketplace API')
       .setVersion('0.1.0')
       .addBearerAuth()
@@ -64,7 +64,7 @@ async function bootstrap() {
   const port = Number(process.env.PORT ?? 8000);
   await app.listen(port, '0.0.0.0');
   console.log(
-    `VetGlobal API listening on :${port}` + (swaggerEnabled ? ' (docs at /api/docs)' : ' (docs disabled)'),
+    `VetHub API listening on :${port}` + (swaggerEnabled ? ' (docs at /api/docs)' : ' (docs disabled)'),
   );
 }
 // Падение на старте должно завершать процесс с ошибкой: иначе необработанное
@@ -72,6 +72,6 @@ async function bootstrap() {
 // неудачная выкатка не отличается от удачной — старый контейнер продолжает
 // отвечать, и ошибку видно только по отсутствию изменений.
 bootstrap().catch((err) => {
-  console.error('VetGlobal API не поднялся:', err);
+  console.error('VetHub API не поднялся:', err);
   process.exit(1);
 });

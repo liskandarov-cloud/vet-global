@@ -16,7 +16,7 @@ export class MailService implements OnModuleInit {
   private enabled = false;
 
   constructor(private readonly config: ConfigService) {
-    this.from = config.get<string>('MAIL_FROM') ?? 'VetGlobal <no-reply@vetglobal.uz>';
+    this.from = config.get<string>('MAIL_FROM') ?? 'VetHub <no-reply@vetglobal.uz>';
   }
 
   private ethereal = false;

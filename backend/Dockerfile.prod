@@ -1,4 +1,4 @@
-# ── VetGlobal backend — production multi-stage build ──
+# ── VetHub backend — production multi-stage build ──
 FROM node:22-alpine AS builder
 RUN apk add --no-cache openssl
 WORKDIR /app

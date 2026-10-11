@@ -87,7 +87,7 @@ export class DeliveryService {
     const order = await this.prisma.order.findUnique({ where: { id: orderId } });
     if (order?.buyerPhone) {
       void this.sms
-        .send(order.buyerPhone, `VetGlobal: доставка заказа #${orderId.slice(0, 8)} — ${SHIP_RU[status]}`)
+        .send(order.buyerPhone, `VetHub: доставка заказа #${orderId.slice(0, 8)} — ${SHIP_RU[status]}`)
         .catch(() => undefined);
     }
     return this.serialize(shipment);

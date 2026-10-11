@@ -1,4 +1,4 @@
-# VetGlobal backend (NestJS) — dev-oriented image.
+# VetHub backend (NestJS) — dev-oriented image.
 # Dependencies are installed at build time; source is bind-mounted in compose
 # for hot-reload. node_modules lives in a named volume (see docker-compose.yml).
 FROM node:22-alpine

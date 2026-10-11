@@ -39,7 +39,7 @@ export async function generateMetadata(
   const priceText = price ? `от ${Math.round(price).toLocaleString('ru-RU')} сум · ` : '';
   const description =
     `${priceText}${product.manufacturer ? `${product.manufacturer}. ` : ''}` +
-    (product.description?.slice(0, 160) ?? 'Оптовые поставки ветеринарных препаратов на VetGlobal.');
+    (product.description?.slice(0, 160) ?? 'Оптовые поставки ветеринарных препаратов на VetHub.');
 
   const image = absolute(product.images?.[0]) ?? `${SITE_URL}/icon-512.png`;
   const url = `${SITE_URL}/products/${product.id}`;
@@ -50,14 +50,14 @@ export async function generateMetadata(
     alternates: { canonical: url },
     openGraph: {
       type: 'website',
-      title: `${product.name} — VetGlobal`,
+      title: `${product.name} — VetHub`,
       description,
       url,
       images: [{ url: image, alt: product.name }],
     },
     twitter: {
       card: 'summary_large_image',
-      title: `${product.name} — VetGlobal`,
+      title: `${product.name} — VetHub`,
       description,
       images: [image],
     },

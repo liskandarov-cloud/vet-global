@@ -41,7 +41,7 @@ export class ImportController {
     const buf = await this.service.template();
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': 'attachment; filename="vetglobal-price-template.xlsx"',
+      'Content-Disposition': 'attachment; filename="vethub-price-template.xlsx"',
     });
     res.send(buf);
   }
@@ -52,7 +52,7 @@ export class ImportController {
     const buf = await this.service.exportMine(user);
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-      'Content-Disposition': 'attachment; filename="vetglobal-my-price.xlsx"',
+      'Content-Disposition': 'attachment; filename="vethub-my-price.xlsx"',
     });
     res.send(buf);
   }

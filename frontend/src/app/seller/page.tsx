@@ -225,7 +225,7 @@ function SellerContent() {
           {/* Онбординг: пустой кабинет нового продавца — что сделать в первую очередь. */}
           {products.length === 0 && (
             <div className="mb-4 rounded-2xl border border-teal-200 bg-teal-50/60 p-5 dark:border-teal-900/50 dark:bg-teal-950/20">
-              <div className="font-heading text-lg font-bold">{tt('Начните продавать на VetGlobal', 'VetGlobalʼda sotishni boshlang')}</div>
+              <div className="font-heading text-lg font-bold">{tt('Начните продавать на VetHub', 'VetHubʼda sotishni boshlang')}</div>
               <p className="mt-1 text-sm text-ink-muted">{tt('Три шага, чтобы ваши товары появились в каталоге и покупатели смогли оформить заказ.', 'Mahsulotlaringiz katalogda paydo boʻlishi va xaridorlar buyurtma bera olishi uchun uch qadam.')}</p>
               <ol className="mt-3 space-y-2 text-sm">
                 <li className="flex gap-2"><span className="font-semibold text-teal-700">1.</span> {tt('Добавьте первый товар — название, цена, остаток, фото и сертификат.', 'Birinchi mahsulotni qoʻshing — nomi, narxi, qoldiq, foto va sertifikat.')}</li>

@@ -9,7 +9,7 @@ export function Footer() {
     <footer className="mt-16 border-t border-slate-200 bg-white">
       <div className="mx-auto grid max-w-7xl gap-8 px-4 py-12 sm:grid-cols-2 md:grid-cols-4">
         <div>
-          <div className="font-heading text-lg font-extrabold">VetGlobal</div>
+          <div className="font-heading text-lg font-extrabold">VetHub</div>
           <p className="mt-2 text-sm text-ink-muted">
             {tt('B2B-маркетплейс ветеринарных препаратов, кормов и вакцин.', 'Veterinariya preparatlari, ozuqa va vaksinalar B2B-marketpleysi.')}
           </p>
@@ -35,7 +35,7 @@ export function Footer() {
         </div>
       </div>
       <div className="border-t border-slate-100 py-4 text-center text-xs text-ink-subtle">
-        © {new Date().getFullYear()} VetGlobal. {tt('Все права защищены.', 'Barcha huquqlar himoyalangan.')}
+        © {new Date().getFullYear()} VetHub. {tt('Все права защищены.', 'Barcha huquqlar himoyalangan.')}
       </div>
     </footer>
   );

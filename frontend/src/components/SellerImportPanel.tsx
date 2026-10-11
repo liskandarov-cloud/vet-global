@@ -120,10 +120,10 @@ export function SellerImportPanel({ onDone }: { onDone?: () => void }) {
   };
 
   const downloadTemplate = () =>
-    downloadFile('/import/template', 'vetglobal-price-template.xlsx', 'Не удалось скачать шаблон', 'Shablonni yuklab boʻlmadi');
+    downloadFile('/import/template', 'vethub-price-template.xlsx', 'Не удалось скачать шаблон', 'Shablonni yuklab boʻlmadi');
 
   const exportMine = () =>
-    downloadFile('/import/export', 'vetglobal-my-price.xlsx', 'Не удалось выгрузить прайс', 'Narxnomani yuklab boʻlmadi');
+    downloadFile('/import/export', 'vethub-my-price.xlsx', 'Не удалось выгрузить прайс', 'Narxnomani yuklab boʻlmadi');
 
   const run = async (dryRun: boolean) => {
     if (!parsed) return;

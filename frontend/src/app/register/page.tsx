@@ -45,7 +45,7 @@ export default function RegisterPage() {
       <div className="card animate-up p-8 shadow-glow">
         <div className="mb-6 flex items-center gap-2">
           <span className="grid h-9 w-9 place-items-center rounded-lg bg-gradient-to-r from-teal-600 to-emerald-500 text-white"><Sprout size={18} /></span>
-          <h1 className="font-heading text-2xl font-extrabold">{tt('Регистрация в', 'Roʻyxatdan oʻtish —')} <span className="text-gradient">VetGlobal</span></h1>
+          <h1 className="font-heading text-2xl font-extrabold">{tt('Регистрация в', 'Roʻyxatdan oʻtish —')} <span className="text-gradient">VetHub</span></h1>
         </div>
         <form onSubmit={submit} className="space-y-4">
           <div className="flex overflow-hidden rounded-lg border border-slate-200">
