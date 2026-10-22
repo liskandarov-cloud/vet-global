@@ -44,6 +44,12 @@ jobs:
             # поэтому таймаут щедрый и есть вторая попытка.
             for i in 1 2; do
               code=$(curl -s -o /dev/null -m 90 -w '%{http_code}' "$url") || code=000
+              # Render отвечает 503 и при приостановке сервиса — тогда
+              # «разбудить» не поможет, нужен человек в дашборде. Отмечаем
+              # явно, чтобы по issue было понятно, что делать.
+              if [ "$code" = "503" ] && curl -sI -m 30 "$url" | grep -qi '^x-render-routing: suspend'; then
+                code="503-suspended"
+              fi
               if [ "$code" = "$expect" ]; then
                 echo "ok   $name ($code)"
                 return 0
@@ -67,10 +73,15 @@ jobs:
             echo "failed=false" >> "$GITHUB_OUTPUT"
           fi
 
+      # Репозиторий указан явно: checkout здесь не нужен, а без git-каталога
+      # `gh issue` не знает, с каким репозиторием работать. Без этого шаг падал
+      # с первого же сбоя, и о простое прода с 12 октября 2026 не пришло ни
+      # одного письма — проверка краснела, а тревога не поднималась.
       - name: Оповестить через issue
         if: steps.check.outputs.failed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           set -euo pipefail
@@ -91,7 +102,9 @@ jobs:
             gh issue comment "$EXISTING" --body "$BODY"
             echo "добавлен комментарий к #$EXISTING"
           else
-            gh label create outage --color B60205 --description "Недоступность прода" 2>/dev/null || true
+            # Ошибку не глушим целиком: «уже существует» — норма, остальное должно
+            # быть видно в логе, иначе сломанное оповещение снова промолчит.
+            gh label create outage --color B60205 --description "Недоступность прода" || echo "метка outage уже есть"
             gh issue create --title "Прод недоступен" --label outage --body "$BODY"
           fi
 
@@ -99,6 +112,7 @@ jobs:
         if: steps.check.outputs.failed == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
         run: |
           set -euo pipefail
           EXISTING=$(gh issue list --label outage --state open --limit 1 --json number -q '.[0].number' || true)

@@ -1,12 +1,12 @@
-# Render Blueprint — one-click backend + managed Postgres.
+# Render Blueprint — бэкенд.
 # Render dashboard → New → Blueprint → connect this repo → Apply.
 # Render injects PORT automatically (the app reads process.env.PORT); no manual
 # port/root-directory config. The root Dockerfile builds the backend.
-databases:
-  - name: vetglobal-db
-    databaseName: vetglobal
-    user: vetglobal
-    plan: free
+#
+# База — Supabase, а не Postgres от Render (см. DB-MIGRATION-SUPABASE.md).
+# Раньше здесь описывалась бесплатная база Render, и DATABASE_URL брался из неё:
+# повторное применение Blueprint молча переключило бы прод на пустую базу,
+# которую Render к тому же удаляет через 30 дней.
 
 services:
   - type: web
@@ -17,10 +17,10 @@ services:
     plan: free
     healthCheckPath: /api/health
     envVars:
+      # Session-пулер Supabase, порт 5432. Значение задаётся в дашборде и
+      # Blueprint его не перезаписывает.
       - key: DATABASE_URL
-        fromDatabase:
-          name: vetglobal-db
-          property: connectionString
+        sync: false
       - key: JWT_SECRET
         generateValue: true
       - key: JWT_EXPIRES_IN
