@@ -36,6 +36,7 @@ import { invoiceNumberFor } from '../common/invoice-number';
 import { splitInvoices } from './invoice-split';
 import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 import { TariffsService } from '../delivery/tariffs.service';
+import { PUBLIC_OFFER, SELLABLE_SELLER } from '../common/visibility';
 
 @Injectable()
 export class OrdersService {
@@ -78,8 +79,11 @@ export class OrdersService {
     const noOfferPids = dto.items.filter((i) => !i.offerId).map((i) => i.productId);
     const bestOfferByProduct = new Map<string, (typeof offers)[number]>();
     if (noOfferPids.length) {
+      // Подбираем только из того, что можно заказать: иначе самое дешёвое
+      // предложение непроверенного продавца отклонило бы весь заказ, хотя
+      // у проверенного товар есть.
       const candidates = await this.prisma.offer.findMany({
-        where: { productId: { in: noOfferPids }, isActive: true, inStock: true },
+        where: { productId: { in: noOfferPids }, ...PUBLIC_OFFER, inStock: true },
       });
       for (const o of candidates) {
         const cur = bestOfferByProduct.get(o.productId);
@@ -141,8 +145,27 @@ export class OrdersService {
     // оформить как предзаказ, но оплата блокируется до подтверждения продавцом.
     let requiresConfirmation = false;
 
+    // Заказать можно только у тех, кому можно продавать (common/visibility):
+    // и владелец карточки, и продавец предложения. Проверка здесь, а не только
+    // на витрине: корзина хранится у покупателя и переживает и снятие товара,
+    // и блокировку продавца, а запрос можно отправить и в обход витрины.
+    const sellable = new Set(
+      (
+        await this.prisma.user.findMany({
+          where: { id: { in: sellerIdsInCart }, ...SELLABLE_SELLER },
+          select: { id: true },
+        })
+      ).map((u) => u.id),
+    );
+
     const items = dto.items.map((i) => {
       const p = products.find((x) => x.id === i.productId)!;
+
+      // Снятый с продажи товар заказать нельзя. Раньше без предложения (легаси-
+      // ветка) он оформлялся как обычно — по ссылке из старой корзины.
+      if (!p.isActive || !sellable.has(p.sellerId)) {
+        throw new BadRequestException(`«${p.name}» сейчас недоступен для заказа`);
+      }
 
       // По умолчанию — базовый товар (легаси, когда офферов нет вовсе).
       let sellerId = p.sellerId;
@@ -166,7 +189,7 @@ export class OrdersService {
         }
         // Снятый с продажи оффер заказать нельзя; «нет в наличии» — можно, но
         // это предзаказ (оплата после подтверждения), а не отказ.
-        if (!o.isActive) {
+        if (!o.isActive || !sellable.has(o.sellerId)) {
           throw new BadRequestException(`Предложение для «${p.name}» недоступно`);
         }
         sellerId = o.sellerId;

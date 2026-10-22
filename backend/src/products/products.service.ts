@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { serializeOffer } from '../common/pricing';
+import { canSell, PUBLIC_OFFER, PUBLIC_PRODUCT } from '../common/visibility';
 import { PromotionsService } from '../promotions/promotions.service';
 import { AlertsService } from '../alerts/alerts.service';
 
@@ -17,8 +18,13 @@ export class ProductsService {
     private readonly alerts: AlertsService,
   ) {}
 
-  async list(q: ProductQueryDto) {
-    const where: Prisma.ProductWhereInput = {};
+  async list(q: ProductQueryDto, user?: AuthUser) {
+    // Продавец в кабинете видит все свои товары: и снятые с продажи, чтобы
+    // вернуть их в строй, и ещё не видимые покупателям до проверки. Остальные —
+    // только витрину. «Свои» определяются по токену, а не по одному sellerId:
+    // раньше любой посетитель страницы поставщика получал и его снятые товары.
+    const own = !!user && !!q.sellerId && q.sellerId === user.id;
+    const where: Prisma.ProductWhereInput = own ? {} : { ...PUBLIC_PRODUCT };
 
     if (q.category) where.category = { slug: q.category };
     if (q.manufacturer) where.manufacturer = { equals: q.manufacturer, mode: 'insensitive' };
@@ -27,9 +33,6 @@ export class ProductsService {
     if (q.form) where.form = { equals: q.form, mode: 'insensitive' };
     if (q.animalType) where.animalType = q.animalType;
     if (q.sellerId) where.sellerId = q.sellerId;
-    // Публичный каталог показывает только активные товары. Продавец, запрашивая
-    // свои (sellerId задан), видит и снятые с продажи — чтобы вернуть их в строй.
-    if (!q.sellerId) where.isActive = true;
     if (typeof q.inStock === 'boolean') where.inStock = q.inStock;
     if (typeof q.isPromotion === 'boolean') where.isPromotion = q.isPromotion;
 
@@ -109,7 +112,7 @@ export class ProductsService {
     return { total, skip, limit: take, products: products.map((p) => this.serialize(p)) };
   }
 
-  async getOne(id: string) {
+  async getOne(id: string, user?: AuthUser) {
     const product = await this.prisma.product.findUnique({
       where: { id },
       include: {
@@ -118,7 +121,7 @@ export class ProductsService {
           select: { id: true, company: true, fullName: true, isVerified: true, rating: true, createdAt: true },
         },
         offers: {
-          where: { isActive: true },
+          where: PUBLIC_OFFER,
           orderBy: { price: 'asc' },
           include: {
             seller: {
@@ -139,9 +142,19 @@ export class ProductsService {
     });
     if (!product) throw new NotFoundException('Product not found');
 
-    // «Аналоги» — товары той же категории от других записей.
+    // Товар продавца, которому продавать нельзя, существует только для него
+    // самого и администратора. Снятый с продажи, но от проверенного продавца,
+    // остаётся доступен по ссылке — на него ведут прошлые заказы и избранное.
+    const owner = await this.prisma.user.findUnique({
+      where: { id: product.sellerId },
+      select: { isVerified: true, isBanned: true },
+    });
+    const privileged = !!user && (user.id === product.sellerId || user.role === UserRole.ADMIN);
+    if (!canSell(owner) && !privileged) throw new NotFoundException('Product not found');
+
+    // «Аналоги» — товары той же категории от других записей, только с витрины.
     const related = await this.prisma.product.findMany({
-      where: { categoryId: product.categoryId, id: { not: id } },
+      where: { ...PUBLIC_PRODUCT, categoryId: product.categoryId, id: { not: id } },
       take: 4,
       orderBy: { rating: 'desc' },
       include: { seller: { select: { id: true, company: true, isVerified: true } } },
@@ -266,12 +279,12 @@ export class ProductsService {
   async facets() {
     const [manufacturers, forms] = await this.prisma.$transaction([
       this.prisma.product.findMany({
-        where: { manufacturer: { not: null } },
+        where: { ...PUBLIC_PRODUCT, manufacturer: { not: null } },
         distinct: ['manufacturer'],
         select: { manufacturer: true },
       }),
       this.prisma.product.findMany({
-        where: { form: { not: null } },
+        where: { ...PUBLIC_PRODUCT, form: { not: null } },
         distinct: ['form'],
         select: { form: true },
       }),

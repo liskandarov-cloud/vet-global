@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PUBLIC_PRODUCT } from '../common/visibility';
 import { bestPromotionPercent } from '../common/pricing';
 
 // Проставление действующей акции товарам.
@@ -80,7 +81,7 @@ export class PromotionsService {
 
     const products = await this.prisma.product.findMany({
       where: {
-        isActive: true,
+        ...PUBLIC_PRODUCT,
         OR: [
           ...(productIds.length ? [{ id: { in: productIds } }] : []),
           ...(sellerIds.length ? [{ sellerId: { in: sellerIds } }] : []),

@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PromotionsService } from '../promotions/promotions.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { SELLABLE_SELLER } from '../common/visibility';
 
 class AddFavoriteDto {
   @IsString() productId: string;
@@ -32,8 +33,10 @@ export class FavoritesController {
 
   @Get()
   async list(@CurrentUser() user: AuthUser) {
+    // Снятые с продажи остаются в избранном (их можно вернуть), а товары
+    // продавца без проверки или заблокированного — нет: их не открыть и не заказать.
     const favs = await this.prisma.favorite.findMany({
-      where: { userId: user.id },
+      where: { userId: user.id, product: { seller: SELLABLE_SELLER } },
       orderBy: { createdAt: 'desc' },
       include: {
         product: {

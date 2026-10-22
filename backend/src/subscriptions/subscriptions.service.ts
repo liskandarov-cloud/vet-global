@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OrdersService } from '../orders/orders.service';
 import { CreateSubscriptionDto, UpdateSubscriptionDto } from './dto/subscription.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { PUBLIC_PRODUCT } from '../common/visibility';
 
 const DAY = 86_400_000;
 
@@ -18,7 +19,9 @@ export class SubscriptionsService {
   ) {}
 
   async create(dto: CreateSubscriptionDto, user: AuthUser) {
-    const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
+    // Подписаться можно только на то, что можно заказать: иначе каждый плановый
+    // заказ отклонялся бы, а покупатель думал бы, что поставки идут.
+    const product = await this.prisma.product.findFirst({ where: { ...PUBLIC_PRODUCT, id: dto.productId } });
     if (!product) throw new NotFoundException('Товар не найден');
     const intervalDays = dto.intervalDays ?? 30;
     return this.prisma.subscription.create({

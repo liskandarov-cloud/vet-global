@@ -446,8 +446,12 @@ describe('VetHub integrations (e2e)', () => {
     const publicList = (await req('/products?limit=200')).body.products;
     expect(publicList.some((p: any) => p.id === sellerProduct.id)).toBe(false);
 
-    const mine = (await req(`/products?sellerId=${sellerId}&limit=200`)).body.products;
+    // «Своё» определяется по токену: посторонний, подставивший sellerId,
+    // снятых с продажи товаров не видит.
+    const mine = (await req(`/products?sellerId=${sellerId}&limit=200`, { token: seller })).body.products;
     expect(mine.some((p: any) => p.id === sellerProduct.id)).toBe(true);
+    const asStranger = (await req(`/products?sellerId=${sellerId}&limit=200`)).body.products;
+    expect(asStranger.some((p: any) => p.id === sellerProduct.id)).toBe(false);
 
     // возвращаем в каталог
     await req(`/products/${sellerProduct.id}`, {

@@ -52,6 +52,8 @@ function SellerContent() {
   const [orders, setOrders] = useState<any[]>([]);
   const [orderFilter, setOrderFilter] = useState<'all' | 'preorder' | 'active' | 'SHIPPED' | 'DELIVERED'>('all');
   const [categories, setCategories] = useState<Category[]>([]);
+  // null — ещё не знаем: баннер не мигает у проверенного продавца при загрузке.
+  const [verified, setVerified] = useState<boolean | null>(null);
   const [promotions, setPromotions] = useState<any[]>([]);
   const [editing, setEditing] = useState<any | null>(null);
   const [deliveryOrder, setDeliveryOrder] = useState<any | null>(null);
@@ -62,9 +64,10 @@ function SellerContent() {
 
   const load = () => {
     api.get('/seller/stats').then((r) => setStats(r.data)).catch(() => {});
-    api.get('/auth/me').then((me) =>
-      api.get('/products', { params: { sellerId: me.data.id, limit: 100 } }).then((r) => setProducts(r.data.products)),
-    );
+    api.get('/auth/me').then((me) => {
+      setVerified(!!me.data.isVerified);
+      return api.get('/products', { params: { sellerId: me.data.id, limit: 100 } }).then((r) => setProducts(r.data.products));
+    });
     api.get('/orders').then((r) => setOrders(r.data));
     api.get('/categories').then((r) => setCategories(r.data));
     api.get('/promotions/mine').then((r) => setPromotions(r.data)).catch(() => {});
@@ -175,6 +178,21 @@ function SellerContent() {
         <h1 className="mt-3 section-title">{tt('Продавец', 'Sotuvchi')}</h1>
       </div>
 
+      {/* До проверки товары не видны покупателям и заказать их нельзя — без
+          этого продавец решил бы, что каталог сломан. */}
+      {verified === false && (
+        <div className="mb-4 rounded-2xl border border-amber-200 bg-amber-50/70 p-4 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-200">
+          <div className="font-semibold">{tt('Аккаунт на проверке', 'Akkaunt tekshiruvda')}</div>
+          <p className="mt-1">
+            {tt(
+              'Пока администратор не проверит лицензию, покупатели не видят ваши товары и не могут их заказать. Каталог, прайс и предложения можно готовить уже сейчас — после проверки всё появится на витрине само.',
+              'Administrator litsenziyani tekshirmaguncha xaridorlar mahsulotlaringizni koʻrmaydi va buyurtma bera olmaydi. Katalog, narxlar va takliflarni hozirdanoq tayyorlashingiz mumkin — tekshiruvdan soʻng hammasi vitrinada oʻzi paydo boʻladi.',
+            )}
+          </p>
+          <button className="btn-secondary mt-3" onClick={() => setTab('profile')}>{tt('Загрузить лицензию', 'Litsenziyani yuklash')}</button>
+        </div>
+      )}
+
       <div className="grid gap-4 sm:grid-cols-3">
         <StatCard label={tt('Оборот', 'Aylanma')} value={formatMoney(stats?.revenue ?? 0)} accent icon={TrendingUp} />
         <StatCard label={tt('Товаров', 'Mahsulotlar')} value={String(stats?.productsCount ?? products.length)} icon={Package} />
@@ -230,7 +248,7 @@ function SellerContent() {
               <ol className="mt-3 space-y-2 text-sm">
                 <li className="flex gap-2"><span className="font-semibold text-teal-700">1.</span> {tt('Добавьте первый товар — название, цена, остаток, фото и сертификат.', 'Birinchi mahsulotni qoʻshing — nomi, narxi, qoldiq, foto va sertifikat.')}</li>
                 <li className="flex gap-2"><span className="font-semibold text-teal-700">2.</span> {tt('Заполните реквизиты юрлица — подставятся в счёт и договор.', 'Yuridik shaxs rekvizitlarini toʻldiring — hisob va shartnomaga qoʻyiladi.')}</li>
-                <li className="flex gap-2"><span className="font-semibold text-teal-700">3.</span> {tt('Загрузите лицензию в профиле — для отметки «проверенный поставщик».', 'Profilda litsenziyani yuklang — «tasdiqlangan yetkazib beruvchi» belgisi uchun.')}</li>
+                <li className="flex gap-2"><span className="font-semibold text-teal-700">3.</span> {tt('Загрузите лицензию в профиле — после проверки товары появятся в каталоге.', 'Profilda litsenziyani yuklang — tekshiruvdan soʻng mahsulotlar katalogda paydo boʻladi.')}</li>
               </ol>
               <div className="mt-4 flex flex-wrap gap-2">
                 <button className="btn-primary" onClick={() => setEditing({ ...EMPTY })}><Plus size={16} /> {tt('Добавить первый товар', 'Birinchi mahsulot')}</button>

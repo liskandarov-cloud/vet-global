@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { LeadSource } from '@prisma/client';
 import { Bot, InlineKeyboard, Keyboard } from 'grammy';
 import { PrismaService } from '../prisma/prisma.service';
+import { PUBLIC_PRODUCT } from '../common/visibility';
 import { PromotionsService } from '../promotions/promotions.service';
 import { applyPromotion } from '../common/pricing';
 import { LeadsService } from '../leads/leads.service';
@@ -191,7 +192,9 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async showCategoryPage(ctx: any, slug: string, page: number, lang: BotLang) {
-    const where = { category: { slug } };
+    // Бот — та же витрина, что сайт: снятые с продажи и товары продавцов без
+    // проверки сюда не попадают.
+    const where = { ...PUBLIC_PRODUCT, category: { slug } };
     const [total, products] = await this.prisma.$transaction([
       this.prisma.product.count({ where }),
       this.prisma.product.findMany({ where, orderBy: { createdAt: 'asc' }, skip: page * PAGE, take: PAGE }),
@@ -218,7 +221,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   private async showProduct(ctx: any, id: string, lang: BotLang) {
-    const p = await this.prisma.product.findUnique({ where: { id }, include: { category: true } });
+    const p = await this.prisma.product.findFirst({ where: { ...PUBLIC_PRODUCT, id }, include: { category: true } });
     if (!p) return;
     const price = this.minPrice(p);
     const offers = p.offersCount ?? 0;
@@ -265,6 +268,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   private async doSearch(ctx: any, query: string, lang: BotLang) {
     const products = await this.prisma.product.findMany({
       where: {
+        ...PUBLIC_PRODUCT,
         OR: [
           { name: { contains: query, mode: 'insensitive' } },
           { activeSubstance: { contains: query, mode: 'insensitive' } },

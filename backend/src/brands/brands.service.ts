@@ -1,5 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
+import { PUBLIC_PRODUCT } from '../common/visibility';
 import { PromotionsService } from '../promotions/promotions.service';
 
 @Injectable()
@@ -17,6 +18,7 @@ export class BrandsService {
     // Кол-во товаров по названию производителя.
     const counts = await this.prisma.product.groupBy({
       by: ['manufacturer'],
+      where: PUBLIC_PRODUCT,
       _count: { _all: true },
     });
     const countMap = new Map(counts.map((c) => [c.manufacturer, c._count._all]));
@@ -27,7 +29,7 @@ export class BrandsService {
     const brand = await this.prisma.brand.findUnique({ where: { slug } });
     if (!brand) throw new NotFoundException('Бренд не найден');
     const products = await this.prisma.product.findMany({
-      where: { manufacturer: brand.name },
+      where: { ...PUBLIC_PRODUCT, manufacturer: brand.name },
       orderBy: { rating: 'desc' },
       take: 60,
       include: { seller: { select: { id: true, company: true, isVerified: true } } },

@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateRfqDto, QuoteDto } from './dto/rfq.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { percentOf } from '../common/pricing';
+import { canSell } from '../common/visibility';
 import { approvalFor } from '../orders/approval';
 
 @Injectable()
@@ -142,6 +143,16 @@ export class RfqService {
     if (!rfq) throw new NotFoundException('Запрос не найден');
     if (rfq.status !== RfqStatus.OPEN) throw new BadRequestException('Запрос закрыт');
 
+    // Котировка — обещание продать, а победа в тендере сразу создаёт заказ.
+    // Продавец без проверки участвовать не может, как и продавать из каталога.
+    const seller = await this.prisma.user.findUnique({
+      where: { id: user.id },
+      select: { isVerified: true, isBanned: true },
+    });
+    if (!canSell(seller)) {
+      throw new ForbiddenException('Участвовать в тендерах можно после проверки аккаунта продавца');
+    }
+
     // Разбивка по позициям: валидируем, что все позиции запроса оценены и что
     // присланные rfqItemId действительно принадлежат этому тендеру.
     let breakdown: { rfqItemId: string; unitPrice: number }[] | null = null;
@@ -197,6 +208,15 @@ export class RfqService {
     const quote = rfq.quotes.find((q) => q.id === quoteId);
     if (!quote) throw new NotFoundException('Котировка не найдена');
     if (rfq.status === RfqStatus.AWARDED) throw new BadRequestException('Победитель уже выбран');
+
+    // Между котировкой и выбором победителя продавца могли заблокировать.
+    const quoteSeller = await this.prisma.user.findUnique({
+      where: { id: quote.sellerId },
+      select: { isVerified: true, isBanned: true },
+    });
+    if (!canSell(quoteSeller)) {
+      throw new BadRequestException('Этот продавец сейчас не принимает заказы — выберите другую котировку');
+    }
 
     // Выбор победителя = заключение сделки: создаётся обычный заказ, чтобы дальше
     // работали статусы, счёт, ЭДО и доставка — как при покупке из каталога.

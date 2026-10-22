@@ -3,7 +3,9 @@ import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOfferDto, UpdateOfferDto } from './dto/offer.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
-import { packPriceOf, serializeOffer } from '../common/pricing';
+import { serializeOffer } from '../common/pricing';
+import { PUBLIC_OFFER } from '../common/visibility';
+import { recalcProductAggregates } from './product-aggregates';
 
 @Injectable()
 export class OffersService {
@@ -12,7 +14,7 @@ export class OffersService {
   // Публичный список предложений по товару — отсортирован по цене (сравнение цен).
   async listForProduct(productId: string) {
     const offers = await this.prisma.offer.findMany({
-      where: { productId, isActive: true },
+      where: { productId, ...PUBLIC_OFFER },
       orderBy: { price: 'asc' },
       include: {
         seller: {
@@ -116,28 +118,9 @@ export class OffersService {
     });
   }
 
-  // Пересчёт денормализованных агрегатов товара (minPrice / offersCount).
-  // minPrice — минимальная цена ЕДИНИЦЫ ЗАКАЗА (упаковки/флакона) с учётом фасовки,
-  // поэтому считаем в JS: SQL-агрегат не умеет price * packSize / priceUnitQty.
+  // Пересчёт агрегатов товара — см. product-aggregates.ts.
   async recalcProduct(productId: string) {
-    const offers = await this.prisma.offer.findMany({
-      where: { productId, isActive: true, inStock: true },
-    });
-    // Лучшее предложение — то же, которое подберёт заказ без явного оффера:
-    // самое дешёвое с учётом фасовки. Из него берутся и цена, и минимальный
-    // заказ, иначе карточка обещает цену одного предложения, а минимум — другого.
-    const best = offers.reduce<(typeof offers)[number] | null>(
-      (cheapest, o) => (!cheapest || packPriceOf(o) < packPriceOf(cheapest) ? o : cheapest),
-      null,
-    );
-    await this.prisma.product.update({
-      where: { id: productId },
-      data: {
-        minPrice: best ? packPriceOf(best) : null,
-        offerMinOrder: best ? best.minOrder : null,
-        offersCount: offers.length,
-      },
-    });
+    await recalcProductAggregates(this.prisma, productId);
   }
 
   // Возвращает частичный набор полей (годится и для create, и для update).

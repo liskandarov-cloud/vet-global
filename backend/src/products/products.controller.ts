@@ -13,7 +13,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { ProductsService } from './products.service';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
-import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { JwtAuthGuard, OptionalJwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
@@ -23,9 +23,11 @@ import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorat
 export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 
+  // Токен необязателен: по нему продавец видит свои товары, которых нет на витрине.
   @Get()
-  list(@Query() q: ProductQueryDto) {
-    return this.products.list(q);
+  @UseGuards(OptionalJwtAuthGuard)
+  list(@Query() q: ProductQueryDto, @CurrentUser() user?: AuthUser) {
+    return this.products.list(q, user);
   }
 
   @Get('facets')
@@ -34,8 +36,9 @@ export class ProductsController {
   }
 
   @Get(':id')
-  getOne(@Param('id') id: string) {
-    return this.products.getOne(id);
+  @UseGuards(OptionalJwtAuthGuard)
+  getOne(@Param('id') id: string, @CurrentUser() user?: AuthUser) {
+    return this.products.getOne(id, user);
   }
 
   @Post()

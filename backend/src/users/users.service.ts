@@ -4,6 +4,8 @@ import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { ChangePasswordDto, CounterpartyDto, SellerDocumentDto, UpdateProfileDto } from './dto/user.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { PUBLIC_PRODUCT, SELLABLE_SELLER } from '../common/visibility';
+import { recalcSellerProducts } from '../offers/product-aggregates';
 
 @Injectable()
 export class UsersService {
@@ -62,22 +64,28 @@ export class UsersService {
   }
 
   // ── Sellers (public) ──
-  async listSellers(verifiedOnly = false) {
+  // В публичном каталоге поставщиков — только те, кому можно продавать (см.
+  // common/visibility). Непроверенный продавец показывался бы с нулём товаров,
+  // заблокированный — со всеми, хотя ни у того, ни у другого заказать нельзя.
+  // Параметр verifiedOnly остаётся ради совместимости со старыми ссылками.
+  async listSellers(_verifiedOnly = false) {
     const sellers = await this.prisma.user.findMany({
-      where: { role: UserRole.SELLER, ...(verifiedOnly ? { isVerified: true } : {}) },
+      where: { role: UserRole.SELLER, ...SELLABLE_SELLER },
       orderBy: { rating: 'desc' },
     });
     return Promise.all(sellers.map((s) => this.sellerCard(s)));
   }
 
   async getSeller(id: string) {
-    const seller = await this.prisma.user.findFirst({ where: { id, role: UserRole.SELLER } });
+    const seller = await this.prisma.user.findFirst({
+      where: { id, role: UserRole.SELLER, ...SELLABLE_SELLER },
+    });
     if (!seller) throw new NotFoundException('Seller not found');
     return this.sellerCard(seller);
   }
 
   private async sellerCard(s: any) {
-    const productsCount = await this.prisma.product.count({ where: { sellerId: s.id } });
+    const productsCount = await this.prisma.product.count({ where: { sellerId: s.id, ...PUBLIC_PRODUCT } });
     return {
       id: s.id,
       company: s.company,
@@ -116,8 +124,11 @@ export class UsersService {
     return { total, users: users.map((u) => this.sanitize(u)) };
   }
 
+  // Проверка и блокировка открывают или закрывают продавцу витрину, а с ней
+  // и цены на карточках, где у него есть предложения — их пересчитываем сразу.
   async adminVerify(userId: string, isVerified: boolean) {
     const user = await this.prisma.user.update({ where: { id: userId }, data: { isVerified } });
+    await recalcSellerProducts(this.prisma, userId);
     return this.sanitize(user);
   }
 
@@ -126,6 +137,7 @@ export class UsersService {
     if (!target) throw new NotFoundException('User not found');
     if (target.role === UserRole.ADMIN) throw new ForbiddenException('Cannot ban an admin');
     const user = await this.prisma.user.update({ where: { id: userId }, data: { isBanned } });
+    await recalcSellerProducts(this.prisma, userId);
     return this.sanitize(user);
   }
 
