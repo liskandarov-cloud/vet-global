@@ -5,6 +5,10 @@
 // витрины целиком. Сценарий идёт одним продавцом по всем трём состояниям, поэтому
 // тесты в этом файле зависят от порядка.
 
+// Файл — модуль, а не скрипт: иначе BASE, req и login конфликтуют с
+// одноимёнными объявлениями app.e2e-spec.ts при проверке типов тестов.
+export {};
+
 const BASE = process.env.API_URL ?? 'http://localhost:8000/api';
 const ADMIN_PW = process.env.ADMIN_PASSWORD ?? 'admin123';
 
