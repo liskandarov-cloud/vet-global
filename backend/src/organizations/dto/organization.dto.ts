@@ -1,6 +1,7 @@
 import { IsEmail, IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { OrgRole } from '@prisma/client';
+import { NormalizeEmail } from '../../common/email';
 
 export class CreateOrgDto {
   @ApiProperty()
@@ -15,6 +16,7 @@ export class CreateOrgDto {
 
 export class InviteMemberDto {
   @ApiProperty()
+  @NormalizeEmail()
   @IsEmail()
   email!: string;
 

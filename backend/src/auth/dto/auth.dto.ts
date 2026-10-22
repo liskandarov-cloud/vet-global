@@ -1,5 +1,6 @@
 import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
 import { UserRole } from '@prisma/client';
+import { NormalizeEmail } from '../../common/email';
 
 // Роли, доступные при публичной регистрации. ADMIN сюда не входит:
 // иначе любой, отправив {"role":"ADMIN"}, получал бы права администратора.
@@ -7,6 +8,7 @@ import { UserRole } from '@prisma/client';
 export const SELF_SIGNUP_ROLES = [UserRole.BUYER, UserRole.SELLER] as const;
 
 export class RegisterDto {
+  @NormalizeEmail()
   @IsEmail()
   email: string;
 
@@ -35,6 +37,7 @@ export class RegisterDto {
 }
 
 export class LoginDto {
+  @NormalizeEmail()
   @IsEmail()
   email: string;
 

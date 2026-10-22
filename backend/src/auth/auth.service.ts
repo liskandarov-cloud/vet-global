@@ -36,7 +36,12 @@ export class AuthService {
       throw new BadRequestException('role must be one of the following values: BUYER, SELLER');
     }
 
-    const existing = await this.prisma.user.findUnique({ where: { email: dto.email } });
+    // Почта уже приведена к нижнему регистру в DTO, а старые записи — миграцией.
+    // Поиск всё равно без учёта регистра: миграция оставляет как есть адреса,
+    // у которых уже есть двойник другим регистром, и третьего им не нужно.
+    const existing = await this.prisma.user.findFirst({
+      where: { email: { equals: dto.email, mode: 'insensitive' } },
+    });
     if (existing) {
       throw new BadRequestException('Email already registered');
     }

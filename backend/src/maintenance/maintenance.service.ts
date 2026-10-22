@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { normalizeEmail } from '../common/email';
 
 export interface ProvisionUserDto {
   email: string;
@@ -30,6 +31,9 @@ export class MaintenanceService {
     if (dto.password.length < 8) {
       throw new BadRequestException('Пароль должен быть не короче 8 символов.');
     }
+    // Тот же вид почты, что при регистрации и входе, иначе заведённый здесь
+    // «Admin@…» не смог бы войти, набрав адрес строчными.
+    const email = normalizeEmail(dto.email) as string;
     const passwordHash = await bcrypt.hash(dto.password, 10);
     const data = {
       passwordHash,
@@ -44,8 +48,8 @@ export class MaintenanceService {
       isDemo: dto.isDemo ?? false,
     };
     const user = await this.prisma.user.upsert({
-      where: { email: dto.email },
-      create: { email: dto.email, ...data },
+      where: { email },
+      create: { email, ...data },
       update: data,
     });
     this.logger.warn(`Provisioned user ${user.email} role=${user.role}`);
