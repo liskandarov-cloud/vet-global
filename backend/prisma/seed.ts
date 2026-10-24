@@ -7,6 +7,7 @@ import {
 import * as bcrypt from 'bcryptjs';
 import { randomBytes } from 'crypto';
 import { invoiceNumberFor } from '../src/common/invoice-number';
+import { recalcProductAggregates } from '../src/offers/product-aggregates';
 
 const prisma = new PrismaClient();
 
@@ -395,16 +396,10 @@ async function main() {
         offerCount++;
       }
 
-      // Пересчёт агрегатов товара.
-      const agg = await prisma.offer.aggregate({
-        where: { productId: p.id, isActive: true, inStock: true },
-        _min: { price: true },
-        _count: { _all: true },
-      });
-      await prisma.product.update({
-        where: { id: p.id },
-        data: { minPrice: agg._min.price ?? null, offersCount: agg._count._all },
-      });
+      // Пересчёт агрегатов товара — той же функцией, что у приложения. Раньше
+      // здесь была своя копия: минимум сырой цены без учёта фасовки, и демо-
+      // каталог показывал «от» не ту цену, что спишет заказ.
+      await recalcProductAggregates(prisma, p.id);
     }
     console.log(`✓ offers seeded: ${offerCount} (сравнение цен)`);
   }

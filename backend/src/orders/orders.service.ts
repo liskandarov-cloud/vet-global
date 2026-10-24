@@ -22,7 +22,6 @@ import { NotificationsService } from '../mail/notifications.service';
 import { AlertsService } from '../alerts/alerts.service';
 import {
   orderTotal,
-  packPriceOf,
   percentOf,
   unitPriceFinal,
   applyPromotion,
@@ -37,6 +36,7 @@ import { splitInvoices } from './invoice-split';
 import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 import { TariffsService } from '../delivery/tariffs.service';
 import { PUBLIC_OFFER, SELLABLE_SELLER } from '../common/visibility';
+import { pickBestOffer } from '../offers/best-offer';
 
 @Injectable()
 export class OrdersService {
@@ -81,13 +81,14 @@ export class OrdersService {
     if (noOfferPids.length) {
       // Подбираем только из того, что можно заказать: иначе самое дешёвое
       // предложение непроверенного продавца отклонило бы весь заказ, хотя
-      // у проверенного товар есть.
+      // у проверенного товар есть. Правило выбора — то же, что у карточки
+      // (best-offer.ts): «под заказ» участвует, если в наличии нет ни у кого.
       const candidates = await this.prisma.offer.findMany({
-        where: { productId: { in: noOfferPids }, ...PUBLIC_OFFER, inStock: true },
+        where: { productId: { in: noOfferPids }, ...PUBLIC_OFFER },
       });
-      for (const o of candidates) {
-        const cur = bestOfferByProduct.get(o.productId);
-        if (!cur || packPriceOf(o) < packPriceOf(cur)) bestOfferByProduct.set(o.productId, o);
+      for (const pid of noOfferPids) {
+        const best = pickBestOffer(candidates.filter((o) => o.productId === pid));
+        if (best) bestOfferByProduct.set(pid, best);
       }
     }
 
