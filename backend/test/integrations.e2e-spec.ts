@@ -164,6 +164,63 @@ describe('VetHub integrations (e2e)', () => {
     expect((await req('/sync/price', { headers: { 'X-Sync-Key': 'bad' }, body: { items: [] } })).status).toBe(401);
   });
 
+  // Цена на витрине и в заказе берётся из предложения продавца, а не из
+  // карточки. Раньше фид из 1С писал только в карточку и отвечал «updated»,
+  // а покупатель платил прежнюю цену — тест выше этого не видел, потому что
+  // проверял ровно то поле, которое никто не читает.
+  it('1C sync: цена из фида доходит до предложения, то есть до заказа', async () => {
+    const key = (await req('/sync/key', { token: seller })).body.syncApiKey;
+    const ext = `E2E-OFFER-${Date.now()}`;
+    await req(`/products/${sellerProduct.id}`, {
+      method: 'PUT',
+      token: seller,
+      body: {
+        name: sellerProduct.name,
+        description: 'x',
+        categoryId: sellerProduct.categoryId,
+        price: sellerProduct.price,
+        minOrder: sellerProduct.minOrder,
+        externalId: ext,
+      },
+    });
+    const myOffer = async () =>
+      ((await req(`/products/${sellerProduct.id}/offers`)).body as any[]).find((o) => o.sellerId === sellerId);
+    const original = await myOffer();
+    expect(original).toBeTruthy();
+
+    const feed = (items: any[]) => req('/sync/price', { headers: { 'X-Sync-Key': key }, body: { items } });
+
+    const r = await feed([{ externalId: ext, price: 777777, quantity: 25 }]);
+    expect(r.body.updated).toBe(1);
+    const synced = await myOffer();
+    expect(synced.price).toBe(777777);
+    expect(synced.inStock).toBe(true);
+
+    // Пустая ячейка 1С приходит нулём, ошибка выгрузки — текстом. Ни то ни
+    // другое не должно стать ценой: заказ по нулевой цене отдаёт товар даром.
+    const bad = await feed([
+      { externalId: ext, price: 0 },
+      { externalId: ext, price: 'abc' },
+    ]);
+    expect(bad.body.updated).toBe(0);
+    expect(bad.body.rejected).toHaveLength(2);
+    expect((await myOffer()).price).toBe(777777);
+
+    // CommerceML: числа в формате 1С с пробелом и запятой.
+    const xml = `<Предложения><Предложение><Ид>${ext}</Ид><Цены><Цена><ЦенаЗаЕдиницу>1 234,50</ЦенаЗаЕдиницу></Цена></Цены><Количество>25</Количество></Предложение></Предложения>`;
+    const xr = await fetch(`${BASE}/sync/price/xml`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/xml', 'X-Sync-Key': key },
+      body: xml,
+    });
+    expect((await xr.json()).updated).toBe(1);
+    expect((await myOffer()).price).toBe(1234.5);
+
+    // Возвращаем прежнюю цену и остаток: товар продавца нужен другим проверкам.
+    await feed([{ externalId: ext, price: original.price, quantity: 50 }]);
+    expect((await myOffer()).price).toBe(original.price);
+  });
+
   // Акция удаляется за собой. Теперь это не вопрос опрятности: акция снижает
   // цену, и оставленная тестом скидка меняла бы суммы в других проверках. За два
   // дня прогонов таких акций накопилось три десятка, и каждая давала −10%.
@@ -668,10 +725,12 @@ describe('VetHub integrations (e2e)', () => {
         body: { items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }], vetPointsUsed: 1000 },
       })).body;
       expect(order.vetPointsUsed).toBe(1000);
-      expect(Number((await req('/vetpoints/balance', { token: buyer })).body.balance)).toBe(before - 1000);
+      // До копеек, а не строго: баланс бывает дробным, и 2203.68 - 1000 в
+      // плавающей точке — это 1203.6799999999998, а не 1203.68.
+      expect(Number((await req('/vetpoints/balance', { token: buyer })).body.balance)).toBeCloseTo(before - 1000, 2);
 
       await req(`/orders/${order.id}/status`, { method: 'PATCH', token: admin, body: { status: 'CANCELLED' } });
-      expect(Number((await req('/vetpoints/balance', { token: buyer })).body.balance)).toBe(before);
+      expect(Number((await req('/vetpoints/balance', { token: buyer })).body.balance)).toBeCloseTo(before, 2);
 
       // Возврат виден в истории: остаток баллов должен объясняться проводками.
       const tx = (await req('/vetpoints/transactions', { token: buyer })).body;
@@ -690,7 +749,7 @@ describe('VetHub integrations (e2e)', () => {
       const cancel = () => req(`/orders/${order.id}/status`, { method: 'PATCH', token: admin, body: { status: 'CANCELLED' } });
       await cancel();
       await cancel();
-      expect(Number((await req('/vetpoints/balance', { token: buyer })).body.balance)).toBe(before);
+      expect(Number((await req('/vetpoints/balance', { token: buyer })).body.balance)).toBeCloseTo(before, 2);
     });
 
     // Лимит резервируется под неоплаченный долг. После оплаты держать резерв

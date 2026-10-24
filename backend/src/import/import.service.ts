@@ -189,6 +189,14 @@ export class ImportService {
         let product = externalId
           ? await this.prisma.product.findFirst({ where: { sellerId: user.id, externalId } })
           : null;
+        // Свой код 1С на чужой карточке хранится в предложении продавца.
+        if (!product && externalId) {
+          const mine = await this.prisma.offer.findFirst({
+            where: { sellerId: user.id, externalId },
+            select: { productId: true },
+          });
+          if (mine) product = await this.prisma.product.findUnique({ where: { id: mine.productId } });
+        }
         if (!product) {
           product = await this.prisma.product.findFirst({
             where: {
@@ -253,6 +261,10 @@ export class ImportService {
           Object.fromEntries(OFFER_COLUMNS.map((key) => [key, at(key)])),
           price,
         );
+        // Код 1С пишется и в предложение: на чужой карточке это единственное
+        // место, где он сохранится, и без него синхронизация с 1С эту позицию
+        // не найдёт никогда.
+        if (externalId) offerData.externalId = externalId;
 
         if (!dto.dryRun && product) {
           await this.prisma.offer.upsert({

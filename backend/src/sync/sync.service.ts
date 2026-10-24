@@ -1,13 +1,10 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { randomBytes } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { recalcProductAggregates } from '../offers/product-aggregates';
+import { parseCommerceML, PriceItem, priceUpdateFrom } from './price-item';
 
-export interface PriceItem {
-  externalId: string;
-  price?: number;
-  inStock?: boolean;
-  quantity?: number;
-}
+export type { PriceItem } from './price-item';
 
 @Injectable()
 export class SyncService {
@@ -29,49 +26,70 @@ export class SyncService {
     if (!key) throw new UnauthorizedException('X-Sync-Key header required');
     const seller = await this.prisma.user.findUnique({ where: { syncApiKey: key } });
     if (!seller || seller.role !== 'SELLER') throw new UnauthorizedException('Invalid sync key');
+    // Блокировка закрывает вход по паролю — ключ интеграции тоже.
+    if (seller.isBanned) throw new UnauthorizedException('Account is banned');
     return seller;
   }
 
-  // Apply a price/stock feed for the seller resolved by the key.
+  // Применение ценового фида продавца, найденного по ключу.
+  //
+  // Цена и наличие на витрине и в заказе берутся из предложения продавца
+  // (Offer), а не из карточки. Раньше фид писал только в карточку: продавец
+  // менял цены в 1С, получал «updated», а покупатели платили по-старому. Теперь
+  // обновляется предложение — то же, что пишет импорт прайса, — а своя карточка
+  // по-прежнему, потому что её остаток ограничивает заказ.
+  //
+  // Код 1С ищется и в предложении, и в собственной карточке: строки прайса
+  // часто прикрепляются к чужой карточке того же товара, и тогда код живёт
+  // только в предложении.
   async applyPrices(key: string | undefined, items: PriceItem[]) {
     const seller = await this.resolveSeller(key);
+    if (!Array.isArray(items)) throw new BadRequestException('items должен быть массивом');
     let updated = 0;
     const notFound: string[] = [];
+    const rejected: { externalId: string; reason: string }[] = [];
+    const touchedProducts = new Set<string>();
 
     for (const it of items) {
-      if (!it.externalId) continue;
-      const data: any = {};
-      if (typeof it.price === 'number') data.price = it.price;
-      if (typeof it.quantity === 'number') { data.stockQty = it.quantity; data.inStock = it.quantity > 0; }
-      else if (typeof it.inStock === 'boolean') data.inStock = it.inStock;
+      const externalId = String(it?.externalId ?? '').trim();
+      if (!externalId) continue;
+
+      const parsed = priceUpdateFrom(it);
+      if ('error' in parsed) {
+        rejected.push({ externalId, reason: parsed.error });
+        continue;
+      }
+      const data = parsed.update;
       if (Object.keys(data).length === 0) continue;
 
-      const res = await this.prisma.product.updateMany({
-        where: { sellerId: seller.id, externalId: it.externalId },
+      const offers = await this.prisma.offer.findMany({
+        where: {
+          sellerId: seller.id,
+          OR: [{ externalId }, { product: { sellerId: seller.id, externalId } }],
+        },
+        select: { id: true, productId: true },
+      });
+      if (offers.length) {
+        await this.prisma.offer.updateMany({ where: { id: { in: offers.map((o) => o.id) } }, data });
+        for (const o of offers) touchedProducts.add(o.productId);
+      }
+
+      const own = await this.prisma.product.updateMany({
+        where: { sellerId: seller.id, externalId },
         data,
       });
-      if (res.count > 0) updated += res.count;
-      else notFound.push(it.externalId);
+
+      if (offers.length || own.count > 0) updated++;
+      else notFound.push(externalId);
     }
 
-    return { seller: seller.company ?? seller.id, received: items.length, updated, notFound };
+    // Цена «от» и минимальный заказ на карточке — из предложений.
+    for (const productId of touchedProducts) await recalcProductAggregates(this.prisma, productId);
+
+    return { seller: seller.company ?? seller.id, received: items.length, updated, notFound, rejected };
   }
 
-  // Minimal CommerceML (1C) offers parser: <Предложение> → Ид / ЦенаЗаЕдиницу / Количество.
   parseCommerceML(xml: string): PriceItem[] {
-    const items: PriceItem[] = [];
-    const offers = xml.match(/<Предложение>[\s\S]*?<\/Предложение>/g) ?? [];
-    for (const o of offers) {
-      const id = /<Ид>([^<]+)<\/Ид>/.exec(o)?.[1]?.trim();
-      if (!id) continue;
-      const price = /<ЦенаЗаЕдиницу>([^<]+)<\/ЦенаЗаЕдиницу>/.exec(o)?.[1]?.trim();
-      const qty = /<Количество>([^<]+)<\/Количество>/.exec(o)?.[1]?.trim();
-      items.push({
-        externalId: id,
-        price: price ? Number(price) : undefined,
-        quantity: qty ? Number(qty) : undefined,
-      });
-    }
-    return items;
+    return parseCommerceML(xml);
   }
 }
