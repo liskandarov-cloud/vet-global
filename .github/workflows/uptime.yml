@@ -62,8 +62,8 @@ jobs:
             return 1
           }
 
-          check "API health"  "https://vetglobal-backend.onrender.com/api/health" 200 || true
-          check "API каталог" "https://vetglobal-backend.onrender.com/api/categories" 200 || true
+          check "API health"  "https://vethub-api.onrender.com/api/health" 200 || true
+          check "API каталог" "https://vethub-api.onrender.com/api/categories" 200 || true
           check "Фронтенд"    "https://vetglobal-web.l-iskandarov.workers.dev/" 200 || true
           check "Каталог"     "https://vetglobal-web.l-iskandarov.workers.dev/catalog" 200 || true
 

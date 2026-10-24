@@ -11,7 +11,7 @@
 //   и следующий посетитель ждёт холодный старт под минуту. Интервал в 10 минут
 //   держит процесс живым.
 
-const TARGET = 'https://vetglobal-backend.onrender.com/api/categories';
+const TARGET = 'https://vethub-api.onrender.com/api/categories';
 
 // Холодный старт Render доходит до минуты, поэтому ждём щедро: превышение
 // таймаута здесь означало бы ложную тревогу, а не настоящий сбой.

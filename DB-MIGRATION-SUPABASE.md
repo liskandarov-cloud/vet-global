@@ -45,7 +45,7 @@ Render → **Manual Deploy → Deploy latest commit** (или Clear cache & depl
 Как только сервис ответит — я прогоню прод-проверки (в т.ч. фичу остатков `fc69560`).
 Быстрый признак готовности:
 ```bash
-curl -s -o /dev/null -w '%{http_code}\n' https://vetglobal-backend.onrender.com/api/health
+curl -s -o /dev/null -w '%{http_code}\n' https://vethub-api.onrender.com/api/health
 ```
 
 ---

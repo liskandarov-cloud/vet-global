@@ -1,4 +1,10 @@
 # Render Blueprint — бэкенд.
+#
+# С 24 октября 2026 прод живёт в пространстве betterfuture (laziz.iskandarov@
+# betterfuture.uz): сервис vethub-api, srv-dbe9iflg1s2s73es8lh0, адрес
+# https://vethub-api.onrender.com. Создан из публичного репозитория, не из этого
+# Blueprint; файл описывает ту же конфигурацию и годится для пересоздания.
+# Старый vetglobal-backend остался приостановленным в прежнем аккаунте.
 # Render dashboard → New → Blueprint → connect this repo → Apply.
 # Render injects PORT automatically (the app reads process.env.PORT); no manual
 # port/root-directory config. The root Dockerfile builds the backend.
@@ -10,7 +16,7 @@
 
 services:
   - type: web
-    name: vetglobal-backend
+    name: vethub-api
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .

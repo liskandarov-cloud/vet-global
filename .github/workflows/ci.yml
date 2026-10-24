@@ -156,7 +156,7 @@ jobs:
     env:
       # Публичный адрес, а не внутрисетевой: последний снаружи мёртв, и
       # серверные запросы по нему молча отдавали бы пустые страницы.
-      NEXT_PUBLIC_API_URL: https://vetglobal-backend.onrender.com/api
+      NEXT_PUBLIC_API_URL: https://vethub-api.onrender.com/api
       SITE_URL: https://vetglobal-web.l-iskandarov.workers.dev
     steps:
       - uses: actions/checkout@v5

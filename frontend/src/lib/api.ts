@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const baseURL = process.env.NEXT_PUBLIC_API_URL ?? 'https://vetglobal-backend.onrender.com/api';
+const baseURL = process.env.NEXT_PUBLIC_API_URL ?? 'https://vethub-api.onrender.com/api';
 
 export const api = axios.create({ baseURL });
 

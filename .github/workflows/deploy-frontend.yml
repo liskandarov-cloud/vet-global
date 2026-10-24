@@ -32,7 +32,7 @@ jobs:
       CLOUDFLARE_ACCOUNT_ID: 75a08cec12a81171ab0fce6a59660c59
       # Обе переменные нужны на этапе сборки: NEXT_PUBLIC_* вшивается в бандл,
       # а SITE_URL попадает в sitemap и канонические ссылки статических страниц.
-      NEXT_PUBLIC_API_URL: https://vetglobal-backend.onrender.com/api
+      NEXT_PUBLIC_API_URL: https://vethub-api.onrender.com/api
       SITE_URL: https://vetglobal-web.l-iskandarov.workers.dev
     steps:
       - uses: actions/checkout@v5

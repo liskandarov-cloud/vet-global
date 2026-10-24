@@ -20,7 +20,7 @@
     // Адрес API для браузера. API_INTERNAL_URL здесь намеренно не задан:
     // он имеет смысл только внутри docker-сети, а снаружи серверные запросы
     // по нему молча падают — sitemap остался бы без товаров.
-    "NEXT_PUBLIC_API_URL": "https://vetglobal-backend.onrender.com/api",
+    "NEXT_PUBLIC_API_URL": "https://vethub-api.onrender.com/api",
     "SITE_URL": "https://vetglobal-web.l-iskandarov.workers.dev"
   },
   "observability": { "enabled": true }
