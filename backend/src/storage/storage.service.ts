@@ -9,6 +9,7 @@ import {
 } from '@aws-sdk/client-s3';
 import { randomUUID } from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
+import { isOwnStorageUrl } from './own-url';
 
 // Лимит на файл при хранении в Postgres: бесплатная БД Render маленькая,
 // фото товара больше 2 МБ — повод сжать, а не хранить.
@@ -112,6 +113,25 @@ export class StorageService implements OnModuleInit {
     return `${this.publicUrl}/${this.bucket}/${key}`;
   }
 
+  // Ссылка ведёт на файл, загруженный через /uploads (см. own-url.ts).
+  isOwnUrl(url: unknown): boolean {
+    return isOwnStorageUrl(url, {
+      s3Enabled: this.s3Enabled,
+      publicUrl: this.publicUrl,
+      bucket: this.bucket,
+      apiBase: this.apiBase(),
+    });
+  }
+
+  private apiBase(): string {
+    // RENDER_EXTERNAL_URL Render подставляет сам; PUBLIC_API_URL — ручной override.
+    return (
+      this.config.get<string>('PUBLIC_API_URL') ??
+      this.config.get<string>('RENDER_EXTERNAL_URL') ??
+      ''
+    );
+  }
+
   // Фолбэк без S3: байты в Postgres, наружу — ссылка на /api/files/:id.
   // Абсолютный URL обязателен: фронт живёт на другом домене (Vercel).
   private async uploadToDb(file: {
@@ -129,11 +149,6 @@ export class StorageService implements OnModuleInit {
         data: file.buffer,
       },
     });
-    // RENDER_EXTERNAL_URL Render подставляет сам; PUBLIC_API_URL — ручной override.
-    const base =
-      this.config.get<string>('PUBLIC_API_URL') ??
-      this.config.get<string>('RENDER_EXTERNAL_URL') ??
-      '';
-    return `${base}/api/files/${rec.id}`;
+    return `${this.apiBase()}/api/files/${rec.id}`;
   }
 }

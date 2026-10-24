@@ -57,7 +57,7 @@ export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
     try {
       const fd = new FormData();
       fd.append('file', file);
-      const { data } = await api.post('/uploads?kind=certificate', fd);
+      const { data } = await api.post('/uploads?kind=license', fd);
       await api.post('/sellers/me/documents', { title: file.name, fileUrl: data.url });
       toast.success(tt('Лицензия загружена', 'Litsenziya yuklandi'));
       load();
@@ -111,12 +111,15 @@ export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
               {docs.map((d) => (
                 <a key={d.id} href={d.fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:border-teal-200 dark:border-slate-800">
                   <FileText size={14} className="text-teal-700" /> {d.title}
+                  <span className={`ml-auto text-xs ${d.isApproved ? 'text-teal-700' : 'text-amber-600'}`}>
+                    {d.isApproved ? tt('Проверен', 'Tasdiqlangan') : tt('На проверке', 'Tekshiruvda')}
+                  </span>
                 </a>
               ))}
             </div>
           )}
-          <button className="btn-secondary" onClick={() => licenseRef.current?.click()}><Upload size={15} /> {tt('Загрузить документ (PDF)', 'Hujjat yuklash (PDF)')}</button>
-          <input ref={licenseRef} type="file" accept="application/pdf" hidden onChange={(e) => e.target.files?.[0] && uploadLicense(e.target.files[0])} />
+          <button className="btn-secondary" onClick={() => licenseRef.current?.click()}><Upload size={15} /> {tt('Загрузить документ (PDF или фото)', 'Hujjat yuklash (PDF yoki foto)')}</button>
+          <input ref={licenseRef} type="file" accept="application/pdf,image/jpeg,image/png,image/webp" hidden onChange={(e) => e.target.files?.[0] && uploadLicense(e.target.files[0])} />
         </div>
       )}
 

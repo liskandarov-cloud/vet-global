@@ -26,6 +26,8 @@ export class StorageController {
   constructor(private readonly storage: StorageService) {}
 
   // kind=image (product photos) | kind=certificate (PDF only) — SRS: strict MIME check.
+  // kind=license — лицензия продавца: PDF или фото. Лицензию у дистрибьютора
+  // чаще всего снимают на телефон, а PDF-only не давал загрузить её вовсе.
   @Post()
   @ApiBearerAuth()
   @ApiConsumes('multipart/form-data')
@@ -34,12 +36,13 @@ export class StorageController {
   @UseInterceptors(FileInterceptor('file', { limits: { fileSize: MAX_SIZE } }))
   async upload(
     @UploadedFile() file: any,
-    @Query('kind') kind: 'image' | 'certificate' = 'image',
+    @Query('kind') kind: 'image' | 'certificate' | 'license' = 'image',
   ) {
     if (!file) throw new BadRequestException('No file provided');
 
     // Тип — по содержимому (см. file-signature.ts), а не по заголовку клиента.
-    const allowed = kind === 'certificate' ? PDF_MIME : IMAGE_MIME;
+    const allowed =
+      kind === 'certificate' ? PDF_MIME : kind === 'license' ? [...PDF_MIME, ...IMAGE_MIME] : IMAGE_MIME;
     const detected = detectFileType(file.buffer);
     if (!detected || !allowed.includes(detected.mime)) {
       throw new BadRequestException(
@@ -47,7 +50,7 @@ export class StorageController {
       );
     }
 
-    const folder = kind === 'certificate' ? 'certificates' : 'images';
+    const folder = kind === 'certificate' ? 'certificates' : kind === 'license' ? 'licenses' : 'images';
     const url = await this.storage.upload({ ...file, mimetype: detected.mime }, folder, detected.ext);
     return { url };
   }

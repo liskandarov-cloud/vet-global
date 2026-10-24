@@ -97,6 +97,15 @@ export class UsersController {
     return this.users.adminListUsers(role, Number(skip), Number(take));
   }
 
+  // Документы продавца для проверки: без них администратор подтверждал вслепую.
+  @Get('admin/sellers/:id/documents')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.ADMIN)
+  adminSellerDocuments(@Param('id') id: string) {
+    return this.users.listSellerDocuments(id);
+  }
+
   @Patch('admin/users/:id/verify')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -194,3 +194,53 @@ describe('Служебное заведение пользователя', () =>
     expect(u.fullName).toBe('Новое имя');
   });
 });
+
+describe('Лицензия продавца: от загрузки до проверки', () => {
+  // Минимальный настоящий PNG 1×1 — «фото лицензии».
+  const PNG = Buffer.from(
+    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=',
+    'base64',
+  );
+
+  it('фото принимается, внешняя ссылка — нет, админ видит документ, проверка его одобряет', async () => {
+    const admin = await login('admin@vetglobal.com', ADMIN_PW);
+    const reg = await register(`license-${Date.now()}@vg.test`, 'SELLER', { company: 'Licensed LLC' });
+    const seller = reg.body.token as string;
+    const sellerId = reg.body.user.id as string;
+
+    // Внешняя ссылка под видом документа.
+    const phishing = await req('/sellers/me/documents', {
+      method: 'POST',
+      token: seller,
+      body: { title: 'Лицензия', fileUrl: 'https://evil.example/admin-login' },
+    });
+    expect(phishing.status).toBe(400);
+
+    // Фото лицензии с телефона — раньше принимался только PDF.
+    const form = new FormData();
+    form.append('file', new Blob([new Uint8Array(PNG)], { type: 'image/png' }), 'license.png');
+    const up = await fetch(`${BASE}/uploads?kind=license`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${seller}` },
+      body: form,
+    });
+    expect(up.status).toBe(201);
+    const { url } = await up.json();
+    const doc = await req('/sellers/me/documents', {
+      method: 'POST',
+      token: seller,
+      body: { title: 'Лицензия на ветпрепараты', fileUrl: url },
+    });
+    expect(doc.status).toBe(201);
+
+    const listed = (await req('/admin/users?role=SELLER&take=200', { token: admin })).body.users as any[];
+    expect(listed.find((u) => u.id === sellerId).documentsCount).toBe(1);
+    const docs = (await req(`/admin/sellers/${sellerId}/documents`, { token: admin })).body as any[];
+    expect(docs.map((d) => d.fileUrl)).toEqual([url]);
+    expect((await req(`/admin/sellers/${sellerId}/documents`, { token: seller })).status).toBe(403);
+
+    await req(`/admin/users/${sellerId}/verify`, { method: 'PATCH', token: admin, body: { isVerified: true } });
+    const mine = (await req('/sellers/me/documents', { token: seller })).body as any[];
+    expect(mine[0].isApproved).toBe(true);
+  });
+});

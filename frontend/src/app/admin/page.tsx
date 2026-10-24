@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Check, Ban, ShieldCheck, TrendingUp, Percent, Users, ShoppingCart, Download, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Fragment, useEffect, useState } from 'react';
+import { Check, Ban, ShieldCheck, TrendingUp, Percent, Users, ShoppingCart, Download, Plus, Pencil, Trash2, X, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { downloadInvoices } from '@/lib/invoices';
@@ -17,6 +17,8 @@ function AdminContent() {
   const [tab, setTab] = useState<'overview' | 'billing' | 'orders' | 'rfq' | 'certs' | 'users' | 'reviews' | 'leads' | 'consults' | 'blog'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
+  // Документы продавца по id: проверка без них — подтверждение вслепую.
+  const [docsFor, setDocsFor] = useState<Record<string, any[]>>({});
   const [reviews, setReviews] = useState<any[]>([]);
   const [leads, setLeads] = useState<any[]>([]);
   const [consults, setConsults] = useState<any[]>([]);
@@ -67,6 +69,14 @@ function AdminContent() {
     load();
   };
 
+  const toggleDocs = async (id: string) => {
+    if (docsFor[id]) {
+      setDocsFor(({ [id]: _, ...rest }) => rest);
+      return;
+    }
+    const { data } = await api.get(`/admin/sellers/${id}/documents`);
+    setDocsFor((m) => ({ ...m, [id]: data }));
+  };
   const verify = async (id: string) => { await api.patch(`/admin/users/${id}/verify`, { isVerified: true }); toast.success(tt('Подтверждён', 'Tasdiqlandi')); load(); };
   const delUser = async (id: string, email: string) => {
     if (!confirm(tt(`Удалить пользователя ${email}? Его заказы и данные будут удалены безвозвратно.`,
@@ -322,7 +332,8 @@ function AdminContent() {
             </thead>
             <tbody>
               {users.map((u) => (
-                <tr key={u.id} className="border-b border-slate-50">
+                <Fragment key={u.id}>
+                <tr className="border-b border-slate-50">
                   <td className="py-2">{u.fullName}<div className="text-xs text-ink-subtle">{u.email}</div></td>
                   <td>{u.role}</td>
                   <td>{u.company ?? '—'}</td>
@@ -332,11 +343,34 @@ function AdminContent() {
                       : <span className="text-amber-600">{tt('Не проверен', 'Tasdiqlanmagan')}</span>}
                   </td>
                   <td className="flex gap-2 py-2">
+                    {u.role === 'SELLER' && (
+                      <button className="btn-ghost !px-2 !py-1" onClick={() => toggleDocs(u.id)} title={tt('Документы', 'Hujjatlar')}>
+                        <FileText size={15} /> <span className="text-xs">{u.documentsCount ?? 0}</span>
+                      </button>
+                    )}
                     {!u.isVerified && u.role === 'SELLER' && <button className="btn-ghost !px-2 !py-1 text-teal-700" onClick={() => verify(u.id)}><Check size={15} /></button>}
                     {u.role !== 'ADMIN' && <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => ban(u.id, !u.isBanned)} title={u.isBanned ? tt('Разблокировать', 'Blokdan chiqarish') : tt('Заблокировать', 'Bloklash')}><Ban size={15} /></button>}
                     {u.role !== 'ADMIN' && <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => delUser(u.id, u.email)} title={tt('Удалить', 'Oʻchirish')}><Trash2 size={15} /></button>}
                   </td>
                 </tr>
+                {docsFor[u.id] && (
+                  <tr className="border-b border-slate-50 bg-slate-50/60 dark:bg-slate-900/40">
+                    <td colSpan={5} className="px-3 py-2">
+                      {docsFor[u.id].length === 0 ? (
+                        <span className="text-xs text-amber-600">{tt('Продавец ещё не загрузил ни одного документа', 'Sotuvchi hali hech qanday hujjat yuklamagan')}</span>
+                      ) : (
+                        <div className="flex flex-wrap gap-2">
+                          {docsFor[u.id].map((d) => (
+                            <a key={d.id} href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs hover:border-teal-300 dark:border-slate-700 dark:bg-slate-900">
+                              <FileText size={13} className="text-teal-700" /> {d.title}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>

@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { StorageService } from '../storage/storage.service';
 import { ChangePasswordDto, CounterpartyDto, SellerDocumentDto, UpdateProfileDto } from './dto/user.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PUBLIC_PRODUCT, SELLABLE_SELLER } from '../common/visibility';
@@ -9,7 +10,10 @@ import { recalcSellerProducts } from '../offers/product-aggregates';
 
 @Injectable()
 export class UsersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
 
   // ── Profile ──
   async updateProfile(userId: string, dto: UpdateProfileDto) {
@@ -102,8 +106,15 @@ export class UsersService {
   }
 
   // ── Seller documents (licenses/certs for moderation) ──
+  // Документ — только файл, загруженный через платформу (см. storage/own-url.ts):
+  // его открывает администратор, и внешняя ссылка здесь — ссылка, по которой
+  // он перейдёт сам.
   async addSellerDocument(sellerId: string, dto: SellerDocumentDto) {
-    return this.prisma.sellerDocument.create({ data: { ...dto, sellerId } });
+    if (!this.storage.isOwnUrl(dto.fileUrl)) {
+      throw new BadRequestException('Документ загружается файлом через платформу, а не ссылкой');
+    }
+    const title = String(dto.title ?? '').trim().slice(0, 200) || 'Документ';
+    return this.prisma.sellerDocument.create({ data: { title, fileUrl: dto.fileUrl, sellerId } });
   }
 
   async listSellerDocuments(sellerId: string) {
@@ -119,15 +130,22 @@ export class UsersService {
         orderBy: { createdAt: 'desc' },
         skip,
         take,
+        include: { _count: { select: { sellerLicenses: true } } },
       }),
     ]);
-    return { total, users: users.map((u) => this.sanitize(u)) };
+    return {
+      total,
+      users: users.map(({ _count, ...u }) => ({ ...this.sanitize(u), documentsCount: _count.sellerLicenses })),
+    };
   }
 
   // Проверка и блокировка открывают или закрывают продавцу витрину, а с ней
   // и цены на карточках, где у него есть предложения — их пересчитываем сразу.
   async adminVerify(userId: string, isVerified: boolean) {
     const user = await this.prisma.user.update({ where: { id: userId }, data: { isVerified } });
+    // Проверка продавца — это проверка его документов: отметка у документов
+    // раньше существовала, но не ставилась нигде, и продавец не видел, приняты ли они.
+    await this.prisma.sellerDocument.updateMany({ where: { sellerId: userId }, data: { isApproved: isVerified } });
     await recalcSellerProducts(this.prisma, userId);
     return this.sanitize(user);
   }
