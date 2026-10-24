@@ -5,6 +5,7 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import { text } from 'express';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { corsOrigins } from './common/frontend-url';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -36,13 +37,9 @@ async function bootstrap() {
   // credentials:true отражало любой Origin (проверено: evil-example.com получал
   // access-control-allow-origin на себя). Явная звёздочка в CORS_ORIGINS всё ещё
   // возможна для локальной отладки, но тогда отключаем credentials.
-  const corsEnv = (process.env.CORS_ORIGINS ?? process.env.FRONTEND_URL ?? '')
-    .split(',')
-    .map((s) => s.trim())
-    .filter(Boolean);
-  const allowAll = corsEnv.includes('*');
+  const { origins, allowAll } = corsOrigins();
   app.enableCors({
-    origin: allowAll ? true : corsEnv.length ? corsEnv : [process.env.FRONTEND_URL ?? ''],
+    origin: allowAll ? true : origins,
     credentials: !allowAll,
   });
 

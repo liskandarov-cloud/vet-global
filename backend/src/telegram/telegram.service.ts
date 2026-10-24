@@ -4,6 +4,7 @@ import { LeadSource } from '@prisma/client';
 import { Bot, InlineKeyboard, Keyboard } from 'grammy';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUBLIC_PRODUCT } from '../common/visibility';
+import { frontendUrl } from '../common/frontend-url';
 import { PromotionsService } from '../promotions/promotions.service';
 import { applyPromotion } from '../common/pricing';
 import { LeadsService } from '../leads/leads.service';
@@ -32,7 +33,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly leads: LeadsService,
     private readonly promotions: PromotionsService,
   ) {
-    this.frontendUrl = config.get<string>('FRONTEND_URL') ?? 'https://vetglobal-web.l-iskandarov.workers.dev';
+    this.frontendUrl = frontendUrl();
     this.adminChatId = config.get<string>('TELEGRAM_ADMIN_CHAT_ID');
   }
 

@@ -6,6 +6,7 @@ import { OrderReleaseService } from '../orders/order-release.service';
 import { notPayableReason } from './payable';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { buildCheckoutUrl } from './providers';
+import { frontendUrl } from '../common/frontend-url';
 
 @Injectable()
 export class PaymentsService {
@@ -19,7 +20,7 @@ export class PaymentsService {
     private readonly release: OrderReleaseService,
   ) {
     this.mock = (config.get<string>('PAYMENTS_MODE') ?? 'mock').toLowerCase() !== 'live';
-    this.returnUrl = config.get<string>('PAYMENT_RETURN_URL') ?? config.get<string>('FRONTEND_URL') ?? 'http://localhost:3000';
+    this.returnUrl = config.get<string>('PAYMENT_RETURN_URL') ?? frontendUrl();
   }
 
   async create(orderId: string, provider: PaymentProvider, user: AuthUser) {
