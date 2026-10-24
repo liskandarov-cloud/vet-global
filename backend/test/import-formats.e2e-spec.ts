@@ -104,3 +104,46 @@ describe('Импорт: нулевой остаток — это предзак�
     expect(order.items[0].offerId).toBeTruthy();
   });
 });
+
+// «Сообщить о поступлении»: пополнение импортом прайса тоже будит подписчиков.
+// Раньше оповещение уходило только при правке карточки в кабинете.
+describe('Поступление через импорт оповещает подписчиков', () => {
+  it('подписка → пополнение прайсом → оповещение, подписка погашена', async () => {
+    const ADMIN_PW = process.env.ADMIN_PASSWORD ?? 'admin123';
+    const seller = await login('seller@vetglobal.com', 'seller123');
+    const buyer = await login('buyer@vetglobal.com', 'buyer123');
+    const admin = await login('admin@vetglobal.com', ADMIN_PW);
+    const call = (method: string, path: string, token: string, body?: unknown) =>
+      fetch(`${BASE}${path}`, {
+        method,
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: body ? JSON.stringify(body) : undefined,
+      }).then((r) => r.json());
+
+    const categoryId = (await call('GET', '/categories', seller))[0].id;
+    const name = `E2E поступление ${Date.now()}`;
+    const importRow = (stock: string) =>
+      call('POST', '/import/commit', seller, {
+        rows: [[name, '50000', stock]],
+        mapping: { name: 0, price: 1, stockQty: 2 },
+        defaultCategoryId: categoryId,
+      });
+
+    await importRow('0');
+    const product = (await call('GET', `/products?search=${encodeURIComponent(name)}`, buyer)).products[0];
+    expect(product.inStock).toBe(false);
+    await call('POST', `/products/${product.id}/notify-me`, buyer);
+
+    // Пока товара нет — обход никого не будит.
+    await call('POST', '/products/stock-alerts/run', admin);
+    expect((await call('GET', `/products/${product.id}/notify-me`, buyer)).subscribed).toBe(true);
+
+    await importRow('9');
+    await call('POST', '/products/stock-alerts/run', admin);
+
+    expect((await call('GET', `/products/${product.id}/notify-me`, buyer)).subscribed).toBe(false);
+    const inbox = await call('GET', '/notifications', buyer);
+    const items = (inbox.items ?? inbox) as any[];
+    expect(items.some((n) => n.url === `/products/${product.id}` && /снова в наличии/.test(n.title))).toBe(true);
+  });
+});

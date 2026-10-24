@@ -6,7 +6,7 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 import { serializeOffer } from '../common/pricing';
 import { canSell, PUBLIC_OFFER, PUBLIC_PRODUCT } from '../common/visibility';
 import { PromotionsService } from '../promotions/promotions.service';
-import { AlertsService } from '../alerts/alerts.service';
+import { StockAlertsService } from './stock-alerts.service';
 
 @Injectable()
 export class ProductsService {
@@ -15,7 +15,7 @@ export class ProductsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly promotions: PromotionsService,
-    private readonly alerts: AlertsService,
+    private readonly stockAlerts: StockAlertsService,
   ) {}
 
   async list(q: ProductQueryDto, user?: AuthUser) {
@@ -219,28 +219,12 @@ export class ProductsService {
     // по-прежнему идёт без ожидания. Ошибку рассылки глотаем: обновление
     // товара продавцом не должно падать из-за недоставленного уведомления.
     if (!wasBuyable && nowBuyable) {
-      await this.notifyStockSubscribers(product.id, product.name).catch((e) =>
+      await this.stockAlerts.notifyProduct(product.id, product.name).catch((e) =>
         this.logger.warn(`не удалось оповестить подписчиков ${product.id}: ${e}`),
       );
     }
 
     return this.serialize(product);
-  }
-
-  // Рассылает подписчикам «сообщить о поступлении» и удаляет их подписки (одноразово).
-  private async notifyStockSubscribers(productId: string, productName: string) {
-    const subs = await this.prisma.stockAlert.findMany({ where: { productId } });
-    if (!subs.length) return;
-    await Promise.all(
-      subs.map((s) =>
-        this.alerts.notify(s.userId, {
-          title: 'Товар снова в наличии',
-          body: `«${productName}» снова доступен для заказа`,
-          url: `/products/${productId}`,
-        }),
-      ),
-    );
-    await this.prisma.stockAlert.deleteMany({ where: { productId } });
   }
 
   // Покупатель подписывается на поступление товара.
