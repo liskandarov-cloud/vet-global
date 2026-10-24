@@ -20,6 +20,9 @@ export class FilesController {
     if (!file) throw new NotFoundException('Файл не найден');
     res.set({
       'Content-Type': file.mime,
+      // Браузер не угадывает тип по содержимому: файл, сохранённый до проверки
+      // сигнатуры, с заголовком картинки не выполнится как страница.
+      'X-Content-Type-Options': 'nosniff',
       'Content-Length': String(file.size),
       'Cache-Control': 'public, max-age=31536000, immutable',
     });

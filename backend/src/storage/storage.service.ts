@@ -90,12 +90,16 @@ export class StorageService implements OnModuleInit {
   }
 
   // Uploads a buffer and returns its public URL.
+  //
+  // Расширение задаёт вызывающий по проверенному типу файла. Из имени файла,
+  // присланного клиентом, оно больше не берётся: «photo.html» с заголовком
+  // image/png ложился в бакет как .html.
   async upload(
     file: { buffer: Buffer; originalname: string; mimetype: string },
     folder = 'uploads',
+    ext = 'bin',
   ): Promise<string> {
     if (!this.s3Enabled) return this.uploadToDb(file);
-    const ext = file.originalname.includes('.') ? file.originalname.split('.').pop() : 'bin';
     const key = `${folder}/${randomUUID()}.${ext}`;
     await this.client.send(
       new PutObjectCommand({

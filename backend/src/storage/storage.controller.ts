@@ -11,6 +11,7 @@ import { FileInterceptor } from '@nestjs/platform-express';
 import { ApiBearerAuth, ApiConsumes, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { StorageService } from './storage.service';
+import { detectFileType } from './file-signature';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -37,15 +38,17 @@ export class StorageController {
   ) {
     if (!file) throw new BadRequestException('No file provided');
 
+    // Тип — по содержимому (см. file-signature.ts), а не по заголовку клиента.
     const allowed = kind === 'certificate' ? PDF_MIME : IMAGE_MIME;
-    if (!allowed.includes(file.mimetype)) {
+    const detected = detectFileType(file.buffer);
+    if (!detected || !allowed.includes(detected.mime)) {
       throw new BadRequestException(
         `Invalid file type for "${kind}". Allowed: ${allowed.join(', ')}`,
       );
     }
 
     const folder = kind === 'certificate' ? 'certificates' : 'images';
-    const url = await this.storage.upload(file, folder);
+    const url = await this.storage.upload({ ...file, mimetype: detected.mime }, folder, detected.ext);
     return { url };
   }
 }
