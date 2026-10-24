@@ -2,7 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { percentOf, round2 } from '../common/pricing';
+import { splitOrderCommission } from './commission-split';
+import { round2 } from '../common/pricing';
 import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 
 // Отменённый заказ не выручка. Фильтр один для всех отчётов: раньше его не было
@@ -96,7 +97,7 @@ export class AnalyticsService {
   async adminBilling() {
     const items = await this.prisma.orderItem.findMany({
       where: { order: NOT_CANCELLED },
-      select: { sellerId: true, price: true, quantity: true, orderId: true },
+      select: { sellerId: true, price: true, quantity: true, orderId: true, order: { select: { commission: true } } },
     });
 
     const map = new Map<string, { revenue: number; delivery: number; orders: Set<string> }>();
@@ -106,10 +107,24 @@ export class AnalyticsService {
       return cur;
     };
 
+    // Комиссия — та, что записана в заказе, поделённая между его продавцами
+    // (см. commission-split.ts), а не пересчитанная от суммарной выручки.
+    const byOrder = new Map<string, { commission: number; revenue: Record<string, number> }>();
     for (const it of items) {
       const cur = bucket(it.sellerId);
-      cur.revenue += Number(it.price) * it.quantity;
+      const line = Number(it.price) * it.quantity;
+      cur.revenue += line;
       cur.orders.add(it.orderId);
+      const o = byOrder.get(it.orderId) ?? { commission: Number(it.order.commission), revenue: {} };
+      o.revenue[it.sellerId] = (o.revenue[it.sellerId] ?? 0) + line;
+      byOrder.set(it.orderId, o);
+    }
+    // В тийинах, чтобы сумма по продавцам не набирала погрешность плавающей точки.
+    const commissionTiyin = new Map<string, number>();
+    for (const o of byOrder.values()) {
+      for (const [sellerId, c] of Object.entries(splitOrderCommission(o.commission, o.revenue))) {
+        commissionTiyin.set(sellerId, (commissionTiyin.get(sellerId) ?? 0) + Math.round(c * 100));
+      }
     }
 
     // Доставка по той же разбивке, по которой она попадает в сумму заказа.
@@ -137,18 +152,16 @@ export class AnalyticsService {
 
     const rows = [...map.entries()]
       .map(([id, v]) => {
-        // percentOf, а не Math.round до целых: комиссия, записанная в заказе,
-        // округляется до копеек, и отчёт с другим округлением расходился бы с
-        // проводками — как раз там, где по нему выставляют счёт продавцу.
-        const commission = percentOf(v.revenue, this.commissionPct);
+        const commission = (commissionTiyin.get(id) ?? 0) / 100;
+        const revenue = round2(v.revenue);
         return {
           sellerId: id,
           company: sellers.find((s) => s.id === id)?.company ?? '—',
           orders: v.orders.size,
-          revenue: v.revenue,
+          revenue,
           commission,
           delivery: round2(v.delivery),
-          payout: round2(v.revenue - commission + v.delivery),
+          payout: round2(revenue - commission + v.delivery),
         };
       })
       .sort((a, b) => b.revenue - a.revenue);
