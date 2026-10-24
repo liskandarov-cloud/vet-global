@@ -1,6 +1,7 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
 import * as ExcelJS from 'exceljs';
 import { Readable } from 'stream';
+import { decodeCsv } from './csv-text';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
@@ -51,17 +52,28 @@ export class ImportService {
     if (!file?.buffer) throw new BadRequestException('Файл не получен');
 
     const wb = new ExcelJS.Workbook();
+    // Текстовый формат: CSV, а также .txt/.tsv — так Excel сохраняет «Юникод-текст».
     const isCsv =
-      file.mimetype?.includes('csv') || /\.csv$/i.test(file.originalname ?? '');
+      file.mimetype?.includes('csv') ||
+      file.mimetype?.startsWith('text/') ||
+      /\.(csv|tsv|txt)$/i.test(file.originalname ?? '');
 
     try {
       if (isCsv) {
-        await wb.csv.read(Readable.from(file.buffer.toString('utf8')));
+        // Кодировка и разделитель — как сохранил продавец (см. csv-text.ts).
+        // Значения читаются как есть: по умолчанию exceljs делает из «000123»
+        // число 123, а коды 1С почти всегда с ведущими нулями — синхронизация
+        // потом не нашла бы ни одной такой позиции.
+        const { text, delimiter } = decodeCsv(file.buffer);
+        await wb.csv.read(Readable.from(text), {
+          parserOptions: { delimiter },
+          map: (value: unknown) => value,
+        } as any);
       } else {
         await wb.xlsx.load(file.buffer);
       }
     } catch {
-      throw new BadRequestException('Не удалось прочитать файл. Ожидается .xlsx или .csv');
+      throw new BadRequestException('Не удалось прочитать файл. Ожидается .xlsx, .csv или .txt');
     }
 
     const ws = wb.worksheets[0];
