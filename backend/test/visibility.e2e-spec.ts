@@ -170,3 +170,27 @@ describe('Почта без учёта регистра', () => {
     expect(invite.status).toBe(201);
   });
 });
+
+describe('Служебное заведение пользователя', () => {
+  it('сброс пароля не меняет роль, блокировку и реквизиты', async () => {
+    const admin = await login('admin@vetglobal.com', ADMIN_PW);
+    const email = `provision-${Date.now()}@vg.test`;
+    const reg = await register(email, 'SELLER', { company: 'Ferma LLC' });
+    const id = reg.body.user.id;
+    await req(`/admin/users/${id}/ban`, { method: 'PATCH', token: admin, body: { isBanned: true } });
+
+    const r = await req('/maintenance/user', {
+      method: 'POST',
+      token: admin,
+      body: { email: email.toUpperCase(), password: 'new-password-1', fullName: 'Новое имя' },
+    });
+    expect(r.status).toBe(201);
+    expect(r.body.role).toBe('SELLER');
+
+    const users = (await req('/admin/users?role=SELLER&take=200', { token: admin })).body.users as any[];
+    const u = users.find((x) => x.id === id);
+    expect(u.company).toBe('Ferma LLC');
+    expect(u.isBanned).toBe(true);
+    expect(u.fullName).toBe('Новое имя');
+  });
+});

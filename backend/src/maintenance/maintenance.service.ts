@@ -35,22 +35,31 @@ export class MaintenanceService {
     // «Admin@…» не смог бы войти, набрав адрес строчными.
     const email = normalizeEmail(dto.email) as string;
     const passwordHash = await bcrypt.hash(dto.password, 10);
-    const data = {
-      passwordHash,
-      fullName: dto.fullName,
-      phone: dto.phone ?? '',
-      company: dto.company ?? null,
-      inn: dto.inn ?? null,
-      description: dto.description ?? null,
-      role: dto.role ?? UserRole.BUYER,
-      isVerified: true,
-      isBanned: false,
-      isDemo: dto.isDemo ?? false,
+
+    // Существующей записи меняем только то, что передано. Раньше обновление
+    // перезаписывало запись целиком: сброс пароля продавцу без явной роли
+    // делал его покупателем, стирал телефон и реквизиты и снимал блокировку.
+    // А это единственный способ вернуть доступ тому, кто забыл пароль.
+    const provided = {
+      ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
+      ...(dto.company !== undefined ? { company: dto.company } : {}),
+      ...(dto.inn !== undefined ? { inn: dto.inn } : {}),
+      ...(dto.description !== undefined ? { description: dto.description } : {}),
+      ...(dto.role !== undefined ? { role: dto.role } : {}),
+      ...(dto.isDemo !== undefined ? { isDemo: dto.isDemo } : {}),
     };
     const user = await this.prisma.user.upsert({
       where: { email },
-      create: { email, ...data },
-      update: data,
+      create: {
+        email,
+        passwordHash,
+        fullName: dto.fullName,
+        phone: '',
+        role: UserRole.BUYER,
+        isVerified: true,
+        ...provided,
+      },
+      update: { passwordHash, fullName: dto.fullName, ...provided },
     });
     this.logger.warn(`Provisioned user ${user.email} role=${user.role}`);
     return { id: user.id, email: user.email, role: user.role, fullName: user.fullName };
