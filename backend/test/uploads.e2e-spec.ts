@@ -43,10 +43,21 @@ describe('Загрузка файлов', () => {
     expect(r.status).toBe(400);
   });
 
-  it('настоящая картинка ложится с расширением по содержимому, а не по имени', async () => {
+  // Два режима хранения: в S3 ссылка несёт расширение, из базы файл отдаётся
+  // по /api/files/:id с типом в заголовке. В обоих тип — по содержимому.
+  it('настоящая картинка ложится с типом по содержимому, а не по имени', async () => {
     const r = await upload(seller, PNG, 'photo.html', 'image/png');
     expect(r.status).toBe(201);
-    expect(r.body.url).toMatch(/\.png$/);
+    const url: string = r.body.url;
+    expect(url).not.toMatch(/\.html$/);
+    const dbFile = /\/api\/files\/([\w-]+)$/.exec(url);
+    if (dbFile) {
+      const served = await fetch(`${BASE}/files/${dbFile[1]}`);
+      expect(served.headers.get('content-type')).toBe('image/png');
+      expect(served.headers.get('x-content-type-options')).toBe('nosniff');
+    } else {
+      expect(url).toMatch(/\.png$/);
+    }
   });
 
   it('картинку нельзя выдать за сертификат', async () => {
