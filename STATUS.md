@@ -7,8 +7,8 @@
 | Прод | **всё в аккаунтах betterfuture.** Сайт https://vethub.uz (Cloudflare, воркер `vethub-web`, www → основной адрес), API https://api.vethub.uz (Render `vethub-api`, он же https://vethub-api.onrender.com), база Supabase `vethub` (`ajtbmazjtbxektjgbchi`, us-west-2, Betterfuture Org) — данные перенесены из бэкапа 16.11, с 12.10 они не менялись. Домен куплен у Eskiz 16.11, NS переведены на Cloudflare. Настройка Render из GitHub — workflow «Render setup» (секреты `RENDER_API_KEY`, `PROD_DATABASE_URL`) |
 | Ночные бэкапы | идут каждую ночь с новой базы (роль `backup_ro`, только чтение); хранение 30 дней |
 | Схема базы | миграциями, а не подгонкой под код |
-| Доступность | API работает с 17 ноября; сайт на https://vethub.uz ждёт выпуска сертификата Cloudflare |
-| Тесты в CI | 291 юнит, 124 e2e, 77 фронтенд |
+| Доступность | сайт https://vethub.uz и API https://api.vethub.uz работают с 17 ноября |
+| Тесты в CI | 291 юнит, 124 e2e, 80 фронтенд |
 
 ---
 
@@ -26,6 +26,7 @@
 - **Юридические документы на узбекском** (проект перевода), переключаются вместе с языком сайта.
 - **Почта**: `info@vethub.uz` пересылается владельцу (Cloudflare Email Routing). Отправка писем — через HTTP API Resend: на бесплатном Render SMTP закрыт.
 - Пароль проекта-двойника «Vetglobal» (Токио), засвеченный в переписке, заменён через API Supabase.
+- **https://vethub.uz работает**: сертификат выпущен 17.11; http и www уводятся на https://vethub.uz (обёртка воркера `frontend/worker.ts`); статистика посещений — Cloudflare Web Analytics, без cookie.
 
 ---
 

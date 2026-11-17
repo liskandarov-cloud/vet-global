@@ -66,7 +66,7 @@ export default function RegisterPage() {
             ))}
           </div>
           <input className="input" placeholder={tt('ФИО', 'FISH')} value={form.fullName} onChange={upd('fullName')} required />
-          <input className="input" type="email" autoComplete="email" placeholder="Email" value={form.email} onChange={upd('email')} required />
+          <input className="input" type="email" autoComplete="username" placeholder="Email" value={form.email} onChange={upd('email')} required />
           <input className="input" placeholder={tt('Телефон', 'Telefon')} value={form.phone} onChange={upd('phone')} required />
           <input className="input" placeholder={tt('Компания', 'Kompaniya')} value={form.company} onChange={upd('company')} />
           <input className="input" placeholder={tt('ИНН (СТИР)', 'STIR')} value={form.inn} onChange={upd('inn')} />
