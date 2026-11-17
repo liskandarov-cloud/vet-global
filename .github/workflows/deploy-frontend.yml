@@ -29,7 +29,7 @@ jobs:
   deploy:
     runs-on: ubuntu-latest
     env:
-      CLOUDFLARE_ACCOUNT_ID: 75a08cec12a81171ab0fce6a59660c59
+      CLOUDFLARE_ACCOUNT_ID: 698b54a450016a5859e3febff97fdffe
       # Обе переменные нужны на этапе сборки: NEXT_PUBLIC_* вшивается в бандл,
       # а SITE_URL попадает в sitemap и канонические ссылки статических страниц.
       NEXT_PUBLIC_API_URL: https://api.vethub.uz/api
