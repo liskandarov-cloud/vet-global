@@ -15,7 +15,11 @@
 
 name: Demo stand
 
+# Стенд собирается из ветки demo: туда сначала попадают доработки, и их видно
+# на показе раньше, чем на боевом сайте. Пуш в demo обновляет стенд.
 on:
+  push:
+    branches: [demo]
   workflow_dispatch:
     inputs:
       action:
@@ -39,6 +43,7 @@ jobs:
       SVC_NAME: vethub-demo-api
       SITE: https://demo.vethub.uz
       API: https://api.render.com/v1
+      ACTION: ${{ inputs.action || 'up' }}
     steps:
       - name: Проверка секретов
         run: |
@@ -54,17 +59,17 @@ jobs:
           echo "сервис: ${id:-нет}"
 
       - name: Усыпить или разбудить
-        if: inputs.action != 'up'
+        if: env.ACTION != 'up'
         env:
           ID: ${{ steps.svc.outputs.id }}
         run: |
           set -euo pipefail
           test -n "$ID" || { echo "::error::стенд ещё не создан"; exit 1; }
-          curl -fsS -X POST "$API/services/$ID/${{ inputs.action }}" -H "Authorization: Bearer $RENDER_API_KEY" -o /dev/null
-          echo "${{ inputs.action }}: готово"
+          curl -fsS -X POST "$API/services/$ID/$ACTION" -H "Authorization: Bearer $RENDER_API_KEY" -o /dev/null
+          echo "$ACTION: готово"
 
       - name: База
-        if: inputs.action == 'up'
+        if: env.ACTION == 'up'
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer $RENDER_API_KEY")
@@ -85,7 +90,7 @@ jobs:
           printf '%s' "$url" > "$RUNNER_TEMP/db_url"
 
       - name: Переменные и выкатка
-        if: inputs.action == 'up'
+        if: env.ACTION == 'up'
         env:
           ID: ${{ steps.svc.outputs.id }}
         run: |
@@ -113,7 +118,7 @@ jobs:
           if [ -z "$ID" ]; then
             body=$(jq -n --argjson vars "$vars" --arg owner "$OWNER" --arg name "$SVC_NAME" '{
               type:"web_service", name:$name, ownerId:$owner,
-              repo:"https://github.com/liskandarov-cloud/vet-global", branch:"main", autoDeploy:"no",
+              repo:"https://github.com/liskandarov-cloud/vet-global", branch:"demo", autoDeploy:"no",
               envVars: ($vars + [{key:"JWT_SECRET", generateValue:true}]),
               serviceDetails:{runtime:"docker", plan:"free", region:"oregon", healthCheckPath:"/api/health",
                 envSpecificDetails:{dockerfilePath:"./Dockerfile", dockerContext:"."}}}')
