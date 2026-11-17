@@ -89,7 +89,7 @@ describe('VetHub API (e2e)', () => {
     const email = `e2e+${Date.now()}@vg.test`;
     const r = await req('/auth/register', {
       method: 'POST',
-      body: { email, password: 'secret123', fullName: 'E2E User', phone: '+998900000000', role: 'BUYER' },
+      body: { email, password: 'secret123', fullName: 'E2E User', phone: '+998900000000', role: 'BUYER', acceptTerms: true },
     });
     expect(r.status).toBe(201);
     expect(r.body.token).toBeTruthy();
@@ -135,6 +135,7 @@ describe('VetHub API (e2e)', () => {
         fullName: 'Escalation Probe',
         phone: '+998900000000',
         role: 'ADMIN',
+        acceptTerms: true,
       },
     });
     expect(r.status).toBe(400);

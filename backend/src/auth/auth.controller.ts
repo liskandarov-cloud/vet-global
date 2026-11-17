@@ -1,8 +1,8 @@
-import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { RegisterDto, LoginDto } from './dto/auth.dto';
+import { RegisterDto, LoginDto, ForgotPasswordDto, ResetPasswordDto } from './dto/auth.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 
@@ -27,6 +27,23 @@ export class AuthController {
   @Throttle({ default: { ttl: 300_000, limit: 20 } })
   login(@Body() dto: LoginDto) {
     return this.auth.login(dto);
+  }
+
+  // Запрос ссылки — 5 за 15 минут с адреса: письма не должны становиться
+  // способом заспамить чужой ящик.
+  @Post('forgot-password')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 900_000, limit: 5 } })
+  forgotPassword(@Body() dto: ForgotPasswordDto) {
+    return this.auth.forgotPassword(dto.email);
+  }
+
+  // Токен — 32 случайных байта, перебор бессмыслен; лимит гасит шум.
+  @Post('reset-password')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 900_000, limit: 10 } })
+  resetPassword(@Body() dto: ResetPasswordDto) {
+    return this.auth.resetPassword(dto.token, dto.password);
   }
 
   @Get('me')

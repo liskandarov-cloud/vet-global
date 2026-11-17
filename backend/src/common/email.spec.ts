@@ -25,7 +25,7 @@ describe('DTO с почтой нормализуют её до проверки'
     [
       'регистрация',
       RegisterDto,
-      { email: ' Buyer@VetHub.uz ', password: 'secret1', fullName: 'B', phone: '+998', role: 'BUYER' },
+      { email: ' Buyer@VetHub.uz ', password: 'secret12', fullName: 'B', phone: '+998', role: 'BUYER', acceptTerms: true },
     ],
   ])('%s', (_name, cls, plain) => {
     const dto = plainToInstance(cls as any, plain) as unknown as { email: string };

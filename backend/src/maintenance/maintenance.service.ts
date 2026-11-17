@@ -59,7 +59,8 @@ export class MaintenanceService {
         isVerified: true,
         ...provided,
       },
-      update: { passwordHash, fullName: dto.fullName, ...provided },
+      // Новый пароль отзывает прежние сеансы — это и есть возврат доступа.
+      update: { passwordHash, passwordChangedAt: new Date(), fullName: dto.fullName, ...provided },
     });
     this.logger.warn(`Provisioned user ${user.email} role=${user.role}`);
     return { id: user.id, email: user.email, role: user.role, fullName: user.fullName };

@@ -4,7 +4,7 @@ import { serverFetch, SITE_URL } from '@/lib/server-api';
 export const revalidate = 3600; // обновлять карту сайта раз в час
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const staticRoutes = ['', '/catalog', '/promotions', '/suppliers', '/brands', '/rfq', '/blog', '/consult', '/financing'].map((p) => ({
+  const staticRoutes = ['', '/catalog', '/promotions', '/suppliers', '/brands', '/rfq', '/blog', '/consult', '/financing', '/legal/terms', '/legal/privacy', '/legal/sellers'].map((p) => ({
     url: `${SITE_URL}${p}`,
     lastModified: new Date(),
     changeFrequency: 'weekly' as const,

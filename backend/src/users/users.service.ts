@@ -28,10 +28,12 @@ export class UsersService {
     if (!user) throw new NotFoundException('User not found');
     const ok = await bcrypt.compare(dto.currentPassword, user.passwordHash);
     if (!ok) throw new BadRequestException('Текущий пароль неверен');
-    if (dto.newPassword.length < 6) throw new BadRequestException('Новый пароль слишком короткий');
+    if (dto.newPassword.length < 8) throw new BadRequestException('Новый пароль слишком короткий');
+    // Остальные сеансы (другие устройства) отзываются; текущий фронтенд
+    // сразу входит заново с новым паролем.
     await this.prisma.user.update({
       where: { id: userId },
-      data: { passwordHash: await bcrypt.hash(dto.newPassword, 10) },
+      data: { passwordHash: await bcrypt.hash(dto.newPassword, 10), passwordChangedAt: new Date() },
     });
     return { ok: true };
   }

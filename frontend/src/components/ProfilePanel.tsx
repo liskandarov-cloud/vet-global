@@ -11,7 +11,7 @@ import { useI18n } from '@/lib/i18n';
 // Для продавца дополнительно — загрузка лицензий (sellerDocument).
 export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
   const { tt } = useI18n();
-  const { refresh } = useAuth();
+  const { refresh, user, setSession } = useAuth();
   const [me, setMe] = useState<any>(null);
   const [form, setForm] = useState({ fullName: '', phone: '', company: '', inn: '' });
   const [saving, setSaving] = useState(false);
@@ -42,11 +42,17 @@ export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
 
   const changePassword = async () => {
     if (pwd.newPassword !== pwd.confirm) { toast.error(tt('Пароли не совпадают', 'Parollar mos emas')); return; }
-    if (pwd.newPassword.length < 6) { toast.error(tt('Пароль слишком короткий (мин. 6)', 'Parol juda qisqa (min. 6)')); return; }
+    if (pwd.newPassword.length < 8) { toast.error(tt('Пароль слишком короткий (мин. 8)', 'Parol juda qisqa (min. 8)')); return; }
     setChangingPwd(true);
     try {
       await api.patch('/users/me/password', { currentPassword: pwd.currentPassword, newPassword: pwd.newPassword });
-      toast.success(tt('Пароль изменён', 'Parol oʻzgartirildi'));
+      // Смена пароля отзывает все прежние входы, включая этот, — входим заново,
+      // чтобы пользователя не выбросило на следующем же запросе.
+      if (user?.email) {
+        const { data } = await api.post('/auth/login', { email: user.email, password: pwd.newPassword });
+        setSession(data.token, data.user);
+      }
+      toast.success(tt('Пароль изменён. На других устройствах нужно войти заново.', 'Parol oʻzgartirildi. Boshqa qurilmalarda qayta kirish kerak.'));
       setPwd({ currentPassword: '', newPassword: '', confirm: '' });
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));

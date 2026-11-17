@@ -17,6 +17,7 @@ export default function RegisterPage() {
     email: '', password: '', fullName: '', phone: '', company: '', inn: '', role: 'BUYER',
   });
   const [loading, setLoading] = useState(false);
+  const [accept, setAccept] = useState(false);
 
   const upd = (k: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -25,14 +26,15 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const { data } = await api.post('/auth/register', form);
+      const { data } = await api.post('/auth/register', { ...form, acceptTerms: accept });
       setSession(data.token, data.user);
       useFavorites.getState().load();
       const dest = data.user.role === 'SELLER' ? '/seller' : '/dashboard';
       toast.success(tt('Аккаунт создан', 'Hisob yaratildi'));
       router.push(dest);
     } catch (e: any) {
-      toast.error(e?.response?.data?.message ?? tt('Ошибка регистрации', 'Roʻyxatdan oʻtishda xato'));
+      const msg = e?.response?.data?.message;
+      toast.error((Array.isArray(msg) ? msg.join('. ') : msg) ?? tt('Ошибка регистрации', 'Roʻyxatdan oʻtishda xato'));
     } finally {
       setLoading(false);
     }
@@ -68,8 +70,25 @@ export default function RegisterPage() {
           <input className="input" placeholder={tt('Телефон', 'Telefon')} value={form.phone} onChange={upd('phone')} required />
           <input className="input" placeholder={tt('Компания', 'Kompaniya')} value={form.company} onChange={upd('company')} />
           <input className="input" placeholder={tt('ИНН (СТИР)', 'STIR')} value={form.inn} onChange={upd('inn')} />
-          <input className="input" type="password" placeholder={tt('Пароль (мин. 6)', 'Parol (min. 6)')} value={form.password} onChange={upd('password')} required minLength={6} />
-          <button className="btn-primary w-full" disabled={loading}>{loading ? '…' : tt('Создать аккаунт', 'Hisob yaratish')}</button>
+          <input className="input" type="password" autoComplete="new-password" placeholder={tt('Пароль (мин. 8)', 'Parol (min. 8)')} value={form.password} onChange={upd('password')} required minLength={8} />
+          <label className="flex items-start gap-2 text-sm leading-snug text-ink-muted">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-teal-600" checked={accept} onChange={(e) => setAccept(e.target.checked)} required />
+            <span>
+              {tt('Принимаю', 'Men')}{' '}
+              <Link href="/legal/terms" target="_blank" className="text-teal-700 underline">{tt('Пользовательское соглашение', 'Foydalanuvchi kelishuvi')}</Link>
+              {form.role === 'SELLER' && (
+                <>
+                  {', '}
+                  <Link href="/legal/sellers" target="_blank" className="text-teal-700 underline">{tt('Условия для продавцов', 'Sotuvchilar uchun shartlar')}</Link>
+                </>
+              )}
+              {/* Узбекские аффиксы пишутся слитно со ссылкой: «kelishuvini», «siyosatiga». */}
+              {tt(' и даю согласие на обработку персональных данных по ', 'ni qabul qilaman va shaxsga doir maʼlumotlarimni ')}
+              <Link href="/legal/privacy" target="_blank" className="text-teal-700 underline">{tt('Политике конфиденциальности', 'Maxfiylik siyosati')}</Link>
+              {tt('', 'ga muvofiq qayta ishlashga rozilik beraman')}
+            </span>
+          </label>
+          <button className="btn-primary w-full" disabled={loading || !accept}>{loading ? '…' : tt('Создать аккаунт', 'Hisob yaratish')}</button>
         </form>
         <p className="mt-4 text-center text-sm text-ink-muted">
           {tt('Уже есть аккаунт?', 'Hisobingiz bormi?')} <Link href="/login" className="font-medium text-teal-700 hover:underline">{tt('Войти', 'Kirish')}</Link>

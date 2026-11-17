@@ -5,10 +5,12 @@ import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { resolveJwtSecret } from '../common/jwt-secret';
+import { issuedBeforePasswordChange } from './password-reset';
 
 export interface JwtPayload {
   sub: string;
   role: string;
+  iat?: number;
 }
 
 @Injectable()
@@ -28,6 +30,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.prisma.user.findUnique({ where: { id: payload.sub } });
     if (!user || user.isBanned) {
       throw new UnauthorizedException('Invalid or banned user');
+    }
+    if (issuedBeforePasswordChange(payload.iat, user.passwordChangedAt)) {
+      throw new UnauthorizedException('Session expired: password was changed');
     }
     return {
       id: user.id,

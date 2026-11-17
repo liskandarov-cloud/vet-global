@@ -37,7 +37,7 @@ const login = async (email: string, password: string) =>
 const register = (email: string, role: 'BUYER' | 'SELLER', extra: Record<string, unknown> = {}) =>
   req('/auth/register', {
     method: 'POST',
-    body: { email, password: 'secret123', fullName: 'E2E', phone: '+998900000000', role, ...extra },
+    body: { email, password: 'secret123', fullName: 'E2E', phone: '+998900000000', role, acceptTerms: true, ...extra },
   });
 
 describe('Витрина: только проверенные продавцы', () => {

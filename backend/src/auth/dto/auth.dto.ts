@@ -1,4 +1,4 @@
-import { IsEmail, IsIn, IsOptional, IsString, MinLength } from 'class-validator';
+import { Equals, IsEmail, IsIn, IsOptional, IsString, Length, MinLength } from 'class-validator';
 import { UserRole } from '@prisma/client';
 import { NormalizeEmail } from '../../common/email';
 
@@ -13,7 +13,7 @@ export class RegisterDto {
   email: string;
 
   @IsString()
-  @MinLength(6)
+  @MinLength(8, { message: 'Пароль должен быть не короче 8 символов' })
   password: string;
 
   @IsString()
@@ -34,6 +34,11 @@ export class RegisterDto {
     message: 'role must be one of the following values: BUYER, SELLER',
   })
   role: UserRole;
+
+  // Согласие с пользовательским соглашением и политикой ПДн обязательно:
+  // без него обрабатывать персональные данные нельзя.
+  @Equals(true, { message: 'Нужно принять пользовательское соглашение и политику конфиденциальности' })
+  acceptTerms: boolean;
 }
 
 export class LoginDto {
@@ -42,5 +47,22 @@ export class LoginDto {
   email: string;
 
   @IsString()
+  password: string;
+}
+
+export class ForgotPasswordDto {
+  @NormalizeEmail()
+  @IsEmail()
+  email: string;
+}
+
+export class ResetPasswordDto {
+  // base64url от 32 байт — ровно 43 символа.
+  @IsString()
+  @Length(43, 43, { message: 'Ссылка недействительна или устарела. Запросите новую.' })
+  token: string;
+
+  @IsString()
+  @MinLength(8, { message: 'Пароль должен быть не короче 8 символов' })
   password: string;
 }

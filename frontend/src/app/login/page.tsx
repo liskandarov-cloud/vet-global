@@ -43,10 +43,13 @@ export default function LoginPage() {
           <h1 className="font-heading text-2xl font-extrabold">{tt('Вход в', 'Kirish —')} <span className="text-gradient">VetHub</span></h1>
         </div>
         <form onSubmit={submit} className="space-y-4">
-          <input className="input" type="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
-          <input className="input" type="password" placeholder={tt('Пароль', 'Parol')} value={password} onChange={(e) => setPassword(e.target.value)} required />
+          <input className="input" type="email" autoComplete="email" placeholder="Email" value={email} onChange={(e) => setEmail(e.target.value)} required />
+          <input className="input" type="password" autoComplete="current-password" placeholder={tt('Пароль', 'Parol')} value={password} onChange={(e) => setPassword(e.target.value)} required />
           <button className="btn-primary w-full" disabled={loading}>{loading ? '…' : tt('Войти', 'Kirish')}</button>
         </form>
+        <p className="mt-3 text-right text-sm">
+          <Link href="/forgot-password" className="text-teal-700 hover:underline">{tt('Забыли пароль?', 'Parolni unutdingizmi?')}</Link>
+        </p>
         <p className="mt-4 text-center text-sm text-ink-muted">
           {tt('Нет аккаунта?', 'Hisob yoʻqmi?')} <Link href="/register" className="font-medium text-teal-700 hover:underline">{tt('Регистрация', 'Roʻyxatdan oʻtish')}</Link>
         </p>

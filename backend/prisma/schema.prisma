@@ -153,6 +153,12 @@ model User {
   vatPayer     Boolean @default(false) // плательщик НДС (ҚҚС 12%) — показывать в счёте
   syncApiKey   String? @unique // ключ интеграции 1С/ERP (по нему сопоставляется поставщик)
 
+  // Смена пароля отзывает выданные раньше токены (jwt.strategy сравнивает iat).
+  passwordChangedAt DateTime?
+  // Согласие с соглашением и политикой ПДн: когда и с какой редакцией.
+  termsAcceptedAt   DateTime?
+  termsVersion      String?
+
   // Финансирование закупок (блок 2)
   creditLimit Decimal @default(0) @db.Decimal(12, 2) // одобренный кредитный лимит покупателя
   creditUsed  Decimal @default(0) @db.Decimal(12, 2) // занято под отсрочку/рассрочку
@@ -182,6 +188,7 @@ model User {
   blogPosts          BlogPost[]
   sellerLicenses     SellerDocument[]
   stockAlerts        StockAlert[]
+  passwordResets     PasswordResetToken[]
 
   @@index([role])
   @@index([role, isVerified])
@@ -938,4 +945,19 @@ model StoredFile {
   size      Int
   data      Bytes
   createdAt DateTime @default(now())
+}
+
+// Одноразовая ссылка сброса пароля. Хранится только SHA-256 токена: утечка
+// таблицы не даёт войти ни в один аккаунт.
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  userId    String
+  tokenHash String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
 }

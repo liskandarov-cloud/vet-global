@@ -27,11 +27,14 @@ export function Footer() {
           <ul className="space-y-2 text-sm text-ink-muted">
             <li><Link href="/blog" className="hover:text-teal-700">{tt('Блог', 'Blog')}</Link></li>
             <li><Link href="/consult" className="hover:text-teal-700">{tt('Ветконсультация', 'Vet maslahat')}</Link></li>
+            <li><Link href="/legal/terms" className="hover:text-teal-700">{tt('Пользовательское соглашение', 'Foydalanuvchi kelishuvi')}</Link></li>
+            <li><Link href="/legal/privacy" className="hover:text-teal-700">{tt('Политика конфиденциальности', 'Maxfiylik siyosati')}</Link></li>
+            <li><Link href="/legal/sellers" className="hover:text-teal-700">{tt('Условия для продавцов', 'Sotuvchilar uchun shartlar')}</Link></li>
           </ul>
         </div>
         <div>
           <div className="mb-3 font-semibold">{tt('Контакты', 'Aloqa')}</div>
-          <p className="text-sm text-ink-muted">{tt('Ташкент, Узбекистан', 'Toshkent, Oʻzbekiston')}<br />info@vetglobal.uz</p>
+          <p className="text-sm text-ink-muted">{tt('Ташкент, Узбекистан', 'Toshkent, Oʻzbekiston')}<br />info@vethub.uz</p>
         </div>
       </div>
       <div className="border-t border-slate-100 py-4 text-center text-xs text-ink-subtle">
