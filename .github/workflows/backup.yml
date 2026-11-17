@@ -106,3 +106,38 @@ jobs:
           path: vetglobal-*.dump
           retention-days: 30
           if-no-files-found: error
+
+  # Схема базы прода совпадает со схемой кода.
+  #
+  # Так было не всегда: прод поднялся из бэкапа старой схемы, запуск принял её
+  # как исходную миграцию 0_init, и в базе не оказалось таблицы тарифов
+  # доставки и части колонок заказа. Падали удаление аккаунта и тарифы, а
+  # заметили это только по ошибке 500. Проверка идёт той же ролью только на
+  # чтение: для сравнения схем хватает чтения каталога.
+  schema-drift:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+
+      - name: Схема базы совпадает с кодом
+        working-directory: backend
+        env:
+          DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          set -uo pipefail
+          test -n "$DB_URL" || { echo "::error::секрет BACKUP_DATABASE_URL не задан"; exit 1; }
+          # Версия Prisma — как в backend/package.json.
+          npx --yes prisma@5.22.0 migrate diff \
+            --from-url "$DB_URL" --to-schema-datamodel prisma/schema.prisma \
+            --script --exit-code > drift.sql
+          code=$?
+          if [ "$code" = 0 ]; then echo "расхождений нет"; exit 0; fi
+          if [ "$code" = 2 ]; then
+            echo "::error::схема базы прода расходится с кодом — SQL, который её выровнял бы:"
+            cat drift.sql
+            exit 1
+          fi
+          echo "::error::сравнение схем не удалось (код $code)"; exit 1
