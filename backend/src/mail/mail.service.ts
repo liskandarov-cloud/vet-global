@@ -1,6 +1,7 @@
 import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import * as nodemailer from 'nodemailer';
+import { sendViaResend } from './resend';
 
 export interface MailMessage {
   to: string | string[];
@@ -21,7 +22,19 @@ export class MailService implements OnModuleInit {
 
   private ethereal = false;
 
+  // Отправка через HTTP API Resend. На бесплатном Render исходящий SMTP
+  // закрыт, поэтому на проде письма уходят только так; SMTP остаётся для
+  // самостоятельной установки. Домен отправителя должен быть подтверждён у
+  // провайдера (SPF/DKIM), иначе письма уйдут в спам или не уйдут вовсе.
+  private resendKey?: string;
+
   async onModuleInit() {
+    this.resendKey = this.config.get<string>('RESEND_API_KEY') || undefined;
+    if (this.resendKey) {
+      this.enabled = true;
+      this.logger.log('Mail via Resend HTTP API.');
+      return;
+    }
     const host = this.config.get<string>('SMTP_HOST');
     if (!host) {
       this.logger.warn('SMTP not configured — emails will be logged to console (dev mode).');
@@ -68,6 +81,10 @@ export class MailService implements OnModuleInit {
     const to = Array.isArray(msg.to) ? msg.to.filter(Boolean).join(', ') : msg.to;
     if (!to) return;
 
+    if (this.resendKey) {
+      await this.deliverViaResend(Array.isArray(msg.to) ? msg.to.filter(Boolean) : [msg.to], msg);
+      return;
+    }
     if (!this.enabled || !this.transporter) {
       this.logger.log(`[DEV EMAIL] → ${to} | ${msg.subject}`);
       return;
@@ -79,5 +96,11 @@ export class MailService implements OnModuleInit {
     } catch (e) {
       this.logger.error(`Email failed → ${to}: ${(e as Error).message}`);
     }
+  }
+
+  private async deliverViaResend(to: string[], msg: MailMessage): Promise<void> {
+    const err = await sendViaResend(this.resendKey as string, { from: this.from, to, subject: msg.subject, html: msg.html });
+    if (err) this.logger.error(`Email failed → ${to.join(', ')}: ${err}`);
+    else this.logger.log(`Email sent → ${to.join(', ')} | ${msg.subject}`);
   }
 }
