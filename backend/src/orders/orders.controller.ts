@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Audit } from '../audit/audit.decorator';
 import { Response } from 'express';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { OrderStatus, UserRole } from '@prisma/client';
@@ -94,6 +95,7 @@ export class OrdersController {
   }
 
   // Удаление заказа (только админ) — чистка тестовых/ошибочных заказов.
+  @Audit('order.delete', 'Order')
   @Delete(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

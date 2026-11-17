@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Post, Put, UseGuards } from '@nestjs/common';
+import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { OffersService } from './offers.service';
@@ -61,6 +62,7 @@ export class OffersController {
   }
 
   // Верификация подлинности (админ): сертификаты/партия проверены.
+  @Audit('offer.verify', 'Offer')
   @Post('offers/:id/verify')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

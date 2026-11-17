@@ -1,3 +1,4 @@
+import { Audit } from '../audit/audit.decorator';
 import {
   BadRequestException,
   Body,
@@ -83,6 +84,7 @@ export class ReviewsController {
     });
   }
 
+  @Audit('review.approve', 'Review')
   @Patch(':id/approve')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -94,6 +96,7 @@ export class ReviewsController {
   }
 
   // Отклонить/удалить отзыв (модерация): спам или неуместный контент.
+  @Audit('review.delete', 'Review')
   @Delete(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

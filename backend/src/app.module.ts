@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { AuditModule } from './audit/audit.module';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { APP_GUARD } from '@nestjs/core';
@@ -47,6 +48,7 @@ import { AppController } from './app.controller';
     // Планировщик в самом приложении: подписки должны обрабатываться сами.
     ScheduleModule.forRoot(),
     ConfigModule.forRoot({ isGlobal: true }),
+    AuditModule,
     // Общий потолок частоты запросов. Без него пароль можно было подбирать
     // бесконечно: 12 неверных попыток подряд получали 401 и ни одного отказа.
     // Строгий лимит на вход/регистрацию задаётся точечно в AuthController.

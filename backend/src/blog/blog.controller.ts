@@ -1,3 +1,4 @@
+import { Audit } from '../audit/audit.decorator';
 import {
   Body,
   Controller,
@@ -95,6 +96,7 @@ export class BlogController {
     return post;
   }
 
+  @Audit('blog.create', 'BlogPost')
   @Post()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -109,6 +111,7 @@ export class BlogController {
     });
   }
 
+  @Audit('blog.update', 'BlogPost')
   @Patch(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -117,6 +120,7 @@ export class BlogController {
     return this.prisma.blogPost.update({ where: { id }, data: dto });
   }
 
+  @Audit('blog.delete', 'BlogPost')
   @Delete(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

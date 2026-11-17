@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Post, Query, UseGuards } from '@nestjs/common';
+import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CreditStatus, UserRole } from '@prisma/client';
 import { FinancingService } from './financing.service';
@@ -32,6 +33,7 @@ export class FinancingController {
     return this.financing.list(status);
   }
 
+  @Audit('financing.decide', 'CreditApplication')
   @Post(':id/decide')
   @UseGuards(RolesGuard)
   @Roles(UserRole.ADMIN)

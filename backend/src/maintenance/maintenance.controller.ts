@@ -1,4 +1,5 @@
 import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { MaintenanceService, ProvisionUserDto } from './maintenance.service';
@@ -15,18 +16,21 @@ export class MaintenanceController {
   constructor(private readonly maintenance: MaintenanceService) {}
 
   // Очистка демо/операционных данных (только админ + фраза подтверждения).
+  @Audit('maintenance.reset', 'System')
   @Post('reset')
   reset(@Body('confirm') confirm: string) {
     return this.maintenance.reset(confirm);
   }
 
   // Создание/обновление учётной записи с ролью (в т.ч. ADMIN).
+  @Audit('user.provision', 'User')
   @Post('user')
   provisionUser(@Body() dto: ProvisionUserDto) {
     return this.maintenance.provisionUser(dto);
   }
 
   // Синхронизация брендов с производителями товаров.
+  @Audit('maintenance.syncBrands', 'Brand')
   @Post('sync-brands')
   syncBrands() {
     return this.maintenance.syncBrands();

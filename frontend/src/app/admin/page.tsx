@@ -9,12 +9,13 @@ import { RoleGuard, StatCard } from '@/components/RoleGuard';
 import { WeeklyBars } from '@/components/Charts';
 import { formatMoney } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
+import { AdminAuditLog } from '@/components/AdminAuditLog';
 
 function AdminContent() {
   const { tt } = useI18n();
   const LEAD_STATUS: Record<string, string> = { NEW: tt('Новая', 'Yangi'), CONTACTED: tt('В работе', 'Jarayonda'), CLOSED: tt('Закрыта', 'Yopilgan') };
   const CONSULT_STATUS: Record<string, string> = { NEW: tt('Новая', 'Yangi'), IN_PROGRESS: tt('В работе', 'Jarayonda'), ANSWERED: tt('Отвечено', 'Javob berildi'), CLOSED: tt('Закрыта', 'Yopilgan') };
-  const [tab, setTab] = useState<'overview' | 'billing' | 'orders' | 'rfq' | 'certs' | 'users' | 'reviews' | 'leads' | 'consults' | 'blog'>('overview');
+  const [tab, setTab] = useState<'overview' | 'billing' | 'orders' | 'rfq' | 'certs' | 'users' | 'reviews' | 'leads' | 'consults' | 'blog' | 'audit'>('overview');
   const [stats, setStats] = useState<any>(null);
   const [users, setUsers] = useState<any[]>([]);
   // Документы продавца по id: проверка без них — подтверждение вслепую.
@@ -153,7 +154,7 @@ function AdminContent() {
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['overview', tt('Обзор', 'Umumiy')], ['billing', tt('Биллинг', 'Billing')], ['orders', `${tt('Заказы', 'Buyurtmalar')}${orders.length ? ` (${orders.length})` : ''}`], ['rfq', `${tt('Запросы цен', 'Narx soʻrovlari')}${rfqs.length ? ` (${rfqs.length})` : ''}`], ['certs', `${tt('Сертификаты', 'Sertifikatlar')}${certQueue.length ? ` (${certQueue.length})` : ''}`], ['leads', `${tt('Заявки', 'Arizalar')}${newLeads ? ` (${newLeads})` : ''}`], ['consults', `${tt('Консультации', 'Konsultatsiyalar')}${newConsults ? ` (${newConsults})` : ''}`], ['users', `${tt('Пользователи', 'Foydalanuvchilar')}${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `${tt('Отзывы', 'Sharhlar')}${reviews.length ? ` (${reviews.length})` : ''}`], ['blog', tt('Блог', 'Blog')]].map(([k, l]) => (
+        {[['overview', tt('Обзор', 'Umumiy')], ['billing', tt('Биллинг', 'Billing')], ['orders', `${tt('Заказы', 'Buyurtmalar')}${orders.length ? ` (${orders.length})` : ''}`], ['rfq', `${tt('Запросы цен', 'Narx soʻrovlari')}${rfqs.length ? ` (${rfqs.length})` : ''}`], ['certs', `${tt('Сертификаты', 'Sertifikatlar')}${certQueue.length ? ` (${certQueue.length})` : ''}`], ['leads', `${tt('Заявки', 'Arizalar')}${newLeads ? ` (${newLeads})` : ''}`], ['consults', `${tt('Консультации', 'Konsultatsiyalar')}${newConsults ? ` (${newConsults})` : ''}`], ['users', `${tt('Пользователи', 'Foydalanuvchilar')}${stats?.pendingSellers ? ` (${stats.pendingSellers})` : ''}`], ['reviews', `${tt('Отзывы', 'Sharhlar')}${reviews.length ? ` (${reviews.length})` : ''}`], ['blog', tt('Блог', 'Blog')], ['audit', tt('Журнал', 'Jurnal')]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>{l}</button>
         ))}
@@ -443,6 +444,8 @@ function AdminContent() {
           {consults.length === 0 && <div className="py-10 text-center text-ink-subtle">{tt('Консультаций пока нет', 'Hozircha konsultatsiyalar yoʻq')}</div>}
         </div>
       )}
+
+      {tab === 'audit' && <AdminAuditLog />}
 
       {tab === 'blog' && (
         <div className="mt-6">

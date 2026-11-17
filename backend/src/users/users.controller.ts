@@ -1,4 +1,5 @@
 import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { UsersService } from './users.service';
@@ -106,6 +107,7 @@ export class UsersController {
     return this.users.listSellerDocuments(id);
   }
 
+  @Audit('user.verify', 'User')
   @Patch('admin/users/:id/verify')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -114,6 +116,7 @@ export class UsersController {
     return this.users.adminVerify(id, isVerified);
   }
 
+  @Audit('user.ban', 'User')
   @Patch('admin/users/:id/ban')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
@@ -125,6 +128,7 @@ export class UsersController {
   // Удаление пользователя (админ) — чистка тестовых аккаунтов.
   // Заказы и связанные записи уходят каскадом, поэтому удалять стоит только
   // тех, у кого нет реальной истории; иначе безопаснее бан.
+  @Audit('user.delete', 'User')
   @Delete('admin/users/:id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

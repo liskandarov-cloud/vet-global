@@ -189,6 +189,7 @@ model User {
   sellerLicenses     SellerDocument[]
   stockAlerts        StockAlert[]
   passwordResets     PasswordResetToken[]
+  adminActions       AdminAuditLog[]
 
   @@index([role])
   @@index([role, isVerified])
@@ -968,4 +969,22 @@ model PasswordResetToken {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+}
+
+// Журнал действий администраторов: кто проверил продавца, заблокировал
+// пользователя, одобрил кредит. Пишется декоратором @Audit (src/audit).
+// Админа не удаляем каскадом: запись о его действиях важнее его учётки.
+model AdminAuditLog {
+  id         String   @id @default(uuid())
+  adminId    String
+  action     String
+  targetType String
+  targetId   String?
+  details    Json?
+  createdAt  DateTime @default(now())
+
+  admin User @relation(fields: [adminId], references: [id], onDelete: Restrict)
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
 }

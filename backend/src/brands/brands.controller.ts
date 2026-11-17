@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, UseGuards } from '@nestjs/common';
+import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { BrandsService } from './brands.service';
@@ -21,6 +22,7 @@ export class BrandsController {
     return this.brands.getBySlug(slug);
   }
 
+  @Audit('brand.sponsor', 'Brand')
   @Patch(':id/sponsor')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsEnum, IsOptional, IsString } from 'class-validator';
 import { AnimalType, ConsultStatus, UserRole } from '@prisma/client';
@@ -48,6 +49,7 @@ export class ConsultingController {
     return this.consulting.list(status);
   }
 
+  @Audit('consult.update', 'ConsultRequest')
   @Patch(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)

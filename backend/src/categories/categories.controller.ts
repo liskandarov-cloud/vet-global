@@ -1,4 +1,5 @@
 import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsOptional, IsString } from 'class-validator';
 import { UserRole } from '@prisma/client';
@@ -24,6 +25,7 @@ export class CategoriesController {
     return this.prisma.category.findMany({ orderBy: { name: 'asc' } });
   }
 
+  @Audit('category.create', 'Category')
   @Post()
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
