@@ -1,0 +1,67 @@
+# Настройка сервиса vethub-api в Render без дашборда.
+#
+# Строка подключения к базе уже есть в секрете бэкапа, поэтому её не нужно
+# заново доставать из кабинета Supabase: шаг переносит её в Render внутри
+# GitHub, значение нигде не печатается. Заодно подключает домен api.vethub.uz
+# и запускает выкатку. Повторный запуск безопасен.
+#
+# Требуется секрет RENDER_API_KEY (Render → Account Settings → API Keys).
+
+name: Render setup
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  setup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      SERVICE: srv-dbe9iflg1s2s73es8lh0
+      DOMAIN: api.vethub.uz
+      API: https://api.render.com/v1
+    steps:
+      - name: DATABASE_URL из секрета бэкапа
+        run: |
+          set -euo pipefail
+          test -n "$RENDER_API_KEY" || { echo "::error::секрет RENDER_API_KEY не задан"; exit 1; }
+          test -n "$DB_URL" || { echo "::error::секрет BACKUP_DATABASE_URL не задан"; exit 1; }
+          # На транзакционном пулере (6543) ломается prisma db push при старте,
+          # нужен session-пулер 5432 того же хоста.
+          URL=$(printf '%s' "$DB_URL" | sed 's#:6543/#:5432/#')
+          printf '%s' "$URL" | grep -q 'pooler\.supabase\.com:5432/' \
+            || { echo "::error::в секрете бэкапа не session-пулер Supabase"; exit 1; }
+          jq -n --arg v "$URL" '{value: $v}' > body.json
+          code=$(curl -s -o resp.json -w '%{http_code}' -X PUT "$API/services/$SERVICE/env-vars/DATABASE_URL" \
+            -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' --data @body.json)
+          rm -f body.json
+          test "$code" = 200 || { echo "::error::Render ответил $code"; jq -r '.message? // empty' resp.json; exit 1; }
+          echo "DATABASE_URL записан"
+
+      - name: Домен api.vethub.uz
+        run: |
+          set -euo pipefail
+          code=$(curl -s -o resp.json -w '%{http_code}' -X POST "$API/services/$SERVICE/custom-domains" \
+            -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' \
+            -d "{\"name\":\"$DOMAIN\"}")
+          case "$code" in
+            200|201) echo "домен добавлен" ;;
+            409) echo "домен уже был добавлен" ;;
+            *) echo "::error::Render ответил $code"; cat resp.json; exit 1 ;;
+          esac
+          # Подтверждение пройдёт, только когда DNS уже смотрит на Cloudflare;
+          # раньше — не ошибка, Render перепроверяет сам.
+          curl -s -X POST "$API/services/$SERVICE/custom-domains/$DOMAIN/verify" \
+            -H "Authorization: Bearer $RENDER_API_KEY" -o /dev/null -w 'verify: %{http_code}\n' || true
+
+      - name: Выкатка
+        run: |
+          set -euo pipefail
+          curl -fsS -X POST "$API/services/$SERVICE/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' \
+            -d '{"clearCache":"do_not_clear"}' | jq '{id, status}'
