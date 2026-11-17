@@ -6,6 +6,7 @@
 // доставки и город.
 
 import { DeliveryMethod } from '@prisma/client';
+import { cityKey } from './city';
 
 export interface Tariff {
   method: DeliveryMethod;
@@ -17,9 +18,10 @@ export interface Tariff {
   isActive?: boolean;
 }
 
-// Сравнение городов: в прайсах и адресах пишут «Ташкент», «ташкент», « Ташкент ».
+// Сравнение городов: «Ташкент», « ташкент », «Toshkent», «г. Ташкент» — один
+// город (см. city.ts).
 function sameCity(a?: string | null, b?: string | null): boolean {
-  return (a ?? '').trim().toLowerCase() === (b ?? '').trim().toLowerCase();
+  return cityKey(a) === cityKey(b);
 }
 
 // Тариф без города — тот, что применяется ко всем городам, кроме перечисленных.

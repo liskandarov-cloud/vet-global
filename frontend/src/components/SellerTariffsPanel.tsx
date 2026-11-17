@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { formatMoney } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
+import { CITIES } from '@/lib/cities';
 
 interface Tariff {
   id: string;
@@ -19,7 +20,6 @@ interface Tariff {
   note?: string | null;
 }
 
-const CITIES = ['Ташкент', 'Самарканд', 'Бухара', 'Наманган', 'Андижан', 'Фергана', 'Нукус', 'Карши', 'Термез', 'Урганч', 'Навои', 'Джизак', 'Гулистан'];
 
 export function SellerTariffsPanel() {
   const { tt } = useI18n();
@@ -89,7 +89,7 @@ export function SellerTariffsPanel() {
               value={form.city}
               onChange={(e) => setForm({ ...form, city: e.target.value })}
             />
-            <datalist id="vg-tariff-cities">{CITIES.map((c) => <option key={c} value={c} />)}</datalist>
+            <datalist id="vg-tariff-cities">{CITIES.map(([ru, uz]) => <option key={ru} value={tt(ru, uz)} />)}</datalist>
           </div>
           <div>
             <label className="mb-1 block text-xs text-ink-muted">{tt('Стоимость, сум', 'Narxi, soʻm')}</label>

@@ -286,8 +286,8 @@ export default function ProductPage() {
                 </>
               )}
             </div>
-            {selectedOffer && packNote(selectedOffer) && !hasContract && (
-              <div className="mt-1 text-xs text-ink-subtle">{packNote(selectedOffer)}</div>
+            {selectedOffer && packNote(selectedOffer, tt) && !hasContract && (
+              <div className="mt-1 text-xs text-ink-subtle">{packNote(selectedOffer, tt)}</div>
             )}
             <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-subtle">
               <span>{t('product.minOrder')}: {effMinOrder}</span>
@@ -428,7 +428,7 @@ export default function ProductPage() {
                             {isCheapest && offers.length > 1 && (
                               <span className="ml-2 rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">{tt('мин. цена', 'min. narx')}</span>
                             )}
-                            {packNote(o) && <div className="text-xs text-ink-subtle">{packNote(o)}</div>}
+                            {packNote(o, tt) && <div className="text-xs text-ink-subtle">{packNote(o, tt)}</div>}
                             {o.netTermDays ? (
                               <div className="text-xs text-ink-subtle">{tt('отсрочка', 'muddatli toʻlov')} {o.netTermDays} {tt('дн.', 'kun')}</div>
                             ) : null}
@@ -634,12 +634,13 @@ function Detail({
 }
 
 // Подпись-расшифровка фасовки: «22 400 сум за 1000 доз · флакон 5000 доз».
-function packNote(o: Offer): string | null {
+function packNote(o: Offer, tt: (ru: string, uz: string) => string): string | null {
   const qty = o.priceUnitQty ?? 1;
   const size = o.packSize ?? 1;
   if (qty === 1 && size === 1) return null;
   const noun = (o.priceUnit ?? '').replace(/^[\d\s]+/, '').trim(); // «1000 доз» → «доз»
-  const base = `${Math.round(o.price).toLocaleString('ru-RU')} сум${o.priceUnit ? ` за ${o.priceUnit}` : ''}`;
+  const price = `${Math.round(o.price).toLocaleString('ru-RU')} ${tt('сум', 'soʻm')}`;
+  const base = o.priceUnit ? tt(`${price} за ${o.priceUnit}`, `${o.priceUnit} uchun ${price}`) : price;
   const pack = [o.packUnit, size.toLocaleString('ru-RU'), noun].filter(Boolean).join(' ');
   return pack ? `${base} · ${pack}` : base;
 }

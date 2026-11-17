@@ -7,6 +7,7 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
 import { useI18n } from '@/lib/i18n';
+import { UNITS } from '@/lib/cities';
 
 const STATUS: Record<string, { label: string; cls: string }> = {
   OPEN: { label: 'Открыт', cls: 'bg-teal-50 text-teal-700' },
@@ -92,7 +93,7 @@ function BuyerRfq() {
               <input className="input flex-1" placeholder={tt('напр. Вакцина НБ Ла-Сота', 'masalan, NB La-Sota vaksinasi')} value={it.name} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, name: e.target.value } : x))} />
               <input className="input w-20 text-center" type="number" min={1} value={it.quantity} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, quantity: Number(e.target.value) || 1 } : x))} />
               <select className="input w-24" value={it.unit} onChange={(e) => setItems(items.map((x, j) => j === i ? { ...x, unit: e.target.value } : x))}>
-                {['шт', 'флакон', 'доз', 'л', 'мл', 'кг', 'г', 'уп'].map((u) => <option key={u} value={u}>{u}</option>)}
+                {UNITS.map(([u, uz]) => <option key={u} value={u}>{tt(u, uz)}</option>)}
               </select>
               {items.length > 1 && (
                 <button className="grid w-10 place-items-center rounded-lg text-ink-subtle hover:text-red-500" onClick={() => setItems(items.filter((_, j) => j !== i))}><Trash2 size={16} /></button>

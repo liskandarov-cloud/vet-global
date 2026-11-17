@@ -89,3 +89,12 @@ export const STATUS_LABELS: Record<string, string> = {
   DELIVERED: 'Доставлен',
   CANCELLED: 'Отменён',
 };
+
+export const STATUS_LABELS_UZ: Record<string, string> = {
+  PENDING: 'Yangi',
+  CONFIRMED: 'Tasdiqlangan',
+  PROCESSING: 'Qayta ishlanmoqda',
+  SHIPPED: 'Joʻnatilgan',
+  DELIVERED: 'Yetkazilgan',
+  CANCELLED: 'Bekor qilindi',
+};

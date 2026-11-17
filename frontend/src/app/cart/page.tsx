@@ -9,6 +9,7 @@ import { api } from '@/lib/api';
 import { useCart, useAuth, cartKey } from '@/lib/store';
 import { estimateParams, isComplete, totalWithDelivery, type DeliveryEstimate, type DeliveryMethod } from '@/lib/delivery';
 import { useI18n } from '@/lib/i18n';
+import { CITIES } from '@/lib/cities';
 import { formatMoney } from '@/lib/utils';
 
 export default function CartPage() {
@@ -217,8 +218,8 @@ export default function CartPage() {
                   className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm outline-none focus:border-teal-400"
                 />
                 <datalist id="vg-cities">
-                  {['Ташкент', 'Самарканд', 'Бухара', 'Наманган', 'Андижан', 'Фергана', 'Нукус', 'Карши', 'Термез', 'Урганч', 'Навои', 'Джизак', 'Гулистан'].map((c) => (
-                    <option key={c} value={c} />
+                  {CITIES.map(([ru, uz]) => (
+                    <option key={ru} value={tt(ru, uz)} />
                   ))}
                 </datalist>
                 <input
