@@ -7,7 +7,7 @@
 // sitemap остаётся без товаров и статей, а страницы — без метаданных.
 // Поэтому на Vercel внутренний адрес пропускаем.
 
-const PUBLIC_FALLBACK = 'https://vethub-api.onrender.com/api';
+const PUBLIC_FALLBACK = 'https://api.vethub.uz/api';
 
 // Похож ли адрес на внутрисетевой (docker-хост, localhost) — снаружи он мёртв.
 function isInternalHost(url: string): boolean {
@@ -54,4 +54,4 @@ export async function serverFetch<T = any>(path: string, revalidate = 60): Promi
   return null;
 }
 
-export const SITE_URL = process.env.SITE_URL ?? 'https://vetglobal-web.l-iskandarov.workers.dev';
+export const SITE_URL = process.env.SITE_URL ?? 'https://vethub.uz';

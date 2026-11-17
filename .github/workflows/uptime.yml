@@ -62,10 +62,10 @@ jobs:
             return 1
           }
 
-          check "API health"  "https://vethub-api.onrender.com/api/health" 200 || true
-          check "API каталог" "https://vethub-api.onrender.com/api/categories" 200 || true
-          check "Фронтенд"    "https://vetglobal-web.l-iskandarov.workers.dev/" 200 || true
-          check "Каталог"     "https://vetglobal-web.l-iskandarov.workers.dev/catalog" 200 || true
+          check "API health"  "https://api.vethub.uz/api/health" 200 || true
+          check "API каталог" "https://api.vethub.uz/api/categories" 200 || true
+          check "Фронтенд"    "https://vethub.uz/" 200 || true
+          check "Каталог"     "https://vethub.uz/catalog" 200 || true
 
           if [ -s /tmp/failed.md ]; then
             echo "failed=true" >> "$GITHUB_OUTPUT"

@@ -10,7 +10,7 @@
 // умолчание живёт здесь, одно на весь код. FRONTEND_URL и CORS_ORIGINS
 // по-прежнему его переопределяют.
 
-export const DEFAULT_FRONTEND_URL = 'https://vetglobal-web.l-iskandarov.workers.dev';
+export const DEFAULT_FRONTEND_URL = 'https://vethub.uz';
 
 type Env = Record<string, string | undefined>;
 

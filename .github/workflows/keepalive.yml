@@ -35,4 +35,4 @@ jobs:
     steps:
       - name: Разбудить API
         # Сбой здесь не повод краснеть: о недоступности сообщает Uptime.
-        run: curl -s -o /dev/null -m 90 -w '%{http_code}\n' https://vethub-api.onrender.com/api/health || true
+        run: curl -s -o /dev/null -m 90 -w '%{http_code}\n' https://api.vethub.uz/api/health || true

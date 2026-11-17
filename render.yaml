@@ -2,7 +2,8 @@
 #
 # С 24 октября 2026 прод живёт в пространстве betterfuture (laziz.iskandarov@
 # betterfuture.uz): сервис vethub-api, srv-dbe9iflg1s2s73es8lh0, адрес
-# https://vethub-api.onrender.com. Создан из публичного репозитория, не из этого
+# https://vethub-api.onrender.com, свой домен https://api.vethub.uz (CNAME на
+# vethub-api.onrender.com, без прокси Cloudflare). Создан из публичного репозитория, не из этого
 # Blueprint; файл описывает ту же конфигурацию и годится для пересоздания.
 # Старый vetglobal-backend остался приостановленным в прежнем аккаунте.
 # Render dashboard → New → Blueprint → connect this repo → Apply.
@@ -51,9 +52,9 @@ services:
       # Только собственный фронтенд: «*» вместе с credentials отражал любой
       # Origin, т.е. API мог дёргать любой сторонний сайт. Домены — через запятую.
       - key: CORS_ORIGINS
-        value: "https://vetglobal-web.l-iskandarov.workers.dev"
+        value: "https://vethub.uz"
       - key: FRONTEND_URL
-        value: "https://vetglobal-web.l-iskandarov.workers.dev"
+        value: "https://vethub.uz"
       # Swagger публикует карту всех эндпоинтов: 119 путей, 145 операций.
       # Данные за ней под авторизацией, но для атакующего это готовая разведка,
       # поэтому на боевом контуре выключена. Чтобы открыть на время интеграции,
