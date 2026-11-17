@@ -1,7 +1,8 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "vethub-web",
-  "main": ".open-next/worker.js",
+  // Обёртка над воркером OpenNext: перенаправление http → https (worker.ts).
+  "main": "worker.ts",
   "compatibility_date": "2026-09-12",
   // nodejs_compat нужен рантайму Next; global_fetch_strictly_public заставляет
   // fetch к своему же домену идти через публичный интернет, как в Node.
