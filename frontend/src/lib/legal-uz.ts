@@ -5,9 +5,9 @@
 
 import type { LegalDocKey } from './legal';
 
-const OPERATOR = '[VetHub operatori boʻlgan yuridik shaxsning toʻliq nomi]';
+const OPERATOR = '«MULTI VET FARM» MChJ';
 const OPERATOR_DETAILS =
-  '[STIR], [yuridik manzil], [bank rekvizitlari]; murojaatlar uchun manzil — [murojaatlar uchun email], telefon — [telefon]';
+  'STIR 312141934, QQS toʻlovchisi sifatida roʻyxatdan oʻtish kodi 326070286419; yuridik manzil: Toshkent sh., Sergeli tumani, Istiqlol MFY, Buyuk Avlod Shoh koʻchasi; hisob raqami 20208000707244643001, «Kapitalbank» AT bankining Yagona filiali (Toshkent sh.), MFO 01158; direktor — Lushch D.; murojaatlar uchun manzil — info@vethub.uz';
 
 export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]> = {
   terms: [
@@ -133,13 +133,13 @@ export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]
     {
       h: '6. Maʼlumotlarni qancha saqlaymiz',
       p: [
-        'Hisob maʼlumotlari — hisob amal qilgan davrda. Buyurtmalar, hisoblar va toʻlovlar haqidagi maʼlumotlar — buxgalteriya hisobi va soliq toʻgʻrisidagi qonunchilikda belgilangan muddatlarda. Server jurnallari — [muddat] kundan oshmagan muddatda.',
+        'Hisob maʼlumotlari — hisob amal qilgan davrda. Buyurtmalar, hisoblar va toʻlovlar haqidagi maʼlumotlar — buxgalteriya hisobi va soliq toʻgʻrisidagi qonunchilikda belgilangan muddatlarda. Server jurnallari — 30 kundan oshmagan muddatda.',
       ],
     },
     {
       h: '7. Sizning huquqlaringiz',
       p: [
-        'Siz bizda maʼlumotlaringiz mavjudligini bilish va ularni qayta ishlash haqida maʼlumot olish, maʼlumotlarni aniqlashtirish, bloklash yoki oʻchirishni talab qilish, shuningdek qayta ishlashga rozilikni qaytarib olish huquqiga egasiz. Maʼlumotlarning katta qismini shaxsiy kabinetda oʻzgartirish mumkin; boshqa soʻrovlar uchun [murojaatlar uchun email] manziliga yozing. Rozilikni kabinetda hisobni oʻchirib qaytarib olish mumkin (Profil → Hisobni oʻchirish): ism, telefon, pochta, rekvizitlar va saralanganlar oʻchiriladi, kirish yopiladi, buyurtmalar, hisoblar va toʻlovlar esa shaxssizlashtirilgan holda qoladi, chunki ularni saqlashni qonun talab qiladi.',
+        'Siz bizda maʼlumotlaringiz mavjudligini bilish va ularni qayta ishlash haqida maʼlumot olish, maʼlumotlarni aniqlashtirish, bloklash yoki oʻchirishni talab qilish, shuningdek qayta ishlashga rozilikni qaytarib olish huquqiga egasiz. Maʼlumotlarning katta qismini shaxsiy kabinetda oʻzgartirish mumkin; boshqa soʻrovlar uchun info@vethub.uz manziliga yozing. Rozilikni kabinetda hisobni oʻchirib qaytarib olish mumkin (Profil → Hisobni oʻchirish): ism, telefon, pochta, rekvizitlar va saralanganlar oʻchiriladi, kirish yopiladi, buyurtmalar, hisoblar va toʻlovlar esa shaxssizlashtirilgan holda qoladi, chunki ularni saqlashni qonun talab qiladi.',
       ],
     },
     {
