@@ -1,11 +1,13 @@
 # Настройка сервиса vethub-api в Render без дашборда.
 #
-# Строка подключения к базе уже есть в секрете бэкапа, поэтому её не нужно
-# заново доставать из кабинета Supabase: шаг переносит её в Render внутри
-# GitHub, значение нигде не печатается. Заодно подключает домен api.vethub.uz
-# и запускает выкатку. Повторный запуск безопасен.
+# Строка подключения переносится в Render внутри GitHub и нигде не
+# печатается. Заодно подключает домен api.vethub.uz и запускает выкатку.
+# Повторный запуск безопасен.
 #
-# Требуется секрет RENDER_API_KEY (Render → Account Settings → API Keys).
+# Секреты: RENDER_API_KEY (Render → Account Settings → API Keys) и
+# PROD_DATABASE_URL — session-пулер Supabase с паролем роли postgres.
+# Секрет бэкапа сюда не годится: это роль backup_ro только на чтение, и сервер
+# падает на старте с «permission denied for schema public».
 
 name: Render setup
 
@@ -21,21 +23,25 @@ jobs:
     timeout-minutes: 15
     env:
       RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
-      DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      DB_URL: ${{ secrets.PROD_DATABASE_URL }}
       SERVICE: srv-dbe9iflg1s2s73es8lh0
       DOMAIN: api.vethub.uz
       API: https://api.render.com/v1
     steps:
-      - name: DATABASE_URL из секрета бэкапа
+      - name: DATABASE_URL
         run: |
           set -euo pipefail
           test -n "$RENDER_API_KEY" || { echo "::error::секрет RENDER_API_KEY не задан"; exit 1; }
-          test -n "$DB_URL" || { echo "::error::секрет BACKUP_DATABASE_URL не задан"; exit 1; }
+          test -n "$DB_URL" || { echo "::error::секрет PROD_DATABASE_URL не задан"; exit 1; }
           # На транзакционном пулере (6543) ломается prisma db push при старте,
           # нужен session-пулер 5432 того же хоста.
           URL=$(printf '%s' "$DB_URL" | sed 's#:6543/#:5432/#')
           printf '%s' "$URL" | grep -q 'pooler\.supabase\.com:5432/' \
-            || { echo "::error::в секрете бэкапа не session-пулер Supabase"; exit 1; }
+            || { echo "::error::нужна строка session-пулера Supabase"; exit 1; }
+          printf '%s' "$URL" | grep -q '^postgres\(ql\)\?://backup_ro' \
+            && { echo "::error::это роль бэкапа только на чтение, нужна postgres"; exit 1; }
+          printf '%s' "$URL" | grep -q 'YOUR-PASSWORD' \
+            && { echo "::error::в строке остался [YOUR-PASSWORD] — подставьте пароль"; exit 1; }
           jq -n --arg v "$URL" '{value: $v}' > body.json
           code=$(curl -s -o resp.json -w '%{http_code}' -X PUT "$API/services/$SERVICE/env-vars/DATABASE_URL" \
             -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' --data @body.json)
