@@ -274,6 +274,13 @@ describe('VetHub integrations (e2e)', () => {
     expect(bad.body.error.code).toBe(-32504);
     const ok = await req('/payments/payme', { headers: { Authorization: authHeader }, body: { id: 1, method: 'CheckPerformTransaction', params: { amount: order.total * 100, account: { order_id: order.id } } } });
     expect(ok.body.result.allow).toBe(true);
+    // Фискальные строки чека сходятся с суммой платежа до тийина.
+    const detail = ok.body.result.detail;
+    expect(detail.receipt_type).toBe(0);
+    expect(detail.items.length).toBeGreaterThan(0);
+    const receiptSum =
+      detail.items.reduce((s: number, it: any) => s + it.price * it.count - it.discount, 0) + (detail.shipping?.price ?? 0);
+    expect(receiptSum).toBe(Math.round(order.total * 100));
     const wrongAmt = await req('/payments/payme', { headers: { Authorization: authHeader }, body: { id: 1, method: 'CheckPerformTransaction', params: { amount: 1, account: { order_id: order.id } } } });
     expect(wrongAmt.body.error.code).toBe(-31001);
   });

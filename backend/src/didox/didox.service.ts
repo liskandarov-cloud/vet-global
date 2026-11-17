@@ -57,6 +57,8 @@ export class DidoxService {
       order.items.map((it) => ({
         sellerId: it.sellerId,
         productName: it.productName,
+        mxikCode: it.mxikCode,
+        packageCode: it.packageCode,
         quantity: it.quantity,
         price: Number(it.price),
       })),

@@ -10,6 +10,10 @@ export interface FacturaParty {
 
 export interface FacturaItem {
   name: string;
+  // Код ИКПУ и код упаковки — обязательны в ЭСФ; у строки доставки их нет,
+  // пока площадка не выбрала код услуги.
+  catalogCode?: string | null;
+  packageCode?: string | null;
   quantity: number;
   price: number;
   total: number;

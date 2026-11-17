@@ -1,4 +1,5 @@
 import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { searchVariants } from './search-variants';
 import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
@@ -74,12 +75,12 @@ export class ProductsService {
       if (q.priceMax != null) (where.price as any).lte = q.priceMax;
     }
     if (q.search) {
-      where.OR = [
-        { name: { contains: q.search, mode: 'insensitive' } },
-        { description: { contains: q.search, mode: 'insensitive' } },
-        { activeSubstance: { contains: q.search, mode: 'insensitive' } },
-        { manufacturer: { contains: q.search, mode: 'insensitive' } },
-      ];
+      // Каждый вариант запроса (как набрали, кириллицей, латиницей) ищется по
+      // русским и узбекским полям: см. search-variants.ts.
+      const fields = ['name', 'nameUz', 'description', 'descriptionUz', 'activeSubstance', 'manufacturer'] as const;
+      where.OR = searchVariants(q.search).flatMap((v) =>
+        fields.map((f) => ({ [f]: { contains: v, mode: 'insensitive' } }) as Prisma.ProductWhereInput),
+      );
     }
 
     const orderBy: Prisma.ProductOrderByWithRelationInput =

@@ -220,6 +220,8 @@ export class OrdersService {
         productId: p.id,
         offerId,
         productName: p.name,
+        mxikCode: p.mxikCode,
+        packageCode: p.packageCode,
         sellerId,
         quantity: i.quantity,
         price: unitPrice,

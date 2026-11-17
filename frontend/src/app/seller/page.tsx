@@ -24,7 +24,7 @@ import { ownInvoice, ownShipment } from '@/lib/seller-order';
 const EMPTY = {
   name: '', description: '', categoryId: '', price: 0, activeSubstance: '', manufacturer: '',
   form: '', animalType: '', inStock: true, minOrder: 1, images: [] as string[], certificates: [] as string[],
-  isPromotion: false, promotionText: '', externalId: '',
+  isPromotion: false, promotionText: '', externalId: '', mxikCode: '', packageCode: '',
 };
 
 function SellerContent() {
@@ -257,6 +257,19 @@ function SellerContent() {
               </div>
             </div>
           )}
+
+          {/* Без кода ИКПУ по товару не выписать ЭСФ и не пробить фискальный чек. */}
+          {(() => {
+            const noMxik = products.filter((p: any) => !p.mxikCode).length;
+            return noMxik > 0 ? (
+              <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900 dark:border-amber-900/50 dark:bg-amber-950/20 dark:text-amber-200" role="status">
+                {tt(
+                  `У ${noMxik} из ${products.length} товаров нет кода ИКПУ — без него нельзя выписать ЭСФ и пробить фискальный чек. Добавьте код в карточке товара или колонкой «Код ИКПУ» при загрузке прайса.`,
+                  `${products.length} ta mahsulotdan ${noMxik} tasida MXIK kodi yoʻq — usiz EHF va fiskal chek chiqarib boʻlmaydi. Kodni mahsulot kartochkasida yoki prays yuklashda «MXIK kodi» ustuni orqali qoʻshing.`,
+                )}
+              </div>
+            ) : null;
+          })()}
 
           {/* Фильтр по статусу в каталоге со счётчиками */}
           {products.length > 0 && (
@@ -676,6 +689,8 @@ function ProductForm({ initial, categories, onClose, onSaved }: any) {
       animalType: form.animalType || undefined, inStock: form.inStock, minOrder: Number(form.minOrder) || 1,
       images: form.images, certificates: form.certificates, isPromotion: form.isPromotion, promotionText: form.promotionText || undefined,
       externalId: form.externalId || undefined,
+      // Пустая строка очищает код на сервере.
+      mxikCode: form.mxikCode ?? '', packageCode: form.packageCode ?? '',
       // Остаток: пусто → не отслеживаем (только флаг «В наличии»); число → учёт кол-ва.
       stockQty: form.stockQty === '' || form.stockQty == null ? undefined : Number(form.stockQty),
     };
@@ -723,6 +738,14 @@ function ProductForm({ initial, categories, onClose, onSaved }: any) {
           <input className="input" type="number" placeholder={tt('Мин. заказ, шт', 'Min. buyurtma, dona')} value={form.minOrder || ''} onChange={(e) => upd('minOrder', e.target.value)} />
           <input className="input" type="number" min={0} placeholder={tt('Остаток, шт (если ведёте учёт)', 'Qoldiq, dona (agar hisob yuritilsa)')} value={form.stockQty ?? ''} onChange={(e) => upd('stockQty', e.target.value)} />
           <input className="input" placeholder={tt('Код в 1С (externalId)', '1C kodi (externalId)')} value={form.externalId} onChange={(e) => upd('externalId', e.target.value)} />
+          <div>
+            <input className="input" inputMode="numeric" placeholder={tt('Код ИКПУ (17 цифр)', 'MXIK kodi (17 raqam)')} value={form.mxikCode ?? ''} onChange={(e) => upd('mxikCode', e.target.value)} />
+            <p className="mt-1 text-xs text-ink-subtle">
+              {tt('Нужен для ЭСФ и фискального чека. Найти код: ', 'EHF va fiskal chek uchun kerak. Kodni topish: ')}
+              <a href="https://tasnif.soliq.uz" target="_blank" rel="noopener noreferrer" className="text-teal-700 underline">tasnif.soliq.uz</a>
+            </p>
+          </div>
+          <input className="input" inputMode="numeric" placeholder={tt('Код упаковки (ИКПУ)', 'Qadoq kodi (MXIK)')} value={form.packageCode ?? ''} onChange={(e) => upd('packageCode', e.target.value)} />
           <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={form.inStock} disabled={form.stockQty !== '' && form.stockQty != null} onChange={(e) => upd('inStock', e.target.checked)} className="h-4 w-4 accent-teal-600" /> {tt('В наличии', 'Mavjud')}<span className="text-xs text-ink-subtle">{form.stockQty !== '' && form.stockQty != null ? tt('(по остатку)', '(qoldiq boʻyicha)') : ''}</span></label>
         </div>
 

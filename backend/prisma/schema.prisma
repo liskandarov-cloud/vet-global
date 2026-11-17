@@ -464,6 +464,10 @@ model Product {
   promotionText  String?
   isNew          Boolean     @default(false)
   externalId     String? // код товара в 1С/ERP поставщика (ключ синхронизации)
+  // Код ИКПУ (MXIK, 17 цифр) и код упаковки из tasnif.soliq.uz — нужны для
+  // ЭСФ в Didox и фискального чека Payme. См. common/mxik.ts.
+  mxikCode    String?
+  packageCode String?
   rating         Decimal     @default(0) @db.Decimal(3, 2)
   reviewsCount   Int         @default(0)
 
@@ -652,6 +656,10 @@ model OrderItem {
   productId   String?
   offerId     String? // выбранный оффер продавца (снимок; null = легаси/базовый товар)
   productName String // снимок названия на момент заказа
+  // Снимок кодов ИКПУ на момент заказа: документы по сделке должны совпадать
+  // с тем, что было на дату продажи, а не с текущей карточкой.
+  mxikCode    String?
+  packageCode String?
   sellerId    String // для маршрутизации заказа продавцу
   quantity    Int
   price       Decimal @db.Decimal(12, 2)

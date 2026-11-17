@@ -6,10 +6,12 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Matches,
   Min,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { AnimalType } from '@prisma/client';
+import { MXIK_PATTERN, PACKAGE_CODE_PATTERN, normalizeMxik, normalizePackageCode } from '../../common/mxik';
 
 // Query booleans arrive as strings ("true"/"false"); coerce explicitly.
 const toBool = ({ value }: { value: any }) =>
@@ -36,6 +38,18 @@ export class CreateProductDto {
   @IsOptional() @IsString() promotionText?: string;
   @IsOptional() @IsBoolean() isNew?: boolean;
   @IsOptional() @IsString() externalId?: string; // код в 1С/ERP для синхронизации
+
+  // Пустая строка очищает код; иначе приводим к каноническому виду, а то, что
+  // привести нельзя, оставляем как есть — пусть проверка вернёт понятную ошибку.
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : (normalizeMxik(value) ?? value)))
+  @Matches(MXIK_PATTERN, { message: 'Код ИКПУ — 17 цифр (tasnif.soliq.uz)' })
+  mxikCode?: string | null;
+
+  @IsOptional()
+  @Transform(({ value }) => (value === '' ? null : (normalizePackageCode(value) ?? value)))
+  @Matches(PACKAGE_CODE_PATTERN, { message: 'Код упаковки — только цифры' })
+  packageCode?: string | null;
 }
 
 export class UpdateProductDto extends CreateProductDto {}

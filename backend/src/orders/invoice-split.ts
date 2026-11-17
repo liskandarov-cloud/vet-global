@@ -12,6 +12,8 @@
 export interface SplitItem {
   sellerId: string;
   productName: string;
+  mxikCode?: string | null;
+  packageCode?: string | null;
   quantity: number;
   price: number;
 }

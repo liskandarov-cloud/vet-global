@@ -32,6 +32,8 @@ export class LiveDidoxAdapter implements DidoxAdapter {
         products: p.items.map((it, i) => ({
           ordno: i + 1,
           name: it.name,
+          catalogcode: it.catalogCode ?? undefined,
+          packagecode: it.packageCode ?? undefined,
           count: it.quantity,
           summa: it.price,
           deliverysum: it.total,

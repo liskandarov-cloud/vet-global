@@ -54,6 +54,8 @@ export interface Offer {
 export interface Product {
   id: string;
   name: string;
+  mxikCode?: string | null;
+  packageCode?: string | null;
   nameUz?: string;
   description: string;
   categoryId: string;

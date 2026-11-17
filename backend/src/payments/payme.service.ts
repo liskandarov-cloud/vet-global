@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from './payments.service';
 import { notPayableReason } from './payable';
 import { statementFor } from './statement';
+import { paymeReceiptDetail } from './payme-receipt';
 
 // Payme JSON-RPC error. Carries the Payme error code + optional data field.
 export class PaymeError extends Error {
@@ -17,6 +18,8 @@ export class PaymeError extends Error {
 // 1 created, 2 performed(paid), -1 cancelled before perform, -2 cancelled after perform.
 @Injectable()
 export class PaymeService {
+  private readonly logger = new Logger(PaymeService.name);
+
   private readonly key?: string;
 
   constructor(
@@ -77,8 +80,39 @@ export class PaymeService {
   }
 
   private async checkPerform(params: any) {
-    await this.orderFor(params);
-    return { allow: true };
+    const order = await this.orderFor(params);
+    return { allow: true, ...(await this.receiptDetail(order.id)) };
+  }
+
+  // Фискальные данные чека. Если строки не сходятся с суммой заказа, чек не
+  // отправляем вовсе: Payme отклонил бы платёж, а неверный чек хуже, чем
+  // отсутствие строк, — это расхождение в налоговой отчётности.
+  private async receiptDetail(orderId: string) {
+    const order = await this.prisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
+    if (!order) return {};
+    const sellers = await this.prisma.user.findMany({
+      where: { id: { in: [...new Set(order.items.map((it) => it.sellerId))] } },
+      select: { id: true, vatPayer: true },
+    });
+    const vat = new Map(sellers.map((u) => [u.id, u.vatPayer]));
+    const { detail, balanced } = paymeReceiptDetail({
+      total: order.total,
+      deliveryCost: order.deliveryCost,
+      vetPointsUsed: order.vetPointsUsed,
+      items: order.items.map((it) => ({
+        productName: it.productName,
+        quantity: it.quantity,
+        price: it.price,
+        mxikCode: it.mxikCode,
+        packageCode: it.packageCode,
+        vatPayer: vat.get(it.sellerId) ?? false,
+      })),
+    });
+    if (!balanced) {
+      this.logger.error(`Payme: строки чека не сходятся с суммой заказа ${orderId}, detail не отправлен`);
+      return {};
+    }
+    return { detail };
   }
 
   private async createTransaction(params: any) {

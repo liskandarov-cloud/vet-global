@@ -147,3 +147,43 @@ describe('Поступление через импорт оповещает по
     expect(items.some((n) => n.url === `/products/${product.id}` && /снова в наличии/.test(n.title))).toBe(true);
   });
 });
+
+// Код ИКПУ из прайса: Excel теряет ведущие нули — восстанавливаем; код
+// в научной записи или с буквами останавливает строку с понятной причиной.
+// В заказ код попадает снимком — по нему выписываются ЭСФ и фискальный чек.
+describe('Импорт: коды ИКПУ', () => {
+  it('код нормализуется, хранится в карточке и копируется в позицию заказа', async () => {
+    const seller = await login('seller@vetglobal.com', 'seller123');
+    const buyer = await login('buyer@vetglobal.com', 'buyer123');
+    const json = (path: string, token: string, body?: unknown) =>
+      fetch(`${BASE}${path}`, {
+        method: body ? 'POST' : 'GET',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: body ? JSON.stringify(body) : undefined,
+      }).then((r) => r.json());
+
+    const categoryId = (await json('/categories', seller))[0].id;
+    const stamp = Date.now();
+    const good = `E2E ИКПУ ${stamp}`;
+    const bad = `E2E ИКПУ плохой ${stamp}`;
+    const imported = await json('/import/commit', seller, {
+      rows: [
+        [good, '50000', '10', '3004001001000000', ' 1500563 '],
+        [bad, '50000', '10', '3.004E+15', ''],
+      ],
+      mapping: { name: 0, price: 1, stockQty: 2, mxikCode: 3, packageCode: 4 },
+      defaultCategoryId: categoryId,
+    });
+    expect(imported.created).toBe(1);
+    expect(imported.failed).toBe(1);
+    expect(imported.results.find((r: any) => r.action === 'error').error).toMatch(/ИКПУ/);
+
+    const found = (await json(`/products?search=${encodeURIComponent(good)}`, buyer)).products[0];
+    expect(found.mxikCode).toBe('03004001001000000');
+    expect(found.packageCode).toBe('1500563');
+
+    const order = await json('/orders', buyer, { items: [{ productId: found.id, quantity: 1 }] });
+    expect(order.items[0].mxikCode).toBe('03004001001000000');
+    expect(order.items[0].packageCode).toBe('1500563');
+  });
+});

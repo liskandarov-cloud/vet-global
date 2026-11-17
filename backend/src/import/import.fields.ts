@@ -162,6 +162,22 @@ export const IMPORT_FIELDS: ImportField[] = [
     synonyms: ['регистрационныйномер', 'регномер', 'рег', 'royxatraqami', 'regnumber', 'registration'],
   },
   {
+    key: 'mxikCode',
+    label: 'Код ИКПУ',
+    labelUz: 'MXIK kodi',
+    type: 'string',
+    hint: '17 цифр из tasnif.soliq.uz — нужен для ЭСФ и фискального чека',
+    hintUz: 'tasnif.soliq.uz dan 17 raqam — EHF va fiskal chek uchun kerak',
+    synonyms: ['икпу', 'кодикпу', 'икпукод', 'mxik', 'mxikkodi', 'mxikkod', 'ikpu', 'ikpukod', 'kodikpu'],
+  },
+  {
+    key: 'packageCode',
+    label: 'Код упаковки (ИКПУ)',
+    labelUz: 'Qadoq kodi (MXIK)',
+    type: 'string',
+    synonyms: ['кодупаковки', 'упаковкакод', 'packagecode', 'qadoqkodi', 'qadoqlashkodi', 'upakovkakodi'],
+  },
+  {
     key: 'isRx',
     label: 'Рецептурный',
     labelUz: 'Retsept boʻyicha',

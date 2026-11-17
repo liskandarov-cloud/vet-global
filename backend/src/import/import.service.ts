@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable } from '@nestjs/common';
+import { normalizeMxik, normalizePackageCode } from '../common/mxik';
 import * as ExcelJS from 'exceljs';
 import { Readable } from 'stream';
 import { decodeCsv } from './csv-text';
@@ -195,6 +196,17 @@ export class ImportService {
         const manufacturer = at('manufacturer') || undefined;
         const externalId = at('externalId') || undefined;
 
+        // Код ИКПУ проверяем сразу: неверный код в ЭСФ — расхождение в налоговой
+        // отчётности, лучше остановить строку с понятной причиной.
+        const mxikRaw = at('mxikCode');
+        const mxikCode = mxikRaw ? normalizeMxik(mxikRaw) : undefined;
+        if (mxikRaw && !mxikCode) {
+          throw new Error(`Код ИКПУ «${mxikRaw}» — нужно 17 цифр. В Excel задайте колонке текстовый формат`);
+        }
+        const packageRaw = at('packageCode');
+        const packageCode = packageRaw ? normalizePackageCode(packageRaw) : undefined;
+        if (packageRaw && !packageCode) throw new Error(`Код упаковки «${packageRaw}» — только цифры`);
+
         // Поиск карточки товара. Сначала свой код 1С, затем название+производитель
         // среди всех продавцов: в мультипоставщике один SKU = одна карточка,
         // к ней прикрепляются офферы разных дистрибьюторов.
@@ -234,6 +246,8 @@ export class ImportService {
           ...(at('form') ? { form: at('form') } : {}),
           ...(parseAnimal(at('animalType')) ? { animalType: parseAnimal(at('animalType')) } : {}),
           ...(externalId ? { externalId } : {}),
+          ...(mxikCode ? { mxikCode } : {}),
+          ...(packageCode ? { packageCode } : {}),
         };
 
         // Чужую карточку не трогаем — только прикрепляем свой оффер.

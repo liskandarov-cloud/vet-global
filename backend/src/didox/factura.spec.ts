@@ -31,6 +31,15 @@ describe('счёт-фактура для ЭДО', () => {
     expect(f.total).toBe(f.items.reduce((s, it) => s + it.total, 0));
   });
 
+  it('коды ИКПУ из позиции попадают в строку документа', () => {
+    const f = buildFactura(
+      order({ items: [{ productName: 'Вакцина', mxikCode: '03004001001000000', packageCode: '1500563', quantity: 2, price: 50000 }] }),
+      seller,
+      'VG-2026-AAAA',
+    );
+    expect(f.items[0]).toMatchObject({ catalogCode: '03004001001000000', packageCode: '1500563' });
+  });
+
   it('без доставки лишней строки не появляется', () => {
     expect(buildFactura(order({ deliveryCost: 0 }), seller, 'VG-2026-AAAA').items).toHaveLength(1);
   });

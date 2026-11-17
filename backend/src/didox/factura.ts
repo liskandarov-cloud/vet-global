@@ -12,7 +12,7 @@ export interface FacturaOrder {
   buyerName: string;
   buyerCompany?: string | null;
   deliveryCost?: unknown;
-  items: { productName: string; quantity: number; price: unknown }[];
+  items: { productName: string; mxikCode?: string | null; packageCode?: string | null; quantity: number; price: unknown }[];
   counterparty?: { name?: string | null; inn?: string | null } | null;
   buyer?: { inn?: string | null } | null;
 }
@@ -31,6 +31,8 @@ export function buildFactura(
     const price = num(it.price);
     return {
       name: it.productName,
+      catalogCode: it.mxikCode ?? null,
+      packageCode: it.packageCode ?? null,
       quantity: it.quantity,
       price,
       total: round2(price * it.quantity),
