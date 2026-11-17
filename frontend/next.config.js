@@ -19,11 +19,13 @@ function apiOrigin() {
 function contentSecurityPolicy() {
   return [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline'",
+    // static.cloudflareinsights.com — статистика посещений Cloudflare Web
+    // Analytics (без cookie), её скрипт Cloudflare вставляет сам.
+    "script-src 'self' 'unsafe-inline' https://static.cloudflareinsights.com",
     "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "font-src 'self' https://fonts.gstatic.com data:",
     "img-src 'self' data: blob: https:",
-    `connect-src 'self' ${apiOrigin()} wss://127.0.0.1:64443`,
+    `connect-src 'self' ${apiOrigin()} wss://127.0.0.1:64443 https://cloudflareinsights.com`,
     "worker-src 'self' blob:",
     "manifest-src 'self'",
     "frame-src 'self'",
@@ -33,11 +35,12 @@ function contentSecurityPolicy() {
     "form-action 'self'",
     // Только для сайта на https: самостоятельная установка по http иначе
     // переписывала бы свои же запросы к API на несуществующий https.
-    ...(String(process.env.SITE_URL ?? '').startsWith('https://') ? ['upgrade-insecure-requests'] : []),
+    ...(isHttpsSite ? ['upgrade-insecure-requests'] : []),
   ].join('; ');
 }
 
 const isProd = process.env.NODE_ENV === 'production';
+const isHttpsSite = String(process.env.SITE_URL ?? '').startsWith('https://');
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
@@ -71,6 +74,22 @@ const nextConfig = {
   // канонические ссылки жили бы на двух адресах.
   async redirects() {
     return [
+      // Первый заход по http — сразу на https; дальше браузер помнит это по
+      // HSTS. Cloudflare сообщает исходную схему в X-Forwarded-Proto; хост
+      // берётся из запроса, поэтому правило годится для любой установки.
+      ...(isProd && isHttpsSite
+        ? [
+            {
+              source: '/:path*',
+              has: [
+                { type: 'header', key: 'x-forwarded-proto', value: 'http' },
+                { type: 'host', value: '(?<host>.+)' },
+              ],
+              destination: 'https://:host/:path*',
+              permanent: true,
+            },
+          ]
+        : []),
       {
         source: '/:path*',
         has: [{ type: 'host', value: 'www.vethub.uz' }],

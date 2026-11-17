@@ -151,7 +151,7 @@ export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]
     {
       h: '9. Cookie va brauzer xotirasi',
       p: [
-        'Platforma brauzerda kirish kaliti, savat tarkibi, tanlangan til va bezak mavzusini saqlaydi. Ularsiz kirish va savat ishlamaydi. Platforma uchinchi tomon reklama cookie fayllaridan foydalanmaydi.',
+        'Platforma brauzerda kirish kaliti, savat tarkibi, tanlangan til va bezak mavzusini saqlaydi. Ularsiz kirish va savat ishlamaydi. Tashriflar soni cookie ishlatmaydigan va tashrif buyuruvchini saytlar oʻrtasida kuzatmaydigan Cloudflare Web Analytics xizmati orqali hisoblanadi. Platforma uchinchi tomon reklama cookie fayllaridan foydalanmaydi.',
       ],
     },
     {
