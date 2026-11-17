@@ -67,6 +67,10 @@ async function main() {
     return;
   }
 
+  // Демо-стенд задаёт свой пароль всем демо-входам: пароли ниже лежат в
+  // публичном репозитории. Без DEMO_PASSWORD (CI, локально) — они.
+  const demoPassword = (fallback: string) => process.env.DEMO_PASSWORD || fallback;
+
   // ── Demo sellers (products are distributed across them) ──
   // Демо-дистрибьюторы (вымышленные компании; распространяют реальные мировые бренды).
   const SELLERS = [
@@ -90,7 +94,7 @@ async function main() {
         update: {},
         create: {
           email: s.email,
-          passwordHash: await bcrypt.hash(s.password, 10),
+          passwordHash: await bcrypt.hash(demoPassword(s.password), 10),
           fullName: s.fullName,
           phone: s.phone,
           company: s.company,
@@ -120,7 +124,7 @@ async function main() {
       update: {},
       create: {
         email: b.email,
-        passwordHash: await bcrypt.hash(b.password, 10),
+        passwordHash: await bcrypt.hash(demoPassword(b.password), 10),
         fullName: b.fullName,
         phone: b.phone,
         company: b.company,
