@@ -6,6 +6,7 @@ import { text } from 'express';
 import { AppModule } from './app.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { corsOrigins } from './common/frontend-url';
+import { securityHeaders } from './common/security-headers';
 
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
@@ -14,6 +15,14 @@ async function bootstrap() {
   // у всех запросов равен адресу прокси — ограничитель частоты считал бы всех
   // пользователей одним клиентом и лимит на вход блокировал бы всех разом.
   app.set('trust proxy', 1);
+
+  // Заголовки защиты на всех ответах (см. common/security-headers.ts);
+  // версию фреймворка наружу не сообщаем.
+  app.disable('x-powered-by');
+  app.use((req: { path: string }, res: { setHeader: (k: string, v: string) => void }, next: () => void) => {
+    for (const [k, v] of Object.entries(securityHeaders(req.path))) res.setHeader(k, v);
+    next();
+  });
 
   // Accept raw CommerceML/XML bodies (1C sync endpoint) as text.
   app.use(text({ type: ['application/xml', 'text/xml'], limit: '10mb' }));
