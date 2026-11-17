@@ -4,8 +4,10 @@
 # продавцы, покупатели, организация с ролями. На боевом сайте таких данных
 # быть не должно, поэтому стенд — отдельный контур.
 #
-# Пароль всех демо-входов — секрет DEMO_PASSWORD (репозиторий публичный,
-# пароли из сида видны всем). Повторный запуск безопасен.
+# Пароли демо-входов — из сида (seller123, buyer123), у админа admin123: данные
+# стенда вымышлены и с боевыми не связаны. Чтобы закрыть стенд от посторонних
+# (репозиторий публичный), задайте секрет DEMO_PASSWORD и перезапустите с up —
+# он станет паролем всех демо-входов. Повторный запуск безопасен.
 #
 # Бесплатные часы Render (750 в месяц) общие с продом, а прод с пингом
 # расходует ~720–744. Поэтому у стенда нет пинга, он засыпает сам, а после
@@ -41,7 +43,7 @@ jobs:
       - name: Проверка секретов
         run: |
           test -n "$RENDER_API_KEY" || { echo "::error::секрет RENDER_API_KEY не задан"; exit 1; }
-          test -n "$DEMO_PASSWORD" || { echo "::error::секрет DEMO_PASSWORD не задан"; exit 1; }
+          test -n "$DEMO_PASSWORD" || echo "DEMO_PASSWORD не задан — пароли из сида"
 
       - name: Сервис
         id: svc
@@ -89,12 +91,12 @@ jobs:
         run: |
           set -euo pipefail
           auth=(-H "Authorization: Bearer $RENDER_API_KEY")
-          vars=$(jq -n --rawfile db "$RUNNER_TEMP/db_url" --arg pw "$DEMO_PASSWORD" --arg site "$SITE" '[
+          vars=$(jq -n --rawfile db "$RUNNER_TEMP/db_url" --arg pw "$DEMO_PASSWORD" --arg apw "${DEMO_PASSWORD:-admin123}" --arg site "$SITE" '[
             {key:"DATABASE_URL", value:$db},
             {key:"SEED_DEMO", value:"true"},
             {key:"DEMO_PASSWORD", value:$pw},
             {key:"ADMIN_EMAIL", value:"admin@vetglobal.com"},
-            {key:"ADMIN_PASSWORD", value:$pw},
+            {key:"ADMIN_PASSWORD", value:$apw},
             {key:"FRONTEND_URL", value:$site},
             {key:"CORS_ORIGINS", value:$site},
             {key:"MAIL_FROM", value:"VetHub Demo <no-reply@vethub.uz>"},
@@ -106,7 +108,7 @@ jobs:
             {key:"DIDOX_MODE", value:"mock"},
             {key:"FINANCING_MODE", value:"mock"},
             {key:"SWAGGER_ENABLED", value:"false"}
-          ]')
+          ] | map(select(.value != ""))')
           rm -f "$RUNNER_TEMP/db_url"
           if [ -z "$ID" ]; then
             body=$(jq -n --argjson vars "$vars" --arg owner "$OWNER" --arg name "$SVC_NAME" '{
