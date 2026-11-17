@@ -1,10 +1,10 @@
-# Состояние VetHub — 24 октября 2026
+# Состояние VetHub — 17 ноября 2026
 
 Снимок состояния на дату. Лежит рядом с кодом, чтобы читался без входа куда-либо.
 
 | | |
 |---|---|
-| Прод | **переезд на betterfuture**: старый API в чужом аккаунте приостановлен Render с 12 октября. Новый сервис `vethub-api` (https://vethub-api.onrender.com, пространство betterfuture) собран из `main` и ждёт одного: `DATABASE_URL` в Render → Environment. Фронтенд ждёт входа в Cloudflare |
+| Прод | **всё в аккаунтах betterfuture.** Сайт https://vethub.uz (Cloudflare, воркер `vethub-web`, www → основной адрес), API https://api.vethub.uz (Render `vethub-api`, он же https://vethub-api.onrender.com), база Supabase `vethub` (`ajtbmazjtbxektjgbchi`, us-west-2, Betterfuture Org) — данные перенесены из бэкапа 16.11, с 12.10 они не менялись. Домен куплен у Eskiz 16.11, NS переведены на Cloudflare. Настройка Render из GitHub — workflow «Render setup» (секреты `RENDER_API_KEY`, `PROD_DATABASE_URL`) |
 | Ночные бэкапы | идут каждую ночь, последний — 22 октября; хранение 30 дней |
 | Схема базы | миграциями, а не подгонкой под код |
 | Доступность | красная с 12 октября; оповещение о падении не срабатывало ни разу — исправлено 22 октября |
