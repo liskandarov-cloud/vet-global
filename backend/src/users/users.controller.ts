@@ -1,9 +1,10 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Throttle } from '@nestjs/throttler';
 import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
 import { UsersService } from './users.service';
-import { ChangePasswordDto, CounterpartyDto, SellerDocumentDto, UpdateProfileDto } from './dto/user.dto';
+import { ChangePasswordDto, CounterpartyDto, DeleteAccountDto, SellerDocumentDto, UpdateProfileDto } from './dto/user.dto';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -27,6 +28,17 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   changePassword(@CurrentUser() user: AuthUser, @Body() dto: ChangePasswordDto) {
     return this.users.changePassword(user.id, dto);
+  }
+
+  // Удаление аккаунта владельцем (обезличивание). Подтверждается паролем;
+  // лимит гасит подбор пароля через этот путь.
+  @Post('users/me/delete')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 900_000, limit: 5 } })
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  deleteSelf(@CurrentUser() user: AuthUser, @Body() dto: DeleteAccountDto) {
+    return this.users.deleteSelf(user.id, dto.password);
   }
 
   @Get('users/me/counterparties')

@@ -31,3 +31,9 @@ export class SellerDocumentDto {
   @IsString() title: string;
   @IsString() fileUrl: string;
 }
+
+export class DeleteAccountDto {
+  // Удаление необратимо — подтверждается паролем, а не только токеном,
+  // который мог остаться в чужом браузере.
+  @IsString() password!: string;
+}

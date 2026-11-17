@@ -1,7 +1,8 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Save, User, KeyRound, FileText, Upload, Mail } from 'lucide-react';
+import { Save, User, KeyRound, FileText, Upload, Mail, Trash2 } from 'lucide-react';
+import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
@@ -11,7 +12,10 @@ import { useI18n } from '@/lib/i18n';
 // Для продавца дополнительно — загрузка лицензий (sellerDocument).
 export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
   const { tt } = useI18n();
-  const { refresh, user, setSession } = useAuth();
+  const { refresh, user, setSession, logout } = useAuth();
+  const router = useRouter();
+  const [delPwd, setDelPwd] = useState('');
+  const [deleting, setDeleting] = useState(false);
   const [me, setMe] = useState<any>(null);
   const [form, setForm] = useState({ fullName: '', phone: '', company: '', inn: '' });
   const [saving, setSaving] = useState(false);
@@ -57,6 +61,26 @@ export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
     } finally { setChangingPwd(false); }
+  };
+
+  // Удаление аккаунта: персональные данные стираются, заказы и платежи
+  // остаются обезличенными — их хранение требует закон.
+  const deleteAccount = async () => {
+    if (!window.confirm(tt(
+      'Удалить аккаунт? Имя, телефон, почта и реквизиты будут стёрты, войти в аккаунт будет нельзя. Это необратимо.',
+      'Hisobni oʻchirasizmi? Ism, telefon, pochta va rekvizitlar oʻchiriladi, hisobga kirib boʻlmaydi. Buni qaytarib boʻlmaydi.',
+    ))) return;
+    setDeleting(true);
+    try {
+      await api.post('/users/me/delete', { password: delPwd });
+      logout();
+      toast.success(tt('Аккаунт удалён', 'Hisob oʻchirildi'));
+      router.push('/');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const uploadLicense = async (file: File) => {
@@ -141,6 +165,25 @@ export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
           <KeyRound size={15} /> {changingPwd ? '…' : tt('Изменить пароль', 'Parolni oʻzgartirish')}
         </button>
       </div>
+
+      {/* Удаление аккаунта */}
+      {user?.role !== 'ADMIN' && (
+        <div className="border-t border-slate-100 pt-6 dark:border-slate-800">
+          <div className="mb-1 flex items-center gap-2 font-medium text-red-700"><Trash2 size={16} /> {tt('Удаление аккаунта', 'Hisobni oʻchirish')}</div>
+          <p className="mb-3 max-w-xl text-sm text-ink-muted">
+            {tt(
+              'Имя, телефон, почта, реквизиты и избранное будут стёрты, вход закроется. Заказы и платежи останутся в обезличенном виде — их хранение требует закон. Если есть незавершённые заказы или задолженность, сначала завершите их.',
+              'Ism, telefon, pochta, rekvizitlar va saralanganlar oʻchiriladi, kirish yopiladi. Buyurtmalar va toʻlovlar shaxssizlashtirilgan holda qoladi — ularni saqlashni qonun talab qiladi. Tugallanmagan buyurtmalar yoki qarz boʻlsa, avval ularni yakunlang.',
+            )}
+          </p>
+          <div className="flex flex-wrap gap-2 sm:max-w-md">
+            <input className="input flex-1" type="password" autoComplete="current-password" placeholder={tt('Пароль для подтверждения', 'Tasdiqlash uchun parol')} value={delPwd} onChange={(e) => setDelPwd(e.target.value)} />
+            <button className="btn-secondary !border-red-200 !text-red-700" disabled={deleting || !delPwd} onClick={deleteAccount}>
+              <Trash2 size={15} /> {deleting ? '…' : tt('Удалить аккаунт', 'Hisobni oʻchirish')}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

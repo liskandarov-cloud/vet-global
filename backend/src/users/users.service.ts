@@ -1,9 +1,11 @@
-import { BadRequestException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { UserRole } from '@prisma/client';
+import { BadRequestException, ConflictException, ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { OrderStatus, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
 import { ChangePasswordDto, CounterpartyDto, SellerDocumentDto, UpdateProfileDto } from './dto/user.dto';
+import { anonymizedProfile, deletionBlocker } from './account-deletion';
+import { randomBytes } from 'crypto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PUBLIC_PRODUCT, SELLABLE_SELLER } from '../common/visibility';
 import { recalcSellerProducts } from '../offers/product-aggregates';
@@ -35,6 +37,65 @@ export class UsersService {
       where: { id: userId },
       data: { passwordHash: await bcrypt.hash(dto.newPassword, 10), passwordChangedAt: new Date() },
     });
+    return { ok: true };
+  }
+
+  // Удаление аккаунта владельцем — обезличивание (см. account-deletion.ts).
+  async deleteSelf(userId: string, password: string) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.deletedAt) throw new NotFoundException('User not found');
+    if (!(await bcrypt.compare(password, user.passwordHash))) throw new BadRequestException('Пароль неверен');
+
+    const active = [OrderStatus.PENDING, OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.SHIPPED];
+    const [activeBuyerOrders, activeSellerOrders, ownedOrgs] = await Promise.all([
+      this.prisma.order.count({ where: { buyerId: userId, status: { in: active } } }),
+      this.prisma.order.count({ where: { status: { in: active }, items: { some: { sellerId: userId } } } }),
+      this.prisma.orgMembership.findMany({ where: { userId, role: 'OWNER' }, select: { orgId: true } }),
+    ]);
+    const othersInOwnedOrgs = ownedOrgs.length
+      ? await this.prisma.orgMembership.count({ where: { orgId: { in: ownedOrgs.map((o) => o.orgId) }, userId: { not: userId } } })
+      : 0;
+    const blocker = deletionBlocker({
+      role: user.role,
+      activeBuyerOrders,
+      activeSellerOrders,
+      creditUsed: Number(user.creditUsed),
+      ownsOrgWithOthers: othersInOwnedOrgs > 0,
+    });
+    if (blocker) throw new ConflictException(blocker);
+
+    const now = new Date();
+    await this.prisma.$transaction([
+      this.prisma.user.update({
+        where: { id: userId },
+        data: {
+          ...anonymizedProfile(userId),
+          // Пароль, который никто не знает, и отзыв всех выданных входов.
+          passwordHash: await bcrypt.hash(randomBytes(32).toString('hex'), 10),
+          passwordChangedAt: now,
+          isBanned: true,
+          isVerified: false,
+          deletedAt: now,
+        },
+      }),
+      this.prisma.passwordResetToken.deleteMany({ where: { userId } }),
+      this.prisma.pushSubscription.deleteMany({ where: { userId } }),
+      this.prisma.notification.deleteMany({ where: { userId } }),
+      this.prisma.favorite.deleteMany({ where: { userId } }),
+      this.prisma.stockAlert.deleteMany({ where: { userId } }),
+      this.prisma.orgMembership.deleteMany({ where: { userId } }),
+      this.prisma.subscription.deleteMany({ where: { buyerId: userId } }),
+      this.prisma.contractPrice.deleteMany({ where: { OR: [{ sellerId: userId }, { buyerId: userId }] } }),
+      this.prisma.deliveryTariff.deleteMany({ where: { sellerId: userId } }),
+      this.prisma.sellerDocument.deleteMany({ where: { sellerId: userId } }),
+      this.prisma.rfq.updateMany({ where: { buyerId: userId, status: 'OPEN' }, data: { status: 'CLOSED' } }),
+      // Отзывы остаются — они о товаре, а не о человеке; имя снимается.
+      this.prisma.review.updateMany({ where: { buyerId: userId }, data: { buyerName: 'Покупатель' } }),
+      this.prisma.product.updateMany({ where: { sellerId: userId }, data: { isActive: false } }),
+      this.prisma.offer.updateMany({ where: { sellerId: userId }, data: { isActive: false } }),
+      this.prisma.promotion.updateMany({ where: { sellerId: userId }, data: { isActive: false } }),
+    ]);
+    await recalcSellerProducts(this.prisma, userId);
     return { ok: true };
   }
 

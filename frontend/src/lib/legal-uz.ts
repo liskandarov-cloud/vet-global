@@ -139,7 +139,7 @@ export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]
     {
       h: '7. Sizning huquqlaringiz',
       p: [
-        'Siz bizda maʼlumotlaringiz mavjudligini bilish va ularni qayta ishlash haqida maʼlumot olish, maʼlumotlarni aniqlashtirish, bloklash yoki oʻchirishni talab qilish, shuningdek qayta ishlashga rozilikni qaytarib olish huquqiga egasiz. Maʼlumotlarning katta qismini shaxsiy kabinetda oʻzgartirish mumkin; boshqa soʻrovlar uchun [murojaatlar uchun email] manziliga yozing. Rozilikni qaytarib olish hisobni oʻchirishni anglatadi, qonun boʻyicha saqlashimiz shart boʻlgan maʼlumotlar bundan mustasno.',
+        'Siz bizda maʼlumotlaringiz mavjudligini bilish va ularni qayta ishlash haqida maʼlumot olish, maʼlumotlarni aniqlashtirish, bloklash yoki oʻchirishni talab qilish, shuningdek qayta ishlashga rozilikni qaytarib olish huquqiga egasiz. Maʼlumotlarning katta qismini shaxsiy kabinetda oʻzgartirish mumkin; boshqa soʻrovlar uchun [murojaatlar uchun email] manziliga yozing. Rozilikni kabinetda hisobni oʻchirib qaytarib olish mumkin (Profil → Hisobni oʻchirish): ism, telefon, pochta, rekvizitlar va saralanganlar oʻchiriladi, kirish yopiladi, buyurtmalar, hisoblar va toʻlovlar esa shaxssizlashtirilgan holda qoladi, chunki ularni saqlashni qonun talab qiladi.',
       ],
     },
     {
