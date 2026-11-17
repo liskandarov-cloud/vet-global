@@ -30,5 +30,20 @@
     { "pattern": "vethub.uz", "custom_domain": true },
     { "pattern": "www.vethub.uz", "custom_domain": true }
   ],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Демо-стенд для показов: `opennextjs-cloudflare deploy --env demo` после
+  // сборки с теми же переменными (NEXT_PUBLIC_* вшиваются при сборке), см.
+  // .github/workflows/demo-stand.yml.
+  "env": {
+    "demo": {
+      "name": "vethub-demo",
+      "kv_namespaces": [{ "binding": "NEXT_INC_CACHE_KV", "id": "bbf439a57bec42afa5a44ec70d96d4d5" }],
+      "vars": {
+        "NEXT_PUBLIC_API_URL": "https://vethub-demo-api.onrender.com/api",
+        "SITE_URL": "https://demo.vethub.uz",
+        "NEXT_PUBLIC_DEMO": "true"
+      },
+      "routes": [{ "pattern": "demo.vethub.uz", "custom_domain": true }]
+    }
+  }
 }

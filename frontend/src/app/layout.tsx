@@ -43,6 +43,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <Providers>
           <PWARegister />
           <div className="flex min-h-screen flex-col">
+            {process.env.NEXT_PUBLIC_DEMO === 'true' && (
+              <div role="note" className="bg-amber-100 px-4 py-1.5 text-center text-sm text-amber-900">
+                Демо-стенд: компании, товары и цены вымышлены · Demo: kompaniyalar, tovarlar va narxlar toʻqima
+              </div>
+            )}
             <Header />
             <main className="flex-1">{children}</main>
             <Footer />
