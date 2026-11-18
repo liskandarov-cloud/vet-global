@@ -1,4 +1,5 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { UserRole } from '@prisma/client';
@@ -6,6 +7,7 @@ import { MaintenanceService, ProvisionUserDto } from './maintenance.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
+import { integrationsStatus } from './integrations';
 
 @ApiTags('maintenance')
 @ApiBearerAuth()
@@ -13,7 +15,16 @@ import { Roles } from '../common/decorators/roles.decorator';
 @UseGuards(JwtAuthGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class MaintenanceController {
-  constructor(private readonly maintenance: MaintenanceService) {}
+  constructor(
+    private readonly maintenance: MaintenanceService,
+    private readonly config: ConfigService,
+  ) {}
+
+  // Какие интеграции работают по-настоящему и каких ключей не хватает.
+  @Get('integrations')
+  integrations() {
+    return integrationsStatus((k) => this.config.get<string>(k));
+  }
 
   // Очистка демо/операционных данных (только админ + фраза подтверждения).
   @Audit('maintenance.reset', 'System')

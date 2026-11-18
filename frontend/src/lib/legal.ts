@@ -10,11 +10,11 @@
 // пользователь соглашается при регистрации, и по ней видно, кто какую редакцию
 // принял. Меняется при каждой правке текста; первые 10 символов — дата.
 
-export const LEGAL_VERSION = '2026-11-18.3';
+export const LEGAL_VERSION = '2026-11-18.4';
 
 // Оператор площадки — ООО «VetHub».
 const OPERATOR = 'ООО «VetHub»';
-const OPERATOR_DETAILS = 'адрес для обращений — info@vethub.uz';
+const OPERATOR_DETAILS = 'адрес для обращений — info@vethub.uz, телефон +998 90 022 78 88';
 
 export type LegalDocKey = 'terms' | 'privacy' | 'sellers';
 

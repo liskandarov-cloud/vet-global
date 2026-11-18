@@ -156,10 +156,14 @@ function SellerContent() {
     }
   };
   const syncDidox = async (id: string) => {
-    const { data } = await api.get(`/didox/status/${id}`);
-    const doc = data.documents?.[0];
-    toast.success(`${tt('Статус Didox', 'Didox holati')}: ${didoxLabels[doc?.didoxStatus] ?? doc?.didoxStatus ?? '—'}`);
-    load();
+    try {
+      const { data } = await api.get(`/didox/status/${id}`);
+      const doc = data.documents?.[0];
+      toast.success(`${tt('Статус Didox', 'Didox holati')}: ${didoxLabels[doc?.didoxStatus] ?? doc?.didoxStatus ?? '—'}`);
+      load();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? tt('Ошибка ЭДО', 'EDI xatosi'));
+    }
   };
   const signEimzo = async (id: string) => {
     try {

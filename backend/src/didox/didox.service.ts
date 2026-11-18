@@ -1,4 +1,4 @@
-import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -10,27 +10,44 @@ import { invoiceNumberFor } from '../common/invoice-number';
 import { buildFactura } from './factura';
 import { splitInvoices } from '../orders/invoice-split';
 import { deliveryBySellerForOrder } from '../delivery/order-delivery';
+import { DIDOX_OFF, didoxMode, type DidoxMode } from './mode';
 
 @Injectable()
-export class DidoxService {
+export class DidoxService implements OnModuleInit {
   private readonly logger = new Logger(DidoxService.name);
-  private readonly adapter: DidoxAdapter;
+  private readonly adapter?: DidoxAdapter;
+  private readonly mode: DidoxMode;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
-    const mode = (config.get<string>('DIDOX_MODE') ?? 'mock').toLowerCase();
-    if (mode === 'live') {
+    this.mode = didoxMode((k) => config.get<string>(k));
+    if (this.mode === 'live') {
       this.adapter = new LiveDidoxAdapter({
         baseUrl: config.get<string>('DIDOX_BASE_URL') ?? 'https://testapi3.didox.uz',
         token: config.get<string>('DIDOX_TOKEN'),
       });
-      this.logger.log('Didox adapter: LIVE');
-    } else {
+    } else if (this.mode === 'demo') {
       this.adapter = new MockDidoxAdapter();
-      this.logger.log('Didox adapter: MOCK (set DIDOX_MODE=live + DIDOX_TOKEN for real ЭДО)');
     }
+    this.logger.log(`Didox: ${this.mode}`);
+  }
+
+  // Документы, «выпущенные» имитацией, когда она стояла на проде, — не настоящие:
+  // их статус «подписан» вводит в заблуждение и мешает отменить часть заказа.
+  async onModuleInit() {
+    if (this.mode === 'demo') return;
+    const { count } = await this.prisma.invoice.updateMany({
+      where: { didoxId: { startsWith: 'MOCK-' } },
+      data: { didoxId: null, didoxStatus: null, signature: null, signedAt: null },
+    });
+    if (count) this.logger.warn(`Сброшено ${count} имитированных документов Didox`);
+  }
+
+  private live(): DidoxAdapter {
+    if (!this.adapter) throw new BadRequestException(DIDOX_OFF);
+    return this.adapter;
   }
 
   // Выпуск счёта-фактуры по заказу — по одному документу на продавца.
@@ -40,6 +57,7 @@ export class DidoxService {
   // продавца — то есть от чужого имени и на чужие позиции. Продавец выпускает
   // свой документ, администратор — все по заказу.
   async send(orderId: string, user: AuthUser) {
+    this.live();
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       include: {
@@ -111,7 +129,7 @@ export class DidoxService {
         number,
       );
 
-      const result = await this.adapter.createInvoice(payload);
+      const result = await this.live().createInvoice(payload);
       const invoice = await this.prisma.invoice.upsert({
         where: { orderId_sellerId: { orderId, sellerId: invoiceSellerId } },
         update: { didoxId: result.didoxId, didoxStatus: result.status },
@@ -134,7 +152,7 @@ export class DidoxService {
       });
     }
 
-    return { mode: this.adapter.mode, documents };
+    return { mode: this.mode, documents };
   }
 
   // Обновление статусов документов заказа из Didox.
@@ -155,16 +173,16 @@ export class DidoxService {
         : order.invoices;
     const sent = own.filter((inv) => inv.didoxId);
     if (!sent.length) {
-      return { mode: this.adapter.mode, documents: [], message: 'Документ ещё не отправлен в Didox' };
+      return { mode: this.mode, documents: [], message: 'Документ ещё не отправлен в Didox' };
     }
 
     const documents: { sellerId: string; didoxId: string | null; number: string; didoxStatus: string }[] = [];
     for (const inv of sent) {
-      const status = await this.adapter.getStatus(inv.didoxId!);
+      const status = await this.live().getStatus(inv.didoxId!);
       await this.prisma.invoice.update({ where: { id: inv.id }, data: { didoxStatus: status } });
       documents.push({ sellerId: inv.sellerId, didoxId: inv.didoxId, number: inv.number, didoxStatus: status });
     }
-    return { mode: this.adapter.mode, documents };
+    return { mode: this.mode, documents };
   }
 
   private assertAccess(order: any, user: AuthUser) {

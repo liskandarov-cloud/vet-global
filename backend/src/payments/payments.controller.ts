@@ -22,6 +22,12 @@ export class PaymentsController {
     private readonly click: ClickService,
   ) {}
 
+  // Какие кнопки оплаты показывать.
+  @Get('providers')
+  providers() {
+    return this.payments.providers();
+  }
+
   // Initiate a payment for an order — returns a provider checkout URL.
   @Post()
   @ApiBearerAuth()

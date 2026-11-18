@@ -11,6 +11,8 @@ export const T: Dict = {
   btn_search: { ru: '🔍 Поиск товара', uz: '🔍 Mahsulot qidirish' },
   btn_lead: { ru: '📝 Оставить заявку', uz: '📝 Ariza qoldirish' },
   btn_lang: { ru: '🌐 Язык', uz: '🌐 Til' },
+  btn_contacts: { ru: '📞 Контакты', uz: '📞 Aloqa' },
+  contacts: { ru: 'Связаться с VetHub:', uz: 'VetHub bilan bogʻlanish:' },
   ask_query: {
     ru: 'Введите название препарата или действующее вещество:',
     uz: 'Preparat nomi yoki faol moddani kiriting:',

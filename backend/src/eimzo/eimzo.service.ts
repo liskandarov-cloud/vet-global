@@ -3,21 +3,30 @@ import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { DIDOX_OFF, didoxMode, SIGN_IN_DIDOX, type DidoxMode } from '../didox/mode';
 
 @Injectable()
 export class EimzoService {
   private readonly logger = new Logger(EimzoService.name);
-  private readonly live: boolean;
+  private readonly mode: DidoxMode;
 
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
   ) {
-    this.live = (config.get<string>('DIDOX_MODE') ?? 'mock').toLowerCase() === 'live';
+    this.mode = didoxMode((k) => config.get<string>(k));
+  }
+
+  // Подпись из VetHub — только на демо-стенде. При живом Didox пересылки
+  // подписи нет, и отметка «подписан» стояла бы только у нас.
+  private assertDemo() {
+    if (this.mode === 'live') throw new BadRequestException(SIGN_IN_DIDOX);
+    if (this.mode === 'off') throw new BadRequestException(DIDOX_OFF);
   }
 
   // Returns the document payload that the client must sign with E-IMZO (ЭЦП).
   async prepare(orderId: string, user: AuthUser, sellerId?: string) {
+    this.assertDemo();
     const order = await this.getAccessibleOrder(orderId, user);
     const invoice = this.pickInvoice(order, user, sellerId);
     if (!invoice?.didoxId) {
@@ -34,18 +43,13 @@ export class EimzoService {
 
   // Accepts the PKCS#7 signature produced by E-IMZO and finalises the document.
   async sign(orderId: string, pkcs7: string, user: AuthUser, sellerId?: string) {
+    this.assertDemo();
     const order = await this.getAccessibleOrder(orderId, user);
     const target = this.pickInvoice(order, user, sellerId);
     if (!target) throw new BadRequestException('Нет счёта для подписания');
     if (!pkcs7 || pkcs7.length < 8) throw new BadRequestException('Пустая или некорректная подпись');
 
-    if (this.live) {
-      // TODO(eimzo-live): POST the PKCS#7 to Didox (e.g. /v2/documents/{id}/sign) to
-      // attach the signature and move the document to SIGNED on their side.
-      this.logger.log(`(live) forwarding PKCS7 for ${target.didoxId} to Didox — TODO`);
-    } else {
-      this.logger.log(`(mock) accepted PKCS7 signature for order ${orderId}`);
-    }
+    this.logger.log(`(demo) accepted PKCS7 signature for order ${orderId}`);
 
     const invoice = await this.prisma.invoice.update({
       where: { id: target.id },

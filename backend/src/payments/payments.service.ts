@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { OrderStatus, PaymentProvider, PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderReleaseService } from '../orders/order-release.service';
-import { notPayableReason, onlinePaymentMode, payerError, statusAfterPayment, type OnlinePaymentMode } from './payable';
+import { notPayableReason, onlinePaymentMode, payerError, payProviders, statusAfterPayment, type OnlinePaymentMode } from './payable';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { buildCheckoutUrl } from './providers';
 import { frontendUrl } from '../common/frontend-url';
@@ -25,9 +25,14 @@ export class PaymentsService {
     this.returnUrl = config.get<string>('PAYMENT_RETURN_URL') ?? frontendUrl();
   }
 
+  // Доступные способы оплаты: в live — только те, чьи ключи заданы.
+  providers() {
+    return { providers: payProviders(this.mode, (k) => this.config.get<string>(k)), demo: this.mock };
+  }
+
   async create(orderId: string, provider: PaymentProvider, user: AuthUser) {
-    if (this.mode === 'off') {
-      throw new BadRequestException('Онлайн-оплата пока не подключена. Оплатите заказ переводом по счёту продавца.');
+    if (!this.providers().providers.includes(provider)) {
+      throw new BadRequestException('Онлайн-оплата этим способом пока не подключена. Оплатите заказ переводом по счёту продавца.');
     }
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },

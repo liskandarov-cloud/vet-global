@@ -13,6 +13,7 @@ import { api } from '@/lib/api';
 import { downloadInvoices } from '@/lib/invoices';
 import { useAuth, useCart } from '@/lib/store';
 import { formatMoney } from '@/lib/utils';
+import { PROVIDER_LABEL, usePayProviders } from '@/lib/pay-providers';
 import { useI18n } from '@/lib/i18n';
 
 const TERM_RU: Record<string, string> = {
@@ -48,6 +49,7 @@ function OrderContent() {
   const { tt } = useI18n();
   const addToCart = useCart((s) => s.add);
   const user = useAuth((s) => s.user);
+  const providers = usePayProviders();
   const [order, setOrder] = useState<any>(null);
   const [notFound, setNotFound] = useState(false);
 
@@ -242,11 +244,15 @@ function OrderContent() {
           ) : order.status === 'PENDING' ? (
             <div className="card p-5">
               <h3 className="mb-2 font-semibold">{tt('Оплата', 'Toʻlov')}</h3>
-              <div className="flex gap-2">
-                {['CLICK', 'PAYME', 'UZUM'].map((p) => (
-                  <button key={p} className="btn-secondary flex-1 !px-2 !py-1.5 text-xs" onClick={() => pay(p)}>{p === 'CLICK' ? 'Click' : p === 'PAYME' ? 'Payme' : 'UZUM'}</button>
-                ))}
-              </div>
+              {providers?.length === 0 ? (
+                <p className="text-sm text-ink-muted">{tt('Онлайн-оплата пока не подключена. Оплатите заказ переводом по счёту продавца.', 'Onlayn toʻlov hali ulanmagan. Buyurtmani sotuvchi hisobi boʻyicha oʻtkazma bilan toʻlang.')}</p>
+              ) : (
+                <div className="flex gap-2">
+                  {(providers ?? []).map((p) => (
+                    <button key={p} className="btn-secondary flex-1 !px-2 !py-1.5 text-xs" onClick={() => pay(p)}>{PROVIDER_LABEL[p] ?? p}</button>
+                  ))}
+                </div>
+              )}
             </div>
           ) : null}
 

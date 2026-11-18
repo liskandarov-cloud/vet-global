@@ -44,6 +44,8 @@ services:
         value: "1"
       - key: VETPOINTS_MAX_SPEND_PERCENT
         value: "10"
+      # На проде не влияют: без демо-данных имитации нет, оплата и ЭДО
+      # включаются ключами (CLICK_*, PAYME_*, DIDOX_TOKEN). См. docs/INTEGRATIONS.md.
       - key: PAYMENTS_MODE
         value: mock
       - key: DIDOX_MODE

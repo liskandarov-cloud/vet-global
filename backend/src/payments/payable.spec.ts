@@ -1,5 +1,5 @@
 import { ApprovalStatus, OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
-import { notPayableReason, onlinePaymentMode, payerError, statusAfterPayment, type PayableOrder } from './payable';
+import { notPayableReason, onlinePaymentMode, payerError, payProviders, statusAfterPayment, type PayableOrder } from './payable';
 
 const order = (over: Partial<PayableOrder> = {}): PayableOrder => ({
   status: OrderStatus.CONFIRMED,
@@ -125,10 +125,33 @@ describe('режим онлайн-оплаты', () => {
     expect(onlinePaymentMode(undefined, 'true')).toBe('mock');
   });
 
-  // Прод: SEED_DEMO=false, ключей ещё нет — оплата без денег невозможна.
-  it('без live и без демо-данных оплата выключена', () => {
-    expect(onlinePaymentMode('mock', 'false')).toBe('off');
-    expect(onlinePaymentMode('mock', undefined)).toBe('off');
-    expect(onlinePaymentMode(undefined, undefined)).toBe('off');
+  // Прод: SEED_DEMO=false — только настоящая оплата, имитации нет.
+  it('без демо-данных имитации нет', () => {
+    expect(onlinePaymentMode('mock', 'false')).toBe('live');
+    expect(onlinePaymentMode('mock', undefined)).toBe('live');
+    expect(onlinePaymentMode(undefined, undefined)).toBe('live');
+  });
+});
+
+describe('способы оплаты', () => {
+  const env = (vars: Record<string, string>) => (k: string) => vars[k];
+
+  it('без ключей на проде оплатить нечем', () => {
+    expect(payProviders('live', env({}))).toEqual([]);
+  });
+
+  // Без секрета Click подпись не проверить, без ключа Payme — его запросы.
+  it('способ появляется, только когда заданы все его ключи', () => {
+    expect(payProviders('live', env({ CLICK_SERVICE_ID: '1', CLICK_MERCHANT_ID: '2' }))).toEqual([]);
+    expect(payProviders('live', env({ CLICK_SERVICE_ID: '1', CLICK_MERCHANT_ID: '2', CLICK_SECRET_KEY: 's' }))).toEqual(['CLICK']);
+    expect(payProviders('live', env({ PAYME_MERCHANT_ID: 'm', PAYME_KEY: 'k' }))).toEqual(['PAYME']);
+  });
+
+  it('UZUM в live не включается — мерчант-API не реализован', () => {
+    expect(payProviders('live', env({ UZUM_MERCHANT_ID: 'u' }))).not.toContain('UZUM');
+  });
+
+  it('на демо-стенде доступны все', () => {
+    expect(payProviders('mock', env({}))).toEqual(['CLICK', 'PAYME', 'UZUM']);
   });
 });

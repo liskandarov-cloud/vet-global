@@ -9,6 +9,7 @@ import { PromotionsService } from '../promotions/promotions.service';
 import { applyPromotion } from '../common/pricing';
 import { LeadsService } from '../leads/leads.service';
 import { BotLang, t } from './telegram.i18n';
+import { EMAIL, PHONE_DISPLAY, SITE } from '../common/contacts';
 
 interface ChatState {
   lang: BotLang;
@@ -70,6 +71,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       .text(t('btn_promotions', lang))
       .text(t('btn_lead', lang))
       .row()
+      .text(t('btn_contacts', lang))
       .text(t('btn_lang', lang))
       .resized();
   }
@@ -143,6 +145,10 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       if (this.isBtn(text, 'btn_lead')) {
         s.flow = 'lead'; s.step = 'name'; s.data = {};
         return ctx.reply(t('ask_name', lang));
+      }
+      if (this.isBtn(text, 'btn_contacts')) {
+        s.flow = undefined;
+        return ctx.reply(`${t('contacts', lang)}\n📞 ${PHONE_DISPLAY}\n✉️ ${EMAIL}\n🌐 ${SITE}`);
       }
       if (this.isBtn(text, 'btn_lang')) {
         return ctx.reply(t('welcome', lang), { reply_markup: this.langKeyboard() });
