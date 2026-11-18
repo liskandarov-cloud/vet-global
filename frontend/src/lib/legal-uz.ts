@@ -1,7 +1,8 @@
-// Hujjatlarning oʻzbekcha matni — legal.ts dagi ruscha matnning tarjima
-// loyihasi. Kvadrat qavsdagi joylarni yurist toʻldiradi; tarjimani
-// rekvizitlar bilan birga ona tilida soʻzlashuvchi yurist tekshirishi kerak.
-// Ruscha matn oʻzgarsa, bu yerda ham oʻzgartiriladi.
+// Hujjatlarning oʻzbekcha matni — legal.ts dagi ruscha matnning tarjimasi.
+// Boʻlimlar va xatboshilar ruscha matn bilan birma-bir mos boʻlishi shart
+// (legal.test.ts tekshiradi). Ruscha matn oʻzgarsa, bu yerda ham
+// oʻzgartiriladi. Kvadrat qavsda — kodda yoʻq faktlar (operator rekvizitlari,
+// shaxsiy maʼlumotlar bazasini roʻyxatdan oʻtkazish raqami).
 
 import type { LegalDocKey } from './legal';
 
@@ -14,78 +15,147 @@ export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]
     {
       h: '1. Umumiy qoidalar',
       p: [
-        `Ushbu kelishuv https://vethub.uz manzilida joylashgan VetHub platformasidan (keyingi oʻrinlarda — Platforma) foydalanishni tartibga soladi. Platforma operatori — ${OPERATOR} (keyingi oʻrinlarda — Operator).`,
-        'Platforma — sotuvchilar (veterinariya preparatlari, ozuqa, vaksinalar va uskunalar importchilari, distribyutorlari va ishlab chiqaruvchilari) takliflarini joylashtiradigan, xaridorlar (tashkilotlar, yakka tartibdagi tadbirkorlar, fermer xoʻjaliklari, veterinariya klinikalari) esa buyurtma beradigan axborot maydonchasi.',
-        'Platformada roʻyxatdan oʻtish foydalanuvchining ushbu kelishuv va Maxfiylik siyosati shartlarini toʻliq qabul qilganini bildiradi. Shartlarga rozi boʻlmasangiz, roʻyxatdan oʻtmang va Platformadan foydalanmang.',
+        `Ushbu hujjat — ${OPERATOR} (keyingi oʻrinlarda — Operator) ning https://vethub.uz manzilidagi VetHub platformasi, uning mobil versiyasi, Telegram-boti va dasturiy interfeyslaridan (keyingi oʻrinlarda — Platforma) foydalanuvchi har qanday shaxsga qaratilgan ommaviy ofertasi. Hujjat Platformadan foydalanish, buyurtmalarni rasmiylashtirish va toʻlash shartlarini belgilaydi.`,
+        'Ofertaning aksepti — ushbu shartlarga roziligini belgilagan holda Platformada roʻyxatdan oʻtish yoki roʻyxatdan oʻtmasdan buyurtma rasmiylashtirish. Aksept shartlarning toʻliq va soʻzsiz qabul qilinishini bildiradi; foydalanuvchi va Operator oʻrtasidagi shartnoma Oʻzbekiston Respublikasining elektron tijorat toʻgʻrisidagi qonunchiligiga muvofiq elektron shaklda tuzilgan hisoblanadi.',
+        'Ushbu ofertaning ajralmas qismlari — Maxfiylik siyosati, sotuvchilar uchun esa Sotuvchilar uchun oferta ham. Barcha hujjatlar Platformaning har bir sahifasi pastidagi havolalar orqali mavjud; amaldagi tahrir sanasi hujjat sahifasida koʻrsatilgan.',
+        'Platforma tadbirkorlik maqsadidagi xaridlar uchun moʻljallangan: yuridik shaxslar, yakka tartibdagi tadbirkorlar, fermer va dehqon xoʻjaliklari, veterinariya klinikalari va dorixonalar uchun. Agar xaridor tovarni shaxsiy ehtiyoji uchun sotib olayotgan jismoniy shaxs boʻlsa, munosabatlarga isteʼmolchilar huquqlarini himoya qilish toʻgʻrisidagi qonunchilik shartnoma bilan oʻzgartirib boʻlmaydigan qismida qoʻllaniladi.',
       ],
     },
     {
-      h: '2. Roʻyxatdan oʻtish va hisob',
+      h: '2. Atamalar',
       p: [
-        'Foydalanuvchi oʻzi va vakillik qiladigan tashkilot haqida haqqoniy maʼlumot koʻrsatadi va ularni dolzarb holatda saqlaydi.',
-        'Foydalanuvchi parolning sir saqlanishi va oʻz hisobi orqali amalga oshirilgan barcha harakatlar uchun javob beradi. Begona shaxs kirganiga shubha boʻlsa, parolni almashtirish kerak — bunda boshqa qurilmalardagi barcha avvalgi kirishlar toʻxtatiladi.',
-        'Hisob tashkilot nomidan boʻlishi mumkin; tashkilot xodimlari uning egasi belgilagan rollar va limitlar bilan kirish huquqini oladi.',
-        'Sotuvchi faoliyat huquqini tasdiqlovchi hujjatlari Operator tomonidan tekshirilgandan keyingina sotish imkoniyatiga ega boʻladi (Sotuvchilar uchun shartlarga qarang).',
+        'Sotuvchi — Operator tekshiruvidan oʻtgan va Platformada veterinariya preparatlari, vaksinalar, ozuqalar, ozuqa qoʻshimchalari, uskunalar va tegishli tovarlarni sotish boʻyicha takliflar joylashtiradigan yuridik shaxs yoki yakka tartibdagi tadbirkor.',
+        'Xaridor — Platformada buyurtma rasmiylashtiruvchi shaxs. Tashkilot — xaridorning «egasi», «boshqaruvchi» va «xarid qiluvchi» rollariga ega bir nechta xodimlari ishlaydigan hisob qaydnomasi.',
+        'Taklif — sotuvchining aniq tovar boʻyicha shartlari: narx, qadoq, minimal partiya, qoldiq, seriya va yaroqlilik muddati. Buyurtma — xaridorning bir yoki bir nechta sotuvchi takliflari boʻyicha tovar sotib olish arizasi. Shaxsiy kabinet — kirishdan keyin ochiladigan Platforma boʻlimi.',
       ],
     },
     {
-      h: '3. Operatorning roli va oldi-sotdi shartnomasi',
+      h: '3. Roʻyxatdan oʻtish, hisob qaydnomasi va tashkilot',
       p: [
-        'Tovarning oldi-sotdi shartnomasi xaridor va sotuvchi oʻrtasida tuziladi. Tovarning sifati, butligi, yaroqlilik muddati va muomalasining qonuniyligi, shuningdek hisob va hisobvaraq-faktura berish uchun sotuvchi javob beradi.',
-        '[Hisob-kitob sxemasi: Operator tovar uchun pul mablagʻlarini qabul qilmaydi / Operator toʻlovni sotuvchining agenti sifatida qabul qiladi — hisob-kitob boʻyicha qarordan keyin tanlab, tavsiflash.]',
-        'Operator sotuvchilarning hujjatlarini tekshiradi, sharhlarni moderatsiya qiladi va ushbu kelishuvni yoki qonunchilikni buzgan foydalanuvchining kirishini cheklashi mumkin.',
+        'Foydalanuvchi oʻzi va vakili boʻlgan tashkilot haqida ishonchli maʼlumotlarni (nomi, STIR, aloqa maʼlumotlari) koʻrsatadi va ular oʻzgarganda yangilaydi. Operator ushbu maʼlumotlarni tasdiqlovchi hujjatlarni soʻrashga haqli.',
+        'Parol kamida 8 belgidan iborat boʻlishi kerak. Foydalanuvchi parolning saqlanishi va oʻz hisob qaydnomasi ostida bajarilgan barcha harakatlar uchun javobgar. Kirishni tiklash bir soat amal qiladigan bir martalik havola orqali amalga oshiriladi; parolni almashtirish boshqa qurilmalardagi barcha oldingi kirishlarni tugatadi.',
+        'Tashkilot egasi xodimlarni taklif qiladi, ularga rollar va xarid limitlarini belgilaydi. Xarid qiluvchining limitidan oshgan summadagi buyurtmasi faqat ega yoki boshqaruvchi kelishganidan keyin bajariladi; kelishilgunga qadar sotuvchi bunday buyurtmani ishga qabul qilmaydi, toʻlov esa mavjud boʻlmaydi. Xodimlarning berilgan huquqlar doirasidagi harakatlari tashkilotning harakatlari hisoblanadi.',
+        'Buyurtmada toʻlovchi sifatida faqat rekvizitlari foydalanuvchining oʻzi tomonidan hisob qaydnomasiga kiritilgan yuridik shaxs koʻrsatilishi mumkin. Boshqa shaxsning rekvizitlarini koʻrsatish taqiqlanadi.',
       ],
     },
     {
-      h: '4. Buyurtmalar, narxlar va toʻlov',
+      h: '4. Operatorning roli',
       p: [
-        'Narxlar, yetkazib berish shartlari, minimal partiyalar va yetkazib berish tariflarini sotuvchi belgilaydi. Shartnomaviy va hajmga bogʻliq narxlar buyurtma rasmiylashtirilganda avtomatik qoʻllanadi.',
-        'Tovar mavjud boʻlmasa, buyurtma oldindan buyurtma sifatida rasmiylashtiriladi; yetkazib berish muddati sotuvchi bilan kelishiladi.',
-        'Toʻlov ushbu buyurtma uchun mavjud usullar bilan amalga oshiriladi: hisob boʻyicha bank oʻtkazmasi, toʻlov tizimlari orqali yoki tasdiqlangan kredit limiti doirasida (muddatli yoki boʻlib toʻlash).',
+        'Operator axborot maydonchasi va xizmatlarni taqdim etadi: takliflar katalogi va ularni solishtirish, buyurtmalarni rasmiylashtirish, narx soʻrovlari, hujjatlar, bildirishnomalar, shuningdek sotuvchilar topshirigʻiga koʻra onlayn toʻlovni qabul qiladi (6-boʻlim). Operator Platformada joylashtirilgan tovarlarning sotuvchisi hisoblanmaydi.',
+        'Oldi-sotdi (yetkazib berish) shartnomasi xaridor va sotuvchi oʻrtasida tuziladi va sotuvchi buyurtmani tasdiqlagan paytdan boshlab tuzilgan hisoblanadi. Sotuvchi tovarning sifati, butligi, yaroqlilik muddati va muomalasining qonuniyligi, u haqidagi maʼlumotlarning ishonchliligi, shuningdek hisob, hisob-faktura va kuzatuv hujjatlarini taqdim etish uchun javobgar.',
+        'Operator sotuvchini savdoga qoʻyishda uning hujjatlarini tekshiradi, sharhlarni moderatsiya qiladi va ushbu shartlarni yoki qonunchilikni buzgan foydalanuvchining kirishini cheklashga haqli. Operator tovarning har bir partiyasini tekshirmaydi va tovarning sotuvchi joylashtirgan tavsifga mosligini kafolatlamaydi.',
       ],
     },
     {
-      h: '5. Veterinariya preparatlari',
+      h: '5. Buyurtma',
       p: [
-        'Sotuvchilar veterinariya preparatlari muomalasi uchun zarur ruxsatnomalarga ega boʻlishi va faqat Oʻzbekiston Respublikasida roʻyxatdan oʻtgan preparatlarni roʻyxatdan oʻtkazish raqami, seriyasi va yaroqlilik muddatini koʻrsatgan holda joylashtirishi shart.',
-        'Retsept boʻyicha beriladigan preparatlar qonunchilikda belgilangan tartibda sotiladi. [Xaridorning retsept boʻyicha preparatlarni sotib olish huquqini tasdiqlash tartibi — yurist bilan belgilansin.]',
-        'Platformadagi preparatlar haqidagi maʼlumotlar, jumladan veterinariya maslahatlari boʻlimidagi javoblar maʼlumot uchun boʻlib, veterinariya shifokori tayinlovining oʻrnini bosmaydi. Preparatlarni qoʻllash — xaridor javobgarligida va mutaxassis nazorati ostida.',
+        'Xaridor tovarlar, yetkazib berish usuli, toʻlovchi va toʻlov usulini tanlaydi. Narxlar Platforma tomonidan rasmiylashtirish paytida sotuvchining hajmli chegirmalari, shartnomaviy narxlari va aksiyalarini hisobga olgan holda hisoblanadi; buyurtmaning yakuniy summasi xaridor uni tasdiqlashidan oldin koʻrsatiladi.',
+        'Bir nechta sotuvchining tovarlari boʻlgan buyurtma har bir sotuvchi tomonidan oʻz qismida bajariladi: har bir sotuvchi oʻz hujjatlarini taqdim etadi va oʻz pozitsiyalari uchun mustaqil javob beradi.',
+        'Sotuvchi tovar mavjudligini va yetkazib berish muddatlarini tasdiqlaydi. «Buyurtma asosida» pozitsiyalar oldindan buyurtma sifatida rasmiylashtiriladi: toʻlov mavjudlik tasdiqlangandan keyin ochiladi. Tovar boʻlmaganda sotuvchi buyurtmani rad etishga haqli; xaridor bildirishnoma oladi, toʻlangan summa qaytariladi.',
+        'Xaridor narx soʻrovi (tender) joylashtirishi mumkin: sotuvchilar oʻz takliflarini yuboradi, gʻolibni tanlash esa tanlangan taklif shartlarida buyurtma yaratadi. Sotuvchining tenderdagi taklifi soʻrov muddati tugaguncha amal qiladi.',
+        'Xaridor avtobuyurtmani — bir xil buyurtmani jadval boʻyicha muntazam rasmiylashtirishni sozlashi mumkin. Avtobuyurtma shaxsiy kabinetda navbatdagi rasmiylashtirish sanasigacha oʻchiriladi.',
+        'Joʻnatilgunga qadar xaridor Platforma orqali sotuvchiga yoki info@vethub.uz manziliga murojaat qilib, buyurtmadan voz kechishi mumkin; bekor qilishni sotuvchi yoki Operator rasmiylashtiradi. Joʻnatilgandan keyin 9-boʻlim qoidalari amal qiladi.',
       ],
     },
     {
-      h: '6. Sharhlar va foydalanuvchi materiallari',
+      h: '6. Narxlar va toʻlov',
       p: [
-        'Sharhni faqat ushbu tovarga buyurtmasi sotuvchi tomonidan tasdiqlangan xaridor qoldirishi mumkin; sharhlar moderatsiyadan keyin eʼlon qilinadi. Operator haqorat, reklama, uchinchi shaxslarning shaxsga doir maʼlumotlari yoki ataylab yolgʻon maʼlumot boʻlgan sharhni eʼlon qilmaslik yoki oʻchirish huquqiga ega.',
-        'Materiallarni (tavsiflar, rasmlar, hujjatlar) joylashtirib, foydalanuvchi ularga huquqi borligini tasdiqlaydi va Operatorga ularni Platformada koʻrsatishga ruxsat beradi.',
+        'Narxlar soʻmda koʻrsatiladi. Agar sotuvchi QQS toʻlovchisi boʻlsa, narx QQSni oʻz ichiga oladi, uning summasi esa hisob-fakturada ajratib koʻrsatiladi. Yetkazib berish narxi sotuvchining tariflari boʻyicha hisoblanadi va buyurtmada alohida koʻrsatiladi.',
+        'Onlayn toʻlov (Payme, Click, Uzum) Operator tomonidan sotuvchining agenti sifatida — sotuvchi nomidan va uning hisobidan qabul qilinadi. Xaridorning toʻlov majburiyati pul mablagʻlari Operatorga kelib tushgan paytdan boshlab bajarilgan hisoblanadi. Onlayn toʻlovda tovarlarning MXIK kodlari koʻrsatilgan fiskal chek shakllantiriladi.',
+        'Bank oʻtkazmasi orqali toʻlov sotuvchining hisobi boʻyicha bevosita uning hisob raqamiga amalga oshiriladi; xaridorning majburiyati mablagʻlar sotuvchining hisob raqamiga tushgan paytdan boshlab bajarilgan hisoblanadi.',
+        'Sukut boʻyicha buyurtma oldindan toʻlanadi. Xaridor tashkilotida kelishuvni kutayotgan buyurtma kelishilgunga qadar toʻlanmaydi.',
+        'Toʻlovni kechiktirish va boʻlib toʻlash sotuvchi tomonidan tijorat krediti shaklida yoki hamkor bank tomonidan alohida shartnoma boʻyicha, xaridor arizasi boʻyicha maʼqullangan limit doirasida taqdim etiladi. Operator qarz bermaydi. Toʻlovlar jadvali buyurtmada koʻrsatiladi. Toʻlov kechiktirilganda Operator kechiktirilgan toʻlovli yangi buyurtmalarni rasmiylashtirishni toʻxtatib turishga, sotuvchi esa qarzni qonunda belgilangan tartibda toʻlashni talab qilishga haqli.',
+        'Toʻlangan buyurtma bekor qilinganda yoki daʼvo qanoatlantirilganda pul 10 bank kuni ichida toʻlov qanday usulda amalga oshirilgan boʻlsa, oʻsha usulda qaytariladi.',
+        'Sotuvchi elektron hisob-fakturani elektron hujjat aylanishi operatori orqali taqdim etadi. Elektron raqamli imzo (E-IMZO) bilan imzolangan hujjatlar qogʻozdagi qoʻlda imzolangan hujjatlarga teng kuchga ega.',
       ],
     },
     {
-      h: '7. VetPoints ballari',
+      h: '7. Yetkazib berish va qabul qilish',
       p: [
-        'Toʻlangan buyurtmalar uchun xaridorga VetPoints bonus ballari hisoblanadi; ular bilan keyingi buyurtmalarning bir qismini Platformada koʻrsatilgan chegarada toʻlash mumkin. Ballar pul mablagʻi hisoblanmaydi, pulga almashtirilmaydi va boshqa shaxslarga berilmaydi.',
-        'Operator ballarni hisoblash va hisobdan chiqarish qoidalarini yangi qoidalarni Platformada eʼlon qilgan holda oʻzgartirish huquqiga ega.',
+        'Yetkazib berish usullari, narxi va muddatlarini (kuryer, transport kompaniyasi, olib ketish) sotuvchi oʻz tariflarida belgilaydi; agar sotuvchi chegara belgilagan boʻlsa, undan yuqori summada bepul yetkazib berish amal qiladi. Yetkazib berish muddati buyurtmani tasdiqlashda sotuvchi bilan kelishiladi.',
+        'Mulk huquqi va tovarning tasodifan nobud boʻlishi yoki shikastlanishi xavfi tovar xaridorga yoki uning vakiliga topshirilgan paytda xaridorga oʻtadi.',
+        'Qabul qilishda xaridor miqdorni, qadoqning butunligini, markirovkani, seriya va yaroqlilik muddatini, sovuq zanjir tovarlari uchun esa harorat rejimiga rioya qilinganligini (agar ishlab chiqaruvchi boshqasini belgilamagan boʻlsa, +2…+8 °C) tekshiradi. Nomuvofiqliklar qabul qilingan kuni dalolatnomada yoki Platformada qayd etiladi.',
+        'Xaridor harorat rejimi buzilgan, qadogʻi shikastlangan, yaroqlilik muddati oʻtgan yoki kuzatuv hujjatlarisiz tovarni qabul qilishdan bosh tortishga haqli.',
       ],
     },
     {
-      h: '8. Javobgarlik',
+      h: '8. Veterinariya preparatlari',
       p: [
-        'Operator Platformaning ishlashini taʼminlaydi, biroq uning uzluksizligini kafolatlamaydi va ishdagi uzilishlar, sotuvchilar, xaridorlar yoki uchinchi shaxslarning harakatlari natijasida yetkazilgan zararlar uchun javob bermaydi.',
-        'Operatorning foydalanuvchi oldidagi javobgarligi har qanday holatda [cheklov miqdori — yurist bilan belgilansin] bilan cheklanadi.',
+        'Platformada faqat Oʻzbekiston Respublikasida roʻyxatdan oʻtgan veterinariya preparatlari joylashtiriladi. Sotuvchi roʻyxat raqami, seriya va yaroqlilik muddatini koʻrsatadi. Yaroqlilik muddati oʻtgan partiyalar Platformada sotilmaydi; agar yaroqlilik muddati tugashiga 90 kundan kam qolgan boʻlsa, taklif «Qisqa muddat» deb belgilanadi.',
+        'Retseptli preparatlar Platformada belgilangan. Ularni veterinariya mutaxassisi yoki veterinariya faoliyatiga litsenziyasi boʻlgan tashkilotlar va yakka tartibdagi tadbirkorlar, shuningdek veterinariya shifokori tayinlovi boʻlgan xaridorlar sotib olishga haqli. Buyurtma rasmiylashtirib, xaridor bunday preparatlarni sotib olish huquqini tasdiqlaydi; sotuvchi tasdiqlovchi hujjatlarni soʻrashga va sotishni rad etishga, Operator esa bunday tovarlarga kirishni cheklashga haqli.',
+        'Platformadagi preparatlar haqidagi maʼlumotlar, jumladan veterinariya maslahatlari boʻlimidagi javoblar maʼlumot xarakteriga ega va veterinariya shifokorining koʻrigi va tayinlovi oʻrnini bosmaydi.',
+        'Xaridor saqlash shartlari va qoʻllash yoʻriqnomalariga, shuningdek hayvonlarni soʻyish va chorvachilik mahsulotlarini sotishdan oldingi kutish muddatlariga rioya etilishi uchun javobgar.',
       ],
     },
     {
-      h: '9. Shaxsga doir maʼlumotlar',
-      p: ['Foydalanuvchilarning shaxsga doir maʼlumotlari Platformada joylashtirilgan Maxfiylik siyosatiga muvofiq qayta ishlanadi.'],
-    },
-    {
-      h: '10. Shartlarning oʻzgarishi va nizolarni hal qilish',
+      h: '9. Sifat, daʼvolar va qaytarish',
       p: [
-        'Operator ushbu kelishuvni oʻzgartirishi mumkin; yangi tahrir Platformada eʼlon qilingan paytdan kuchga kiradi. Tahrir sanasi ushbu sahifada koʻrsatilgan.',
-        'Tomonlar munosabatlariga Oʻzbekiston Respublikasi qonunchiligi qoʻllaniladi. Nizolar muzokaralar yoʻli bilan, kelishuvga erishilmasa — Operator joylashgan joydagi sudda hal qilinadi.',
+        'Tovarning miqdori va tashqi koʻrinishi boʻyicha daʼvolar qabul qilishda bildiriladi. Yashirin kamchiliklar boʻyicha daʼvolar yaroqlilik muddati doirasida, lekin ular aniqlangan paytdan boshlab 10 kundan kechiktirmay bildiriladi. Daʼvo sotuvchiga Platforma orqali, nusxasi info@vethub.uz manziliga yuboriladi.',
+        'Sotuvchi daʼvoni 10 kun ichida koʻrib chiqadi. Agar daʼvo asosli boʻlsa, sotuvchi xaridorning tanloviga koʻra tovarni almashtiradi, yetishmaganini yetkazib beradi yoki pulni qaytaradi.',
+        'Lozim darajadagi sifatli veterinariya preparatlari, vaksinalar va ozuqa qoʻshimchalari, agar sotuvchi bilan boshqacha kelishilmagan boʻlsa, qaytarilmaydi va almashtirilmaydi: xaridorga topshirilgandan keyin ularning saqlash sharoitlari nazorat qilinmaydi.',
+        'Operator nizoni hal qilishga koʻmaklashadi: tomonlardan tushuntirish soʻraydi va nizoli buyurtma boʻyicha sotuvchiga pul oʻtkazishni nizo hal boʻlgunga qadar toʻxtatib turishga haqli.',
       ],
     },
     {
-      h: '11. Operator rekvizitlari',
+      h: '10. VetPoints ballari',
+      p: [
+        'Yetkazib berilgan buyurtmalar uchun xaridorga keyingi buyurtmalarning bir qismini toʻlash mumkin boʻlgan VetPoints bonus ballari hisoblanadi. Hisoblash miqdori va ballar bilan toʻlash chegarasi Platformada koʻrsatilgan; ushbu tahrir sanasida — buyurtma summasining 1 % i va keyingi buyurtma summasining 10 % idan koʻp emas. Ballar pul mablagʻi hisoblanmaydi, pulga almashtirilmaydi, boshqa shaxslarga berilmaydi va hisob qaydnomasi oʻchirilganda bekor qilinadi.',
+        'Operator ballarni hisoblash va hisobdan chiqarish qoidalarini kamida 14 kun oldin Platformada xabar berib oʻzgartirishga haqli. Oʻzgarishdan oldin hisoblangan ballar saqlanadi.',
+      ],
+    },
+    {
+      h: '11. Foydalanuvchilarning sharhlari va materiallari',
+      p: [
+        'Sharhni faqat ushbu tovarga buyurtmasi sotuvchi tomonidan tasdiqlangan xaridor qoldirishi mumkin; sharhlar moderatsiyadan keyin eʼlon qilinadi. Operator haqoratlar, reklama, uchinchi shaxslarning shaxsiy maʼlumotlari yoki ataylab yolgʻon maʼlumotlar mavjud sharhni eʼlon qilmaslik yoki oʻchirishga haqli.',
+        'Materiallarni (tavsiflar, tasvirlar, hujjatlar) joylashtirib, foydalanuvchi ularga huquqi borligini tasdiqlaydi va Operatorga ularni joylashtirish muddati davomida Platformada bepul koʻrsatishga ruxsat beradi.',
+      ],
+    },
+    {
+      h: '12. Taqiqlangan harakatlar',
+      p: [
+        'Quyidagilar taqiqlanadi: notoʻgʻri maʼlumotlar va boshqa shaxslarning rekvizitlarini koʻrsatish; tashkilotning kelishuv va limit mexanizmlarini chetlab oʻtish; Operator roziligisiz Platforma maʼlumotlarini avtomatik vositalar bilan yigʻish; Platforma ishiga aralashish va boshqalarning maʼlumotlariga kirishga urinish; Platformadan roʻyxatdan oʻtmagan, qalbaki yoki taqiqlangan tovarlar muomalasi uchun foydalanish; boshqa foydalanuvchilarga reklama tarqatish.',
+        'Buzilish holatida Operator Platformaga kirishni cheklash, takliflarni yashirish, tugallanmagan buyurtmalarni bekor qilish yoki hisob qaydnomasini bloklashga haqli va bu haqda foydalanuvchini elektron pochta orqali xabardor qiladi, Platforma yoki boshqa foydalanuvchilar xavfsizligiga tahdid holatlari bundan mustasno.',
+      ],
+    },
+    {
+      h: '13. Intellektual mulk',
+      p: [
+        'Platforma, uning dasturiy taʼminoti, dizayni va VetHub belgisiga boʻlgan huquqlar Operatorga tegishli. Foydalanuvchi shartnoma amal qilish muddati davomida Platformadan oʻz maqsadiga koʻra foydalanish uchun noeksklyuziv huquq oladi.',
+      ],
+    },
+    {
+      h: '14. Javobgarlik',
+      p: [
+        'Tomonlar majburiyatlarni bajarmaganlik uchun Oʻzbekiston Respublikasi qonunchiligiga muvofiq javobgar. Operator sotuvchi tomonidan oldi-sotdi shartnomasining bajarilishi, tovar sifati, tashuvchilar, banklar va toʻlov tizimlarining harakatlari, shuningdek oʻz nazoratidan tashqaridagi sabablarga koʻra Platforma ishidagi uzilishlar uchun javobgar emas. Rejali ishlar haqida Operator imkon qadar oldindan ogohlantiradi.',
+        'Qabul qilingan pul mablagʻlarini oʻtkazish majburiyatidan tashqari, Operatorning javobgarligi haqiqiy zarar bilan cheklanadi va talab bogʻliq boʻlgan buyurtma boʻyicha Operator mukofoti summasidan, agar talab buyurtma bilan bogʻliq boʻlmasa — 1 000 000 soʻmdan oshmaydi. Cheklov qasddan qilingan buzilishga nisbatan qoʻllanilmaydi.',
+        'Tomonlar boshqa tomonni asossiz kechiktirmasdan xabardor qilgan yengib boʻlmaydigan kuch holatlari tufayli majburiyatlarni bajarmaganlik uchun javobgarlikdan ozod qilinadi.',
+      ],
+    },
+    {
+      h: '15. Shaxsiy maʼlumotlar',
+      p: ['Foydalanuvchilarning shaxsiy maʼlumotlari Platformada joylashtirilgan Maxfiylik siyosatiga muvofiq qayta ishlanadi.'],
+    },
+    {
+      h: '16. Bildirishnomalar',
+      p: [
+        'Buyurtmalar haqidagi bildirishnomalar elektron pochta, SMS, push-bildirishnomalar va, agar foydalanuvchi ulagan boʻlsa, Telegram orqali yuboriladi. Yuridik ahamiyatga ega xabarlar hisob qaydnomasida koʻrsatilgan elektron pochtaga, Operatorga esa info@vethub.uz manziliga yuboriladi va yuborilgandan keyingi kuni olingan hisoblanadi.',
+      ],
+    },
+    {
+      h: '17. Amal qilish muddati, oʻzgartirish va bekor qilish',
+      p: [
+        'Shartnoma muddatsiz amal qiladi. Agar foydalanuvchida tugallanmagan buyurtmalar va qarz boʻlmasa, u shaxsiy kabinetda hisob qaydnomasini oʻchirib (Profil → Hisobni oʻchirish), shartnomani bekor qilishi mumkin.',
+        'Operator Platformada yangi tahrirni eʼlon qilib, ushbu shartlarni oʻzgartirishga haqli. Muhim oʻzgarishlar haqida Operator kamida 7 kun oldin xabar beradi. Yangi tahrir kuchga kirgandan keyin Platformadan foydalanishni davom ettirish unga rozilikni bildiradi; roʻyxatdan oʻtishda foydalanuvchi qaysi tahrirni qabul qilgani qayd etiladi.',
+      ],
+    },
+    {
+      h: '18. Qoʻllaniladigan huquq va nizolar',
+      p: [
+        'Tomonlarning munosabatlariga Oʻzbekiston Respublikasi qonunchiligi qoʻllaniladi. Nizolar muzokaralar yoʻli bilan hal qilinadi; daʼvoga javob berish muddati — 30 kun. Agar nizo hal qilinmasa, u Operator joylashgan joydagi sudga, isteʼmolchi bilan nizo esa qonunda belgilangan sudlovlilik qoidalari boʻyicha sudga oshiriladi.',
+      ],
+    },
+    {
+      h: '19. Operator rekvizitlari',
       p: [`${OPERATOR}; ${OPERATOR_DETAILS}.`],
     },
   ],
@@ -94,58 +164,63 @@ export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]
     {
       h: '1. Umumiy qoidalar',
       p: [
-        `Ushbu siyosat VetHub platformasi (https://vethub.uz) foydalanuvchilarining shaxsga doir maʼlumotlarini «Shaxsga doir maʼlumotlar toʻgʻrisida»gi Oʻzbekiston Respublikasi Qonuniga muvofiq qayta ishlash va himoya qilish tartibini belgilaydi. Shaxsga doir maʼlumotlar egasi va operatori — ${OPERATOR}; ${OPERATOR_DETAILS}.`,
-        'Roʻyxatdan oʻtib, foydalanuvchi oʻz shaxsga doir maʼlumotlarini ushbu siyosat shartlarida qayta ishlashga rozilik beradi.',
+        `Ushbu siyosat Oʻzbekiston Respublikasining «Shaxsga doir maʼlumotlar toʻgʻrisida»gi Qonuniga muvofiq VetHub platformasi (https://vethub.uz, Telegram-bot va dasturiy interfeyslar, keyingi oʻrinlarda — Platforma) foydalanuvchilarining qanday shaxsiy maʼlumotlari, nima maqsadda qayta ishlanishi, kimga berilishi va qanday himoya qilinishini belgilaydi. Shaxsiy maʼlumotlarning mulkdori va operatori — ${OPERATOR}; ${OPERATOR_DETAILS}.`,
+        'Roʻyxatdan oʻtib yoki buyurtma rasmiylashtirib, foydalanuvchi oʻz shaxsiy maʼlumotlarini ushbu siyosat shartlarida, jumladan ularni transchegaraviy uzatishni (5-boʻlim) qayta ishlashga rozilik beradi. Rozilikni qaytarib olish mumkin (7-boʻlim).',
       ],
     },
     {
-      h: '2. Qanday maʼlumotlarni qayta ishlaymiz',
+      h: '2. Biz qanday maʼlumotlarni qayta ishlaymiz',
       p: [
-        'Hisob maʼlumotlari: familiya, ism, elektron pochta manzili, telefon raqami, kompaniya nomi, STIR, Platformadagi rol; parol faqat qaytarib boʻlmaydigan xesh koʻrinishida saqlanadi.',
-        'Xaridor-tashkilotlar maʼlumotlari: nomi, STIR, MFO, hisob raqami, manzil; tashkilot xodimlari va ularning rollari.',
-        'Sotuvchilar maʼlumotlari: hisoblar uchun bank rekvizitlari, kompaniya haqidagi maʼlumotlar, faoliyat huquqini tasdiqlovchi hujjatlar (litsenziyalar, sertifikatlar).',
-        'Buyurtmalar maʼlumotlari: tarkibi va summalari, yetkazib berish manzili va shartlari, qabul qiluvchining telefoni, hisoblar, toʻlovlar, sharhlar.',
-        'Murojaatlar: veterinariya maslahati, xaridlarni moliyalashtirish uchun arizalar, qoʻllab-quvvatlash xizmatiga xabarlar.',
-        'Texnik maʼlumotlar: server jurnallaridagi IP-manzil va brauzer haqidagi maʼlumotlar, push-bildirishnomalarga obunalar.',
+        'Hisob qaydnomasi maʼlumotlari: familiya va ism, elektron pochta manzili, telefon raqami, kompaniya nomi, STIR, Platformadagi rol; parol faqat qaytarib boʻlmaydigan xesh koʻrinishida saqlanadi.',
+        'Xaridor-tashkilotlar maʼlumotlari: nomi, STIR, MFO, hisob raqami, manzili; tashkilot xodimlari, ularning rollari va xarid limitlari.',
+        'Sotuvchilar maʼlumotlari: kompaniya haqidagi maʼlumotlar, hisoblar uchun bank rekvizitlari, faoliyat huquqini tasdiqlovchi hujjatlar (litsenziyalar, sertifikatlar, preparatlarni roʻyxatdan oʻtkazish hujjatlari).',
+        'Buyurtmalar maʼlumotlari: tarkibi va summalari, yetkazib berish manzili va shartlari, qabul qiluvchining aloqa telefoni, hisoblar, toʻlovlar, joʻnatmalar, sharhlar, narx soʻrovlari, avtobuyurtmalar.',
+        'Murojaatlar: veterinariya maslahati, xaridlarni moliyalashtirish uchun arizalar (arizani koʻrib chiqish uchun zarur boʻlgan xaridlar va aylanma haqidagi maʼlumotlar bilan), qoʻllab-quvvatlash xizmatiga xabarlar.',
+        'Texnik maʼlumotlar: server jurnallaridagi IP-manzil va brauzer haqidagi maʼlumotlar, push-bildirishnomalarga obunalar, agar foydalanuvchi botni ulagan boʻlsa — Telegram identifikatori.',
       ],
     },
     {
-      h: '3. Ularni nima uchun qayta ishlaymiz',
+      h: '3. Qayta ishlash maqsadlari va asoslari',
       p: [
-        'Roʻyxatdan oʻtish, kirish va kirishni tiklash; buyurtmalarni rasmiylashtirish va bajarish, shu jumladan yetkazib berish va hujjatlarni rasmiylashtirish uchun zarur boʻlgan xaridor maʼlumotlarini sotuvchiga uzatish; hisoblar va elektron hisobvaraq-fakturalarni berish; buyurtmalar haqida pochta, SMS, push va Telegram orqali bildirishnomalar; sotuvchilarni tekshirish; moliyalashtirish arizalarini koʻrib chiqish; Platforma xavfsizligini taʼminlash; qonunchilik talablarini bajarish.',
+        'Shartnomani bajarish: roʻyxatdan oʻtish, kirish va kirishni tiklash; buyurtmalarni rasmiylashtirish va bajarish, jumladan yetkazib berish va hujjatlarni taqdim etish uchun zarur boʻlgan xaridor maʼlumotlarini sotuvchiga berish; toʻlovni qabul qilish; buyurtmalar haqida bildirishnomalar; tashkilotlar ishi va buyurtmalarni kelishish.',
+        'Qonunchilik talablarini bajarish: hisoblar va elektron hisob-fakturalar, fiskal cheklarni taqdim etish, buxgalteriya hujjatlarini saqlash, vakolatli organlarning soʻrovlariga javob berish.',
+        'Foydalanuvchi roziligi: moliyalashtirish arizalarini koʻrib chiqish va ularni hamkor bankka berish, veterinariya maslahatlari, Telegram-botni ulash.',
+        'Platforma xavfsizligini taʼminlash: ruxsatsiz kirish va suisteʼmollardan himoya, sotuvchilarni tekshirish.',
       ],
     },
     {
-      h: '4. Maʼlumotlarni kimga uzatamiz',
+      h: '4. Biz maʼlumotlarni kimga beramiz',
       p: [
-        'Sotuvchi va xaridorga — aniq buyurtmani bajarish uchun zarur hajmda.',
-        'Platforma ishlashini taʼminlaydigan xizmat koʻrsatuvchilarga: hosting va sayt yetkazib berish, xat va SMS yuborish (Eskiz), toʻlov tizimlari (Payme, Click, Uzum), elektron hujjat aylanishi operatori (Didox) — faqat oʻz vazifasini bajarish uchun.',
-        'Davlat organlariga — qonunchilikda nazarda tutilgan hollarda.',
-        'Biz shaxsga doir maʼlumotlarni sotmaymiz va uchinchi shaxslar reklamasi uchun uzatmaymiz.',
+        'Sotuvchi va xaridorga — aniq buyurtmani bajarish uchun zarur hajmda. Tashkilot egasi va boshqaruvchisiga — uning xodimlarining buyurtmalari haqidagi maʼlumotlar.',
+        'Platforma ular orqali ishlaydigan xizmat koʻrsatuvchilarga — faqat ularning vazifasini bajarish uchun: Supabase Inc. (maʼlumotlar bazasi va fayllar, AQSh), Render Services Inc. (ilova serverlari, AQSh), Cloudflare Inc. (saytni yetkazish va tashriflar statistikasi, global tarmoq), Resend (xatlar yuborish, AQSh), Eskiz (SMS yuborish, Oʻzbekiston), Telegram (bildirishnomalar), Payme, Click va Uzum toʻlov tizimlari (Oʻzbekiston), Didox elektron hujjat aylanishi operatori (Oʻzbekiston).',
+        'Hamkor bankka — xaridorning moliyalashtirish arizasi boʻyicha va uning roziligi bilan. Davlat organlariga — qonunchilikda nazarda tutilgan hollarda.',
+        'Biz shaxsiy maʼlumotlarni sotmaymiz va ularni uchinchi shaxslarning reklamasi uchun bermaymiz.',
       ],
     },
     {
       h: '5. Maʼlumotlar qayerda saqlanadi',
       p: [
-        '[Saqlash joyi: Oʻzbekiston Respublikasi fuqarolarining shaxsga doir maʼlumotlar bazalari Oʻzbekiston hududidagi serverlarda joylashtirilishi va Shaxsga doir maʼlumotlar bazalari davlat reyestrida roʻyxatdan oʻtkazilishi shart («Shaxsga doir maʼlumotlar toʻgʻrisida»gi Qonunning 27¹-moddasi). Hosting boʻyicha qarordan keyin serverlarning haqiqiy joylashuvi va roʻyxatdan oʻtkazish raqami koʻrsatilsin.]',
+        'Platforma maʼlumotlari AQShdagi serverlarda (Supabase, Render) saqlanadi va Cloudflare tarmogʻi orqali uzatiladi. Transchegaraviy uzatish foydalanuvchining roziligi bilan va ushbu xizmat koʻrsatuvchilar bilan tuzilgan shartnomalarda belgilangan, maʼlumotlarning himoyasini taʼminlaydigan qayta ishlash shartlarida amalga oshiriladi. Platforma biometrik va genetik maʼlumotlarni qayta ishlamaydi.',
+        'Platformaning shaxsiy maʼlumotlar bazasi Shaxsga doir maʼlumotlar bazalari davlat reyestrida roʻyxatdan oʻtkazilgan: [roʻyxatdan oʻtkazish raqami va sanasi].',
       ],
     },
     {
-      h: '6. Maʼlumotlarni qancha saqlaymiz',
+      h: '6. Maʼlumotlarni qancha vaqt saqlaymiz',
       p: [
-        'Hisob maʼlumotlari — hisob amal qilgan davrda. Buyurtmalar, hisoblar va toʻlovlar haqidagi maʼlumotlar — buxgalteriya hisobi va soliq toʻgʻrisidagi qonunchilikda belgilangan muddatlarda. Server jurnallari — 30 kundan oshmagan muddatda.',
+        'Hisob qaydnomasi maʼlumotlari — hisob qaydnomasi amal qilib turgan vaqtda; u oʻchirilgandan keyin — darhol shaxssizlashtiriladi. Buyurtmalar, hisoblar va toʻlovlar haqidagi maʼlumotlar — buxgalteriya hisobi va soliqlar toʻgʻrisidagi qonunchilikda belgilangan muddatlar davomida. Server jurnallari — 30 kundan koʻp emas; bazaning zaxira nusxalari — 30 kundan koʻp emas; parolni tiklash havolalari — bir soat.',
       ],
     },
     {
       h: '7. Sizning huquqlaringiz',
       p: [
-        'Siz bizda maʼlumotlaringiz mavjudligini bilish va ularni qayta ishlash haqida maʼlumot olish, maʼlumotlarni aniqlashtirish, bloklash yoki oʻchirishni talab qilish, shuningdek qayta ishlashga rozilikni qaytarib olish huquqiga egasiz. Maʼlumotlarning katta qismini shaxsiy kabinetda oʻzgartirish mumkin; boshqa soʻrovlar uchun info@vethub.uz manziliga yozing. Rozilikni kabinetda hisobni oʻchirib qaytarib olish mumkin (Profil → Hisobni oʻchirish): ism, telefon, pochta, rekvizitlar va saralanganlar oʻchiriladi, kirish yopiladi, buyurtmalar, hisoblar va toʻlovlar esa shaxssizlashtirilgan holda qoladi, chunki ularni saqlashni qonun talab qiladi.',
+        'Siz bizda maʼlumotlaringiz mavjudligini bilish va ularni qayta ishlash haqida maʼlumot olish, ularni aniqlashtirish, bloklash yoki oʻchirishni talab qilish, qayta ishlashga rozilikni qaytarib olish, shuningdek Operator harakatlari ustidan vakolatli davlat organiga yoki sudga shikoyat qilish huquqiga egasiz.',
+        'Maʼlumotlarning katta qismini shaxsiy kabinetda oʻzgartirish mumkin; boshqa soʻrovlarni info@vethub.uz manziliga yuboring — biz 10 kun ichida javob beramiz. Rozilikni hisob qaydnomasini oʻchirib (Profil → Hisobni oʻchirish) qaytarib olish mumkin: ism, telefon, pochta, rekvizitlar va saralanganlar oʻchiriladi, kirish yopiladi, buyurtmalar, hisoblar va toʻlovlar esa shaxssizlashtirilgan holda qoladi, chunki ularni saqlashni qonun talab qiladi.',
       ],
     },
     {
       h: '8. Maʼlumotlarni qanday himoya qilamiz',
       p: [
-        'Platforma bilan ulanish shifrlanadi (HTTPS); parollar faqat xesh koʻrinishida saqlanadi; maʼlumotlarga kirish rollar boʻyicha cheklangan; parolni tiklash havolalari bir martalik va bir soat amal qiladi; parolni almashtirish barcha avvalgi kirishlarni toʻxtatadi; maʼlumotlar bazasi har kuni zaxiralanadi.',
+        'Platforma bilan ulanish shifrlanadi (HTTPS, HSTS); parollar faqat xesh koʻrinishida saqlanadi; maʼlumotlarga kirish rollar boʻyicha chegaralangan; parolni tiklash havolalari bir martalik; parolni almashtirish barcha oldingi kirishlarni tugatadi; administratorlarning harakatlari jurnalga yoziladi; maʼlumotlar bazasi har kuni zaxiralanadi.',
       ],
     },
     {
@@ -155,45 +230,101 @@ export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]
       ],
     },
     {
-      h: '10. Siyosatning oʻzgarishi',
-      p: ['Biz ushbu siyosatni oʻzgartirishimiz mumkin; yangi tahrir eʼlon qilingan paytdan kuchga kiradi. Tahrir sanasi ushbu sahifada koʻrsatilgan.'],
+      h: '10. Voyaga yetmaganlar',
+      p: ['Platforma tadbirkorlik maqsadidagi xaridlar uchun moʻljallangan va 18 yoshga toʻlmagan shaxslar uchun moʻljallanmagan.'],
+    },
+    {
+      h: '11. Siyosatni oʻzgartirish va aloqa',
+      p: [
+        'Biz ushbu siyosatni oʻzgartirishimiz mumkin; yangi tahrir eʼlon qilingan paytdan boshlab amal qiladi, tahrir sanasi ushbu sahifada koʻrsatilgan. Shaxsiy maʼlumotlarni qayta ishlash boʻyicha savollarni info@vethub.uz manziliga yuboring.',
+      ],
     },
   ],
 
   sellers: [
     {
-      h: '1. Kim sotishi mumkin',
+      h: '1. Umumiy qoidalar',
       p: [
-        'Platformada tegishli tovarlar muomalasi uchun qonunchilik talab qiladigan ruxsatnomalarga ega yuridik shaxslar va yakka tartibdagi tadbirkorlar sotishi mumkin (veterinariya preparatlari uchun — [litsenziya / ruxsatnoma turi yurist bilan aniqlansin]).',
-        'Hujjatlar Operator tomonidan tekshirilgunga qadar sotuvchining tovarlari xaridorlarga koʻrsatilmaydi. Operator qoʻshimcha hujjatlarni soʻrashi va sabab koʻrsatmasdan ruxsat berishni rad etishi mumkin.',
+        `Ushbu hujjat — ${OPERATOR} (keyingi oʻrinlarda — Operator) ning yuridik shaxslar va yakka tartibdagi tadbirkorlarga (keyingi oʻrinlarda — Sotuvchi) VetHub platformasida (https://vethub.uz, keyingi oʻrinlarda — Platforma) tovarlarni joylashtirish haqidagi ommaviy ofertasi. Aksept — ushbu shartlarga roziligini belgilagan holda Platformada sotuvchi sifatida roʻyxatdan oʻtish.`,
+        'Ushbu shartnoma boʻyicha Operator Sotuvchiga takliflarni joylashtirish va buyurtmalarni qayta ishlash uchun Platformaga kirishni taqdim etadi, shuningdek xaridorlardan Sotuvchining tovarlari uchun onlayn toʻlovni uning nomidan va uning hisobidan qabul qiladi (agentlik shartnomasi). Sotuvchi Operatorga mukofot (komissiya) toʻlaydi. Foydalanuvchi kelishuvi (ommaviy oferta) va Maxfiylik siyosati Sotuvchiga ushbu hujjatda tartibga solinmagan qismida qoʻllaniladi.',
       ],
     },
     {
-      h: '2. Takliflarga qoʻyiladigan talablar',
+      h: '2. Savdoga qoʻyish',
       p: [
-        'Sotuvchi faqat sotish huquqiga ega boʻlgan tovarlarni haqqoniy narxlar, qoldiqlar, qadoqlash va minimal partiyalar bilan joylashtiradi. Veterinariya preparatlari uchun roʻyxatdan oʻtkazish raqami, seriyasi va yaroqlilik muddati koʻrsatiladi; retsept boʻyicha beriladigan preparatlar alohida belgilanadi.',
-        'Elektron hisobvaraq-faktura va fiskal chek berish uchun tovarda MXIK kodi koʻrsatilishi kerak.',
-        '1C yoki fayldan yuklangan narx va qoldiqlarni sotuvchi dolzarb holatda saqlashi shart. Integratsiya kaliti — sotuvchining maxfiy maʼlumoti.',
+        'Sotuvchi quyidagilarni taqdim etadi: roʻyxatdan oʻtish hujjatlari, veterinariya preparatlarini sotish uchun litsenziya (agar uning faoliyati uchun qonunchilikda talab qilinsa), preparatlarni davlat roʻyxatidan oʻtkazish hujjatlari, sertifikatlanishi lozim boʻlgan tovarlarga muvofiqlik sertifikatlari va bank rekvizitlari.',
+        'Operator hujjatlarni, qoida tariqasida, uch ish kuni ichida tekshiradi. Tekshiruv tugaguniga qadar Sotuvchining takliflari xaridorlarga koʻrsatilmaydi. Operator qoʻshimcha hujjatlarni soʻrashga va savdoga qoʻyishni rad etishga haqli. Rekvizitlar, STIR oʻzgarganda yoki litsenziya muddati tugaganda Sotuvchi Operatorni xabardor qiladi; qayta tekshiruvgacha savdoga qoʻyish toʻxtatib turilishi mumkin.',
       ],
     },
     {
-      h: '3. Komissiya',
+      h: '3. Takliflarga qoʻyiladigan talablar',
       p: [
-        'Platforma komissiyasi buyurtmadagi tovarlar qiymatining 12 foizini tashkil etadi. Komissiya xaridor VetPoints ballarini hisobdan chiqarishidan oldingi summadan hisoblanadi: ballar Platformaning sodiqlik vositasi boʻlib, komissiya bazasini kamaytirmaydi.',
-        '[Komissiyani toʻlash tartibi va muddatlari, hujjatlar (dalolatnoma, hisobvaraq-faktura), soliqqa tortish — hisob-kitob sxemasi boʻyicha qarordan keyin yurist va buxgalter bilan belgilansin.]',
+        'Sotuvchi faqat sotishga haqli boʻlgan tovarlarni ishonchli narxlar, qoldiqlar, qadoqlar va minimal partiyalar bilan joylashtiradi. Veterinariya preparatlari uchun roʻyxat raqami, seriya va yaroqlilik muddati koʻrsatiladi; retseptli preparatlar va sovuq zanjir tovarlari alohida belgilanadi.',
+        'Har bir tovarda MXIK kodi koʻrsatiladi: usiz elektron hisob-faktura va fiskal chek shakllantirilmaydi. Agar Sotuvchi QQS toʻlovchisi boʻlsa, narxlar QQS bilan koʻrsatiladi.',
+        'Yaroqlilik muddati oʻtgan partiyalarni Platforma avtomatik ravishda savdodan oladi. Sotuvchi taklifda koʻrsatilganidan kam boʻlmagan qoldiq yaroqlilik muddatiga ega partiyalarni yetkazib berishi shart.',
+        '1C yoki fayldan yuklangan narxlar va qoldiqlarni Sotuvchi dolzarb holatda saqlaydi. Integratsiya kaliti — Sotuvchining maxfiy maʼlumoti; undan foydalanib yuklangan maʼlumotlar uchun Sotuvchi javobgar.',
       ],
     },
     {
       h: '4. Buyurtmalarni bajarish',
       p: [
-        'Sotuvchi buyurtmani tasdiqlaydi, hisob va hisobvaraq-faktura beradi, tovarni kelishilgan muddatda joʻnatadi va Platformada buyurtma holatini yangilaydi. Sotuvchi xaridor oldida tovarning sifati va qonuniyligi uchun javob beradi.',
+        'Sotuvchi buyurtmani bir ish kuni ichida tasdiqlaydi yoki rad etadi, tovarni kelishilgan muddatda joʻnatadi, elektron hisob-fakturani taqdim etadi va Platformada buyurtma holatini yangilaydi. Xaridor tashkilotida kelishuvni kutayotgan buyurtma kelishilgunga qadar ishga qabul qilinmaydi.',
+        'Sotuvchi tovarni Platformada eʼlon qilingan oʻz tariflari boʻyicha yetkazib beradi, oʻzi jalb qilgan tashuvchilar uchun javob beradi va sovuq zanjir tovarlari uchun harorat rejimini taʼminlaydi.',
+        'Sotuvchi xaridorlarning daʼvolarini Foydalanuvchi kelishuvida belgilangan muddatlarda koʻrib chiqadi va xaridor oldida tovarning sifati, butligi va muomalasining qonuniyligi uchun javob beradi.',
       ],
     },
     {
-      h: '5. Qoidabuzarliklar',
+      h: '5. Hisob-kitoblar',
       p: [
-        'Notoʻgʻri maʼlumot joylashtirish, roʻyxatdan oʻtmagan yoki muddati oʻtgan preparatlarni sotish, buyurtmalarni muntazam bajarmaslik uchun Operator sotuvchining takliflarini yashirish yoki uning hisobini bloklash huquqiga ega.',
+        'Onlayn toʻlovni (Payme, Click, Uzum) Operator Sotuvchining agenti sifatida qabul qiladi va olingan summani mukofot chegirib tashlangan holda buyurtma «Yetkazildi» holatini olgandan keyin besh bank kunidan kechiktirmay Sotuvchiga oʻtkazadi.',
+        'Bank oʻtkazmasi orqali toʻlovni xaridor Sotuvchining hisobi boʻyicha bevosita uning hisob raqamiga kiritadi. Bunday buyurtmalar boʻyicha mukofotni Operator Sotuvchiga har oy, keyingi oyning 5-sanasigacha taqdim etadi; Sotuvchi uni 10 bank kuni ichida toʻlaydi.',
+        'Kechiktirilgan va boʻlib toʻlanadigan buyurtmalar boʻyicha pul Sotuvchiga xaridordan kelib tushishiga qarab oʻtkaziladi. Sotuvchi taqdim etgan tijorat krediti boʻyicha toʻlanmaslik xavfini Sotuvchi koʻtaradi.',
+        'Toʻlangan buyurtma bekor qilinganda yoki daʼvo qanoatlantirilganda xaridorga qaytarish Sotuvchi hisobidan amalga oshiriladi: oʻtkazilishi lozim boʻlgan summalardan yoki Sotuvchi tomonidan bevosita. Nizoli buyurtma boʻyicha Operator nizo hal boʻlgunga qadar oʻtkazishni toʻxtatib turishga haqli.',
       ],
+    },
+    {
+      h: '6. Operator mukofoti',
+      p: [
+        'Mukofot buyurtmadagi tovarlar qiymatining (yetkazib berish narxisiz) 12 % ini tashkil etadi va xaridor VetPoints ballarini hisobdan chiqarishidan oldingi summadan hisoblanadi.',
+        'VetPoints ballari hisobiga chegirmani Operator taqdim etadi: onlayn toʻlovda Sotuvchi tovarlar qiymatini hisobdan chiqarilgan ballarni hisobga olmagan holda oladi, oʻtkazma orqali toʻlovda esa hisobdan chiqarilgan ballar summasi Operator mukofoti hisobiga oʻtkaziladi.',
+        'Operator Sotuvchini kamida 30 kun oldin xabardor qilib, mukofot miqdorini oʻzgartirishga haqli. Yangi miqdor oʻzgarish kuchga kirgandan keyin rasmiylashtirilgan buyurtmalarga qoʻllaniladi.',
+      ],
+    },
+    {
+      h: '7. Hisobot va hujjatlar',
+      p: [
+        'Har oyning 10-sanasigacha Operator oʻtgan oy uchun agent hisobotini va koʻrsatilgan xizmatlar dalolatnomasini shakllantiradi hamda mukofot summasiga elektron hujjat aylanishi operatori orqali elektron hisob-faktura taqdim etadi. Agar besh ish kuni ichida Sotuvchi asoslantirilgan eʼtirozlarini yubormasa, hisobot va dalolatnoma qabul qilingan hisoblanadi. Agar Operator QQS toʻlovchisi boʻlsa, mukofot QQSni oʻz ichiga oladi.',
+      ],
+    },
+    {
+      h: '8. Shartnomaviy narxlar, aksiyalar va narx soʻrovlari',
+      p: [
+        'Sotuvchi alohida xaridorlar uchun shartnomaviy narxlar, hajmli chegirmalar va aksiyalarni belgilashga haqli; Platforma ularni buyurtma rasmiylashtirishda avtomatik qoʻllaydi. Sotuvchining narx soʻrovidagi (tenderdagi) taklifi soʻrov muddati tugaguncha amal qiladi va xaridor uni tanlaganda buyurtmaga aylanadi.',
+      ],
+    },
+    {
+      h: '9. Xaridorlar maʼlumotlari',
+      p: [
+        'Platforma orqali olingan xaridorlarning shaxsiy maʼlumotlaridan Sotuvchi faqat buyurtmani bajarish uchun foydalanadi, ularni uchinchi shaxslarga bermaydi va xaridor roziligisiz reklama uchun foydalanmaydi, shaxsga doir maʼlumotlar toʻgʻrisidagi qonunchilikka rioya qiladi.',
+      ],
+    },
+    {
+      h: '10. Javobgarlik va buzilishlar',
+      p: [
+        'Sotuvchi tovar sifati va muomalasining qonuniyligi, maʼlumotlar va hujjatlarning ishonchliligi uchun javob beradi va Sotuvchining tovari yoki maʼlumotlari sababli yuzaga kelgan uchinchi shaxslarning talablari bilan bogʻliq zararlarni Operatorga qoplaydi.',
+        'Notoʻgʻri maʼlumotlar yoki hujjatlar, roʻyxatdan oʻtmagan, qalbaki yoki muddati oʻtgan preparatlarni sotish, buyurtmalarni muntazam bajarmaslik uchun Operator Sotuvchining takliflarini yashirish, nizoli buyurtmalar boʻyicha pul oʻtkazishni toʻxtatib turish yoki hisob qaydnomasini bloklashga haqli.',
+      ],
+    },
+    {
+      h: '11. Amal qilish muddati, oʻzgartirish va nizolar',
+      p: [
+        'Shartnoma muddatsiz amal qiladi. Sotuvchi barcha buyurtmalarni bajarib, hisob-kitoblarni yakunlagandan keyin Operatorni 30 kun oldin xabardor qilib, uni bekor qilishi mumkin. Operator Sotuvchini kamida 15 kun oldin (mukofot oʻzgarishi haqida — 30 kun oldin) xabardor qilib, ushbu shartlarni oʻzgartirishga haqli.',
+        'Tomonlarning munosabatlariga Oʻzbekiston Respublikasi qonunchiligi qoʻllaniladi. Daʼvoga javob berish muddati — 30 kun; hal qilinmagan nizolar Operator joylashgan joydagi sudda koʻrib chiqiladi.',
+      ],
+    },
+    {
+      h: '12. Operator rekvizitlari',
+      p: [`${OPERATOR}; ${OPERATOR_DETAILS}.`],
     },
   ],
 };

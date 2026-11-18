@@ -27,9 +27,9 @@ export function Footer() {
           <ul className="space-y-2 text-sm text-ink-muted">
             <li><Link href="/blog" className="hover:text-teal-700">{tt('Блог', 'Blog')}</Link></li>
             <li><Link href="/consult" className="hover:text-teal-700">{tt('Ветконсультация', 'Vet maslahat')}</Link></li>
-            <li><Link href="/legal/terms" className="hover:text-teal-700">{tt('Пользовательское соглашение', 'Foydalanuvchi kelishuvi')}</Link></li>
+            <li><Link href="/legal/terms" className="hover:text-teal-700">{tt('Публичная оферта', 'Ommaviy oferta')}</Link></li>
             <li><Link href="/legal/privacy" className="hover:text-teal-700">{tt('Политика конфиденциальности', 'Maxfiylik siyosati')}</Link></li>
-            <li><Link href="/legal/sellers" className="hover:text-teal-700">{tt('Условия для продавцов', 'Sotuvchilar uchun shartlar')}</Link></li>
+            <li><Link href="/legal/sellers" className="hover:text-teal-700">{tt('Оферта для продавцов', 'Sotuvchilar uchun oferta')}</Link></li>
           </ul>
         </div>
         <div>

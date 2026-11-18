@@ -75,14 +75,14 @@ export default function RegisterPage() {
             <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-teal-600" checked={accept} onChange={(e) => setAccept(e.target.checked)} required />
             <span>
               {tt('Принимаю', 'Men')}{' '}
-              <Link href="/legal/terms" target="_blank" className="text-teal-700 underline">{tt('Пользовательское соглашение', 'Foydalanuvchi kelishuvi')}</Link>
+              <Link href="/legal/terms" target="_blank" className="text-teal-700 underline">{tt('Публичную оферту', 'Ommaviy oferta')}</Link>
               {form.role === 'SELLER' && (
                 <>
                   {', '}
-                  <Link href="/legal/sellers" target="_blank" className="text-teal-700 underline">{tt('Условия для продавцов', 'Sotuvchilar uchun shartlar')}</Link>
+                  <Link href="/legal/sellers" target="_blank" className="text-teal-700 underline">{tt('Оферту для продавцов', 'Sotuvchilar uchun oferta')}</Link>
                 </>
               )}
-              {/* Узбекские аффиксы пишутся слитно со ссылкой: «kelishuvini», «siyosatiga». */}
+              {/* Узбекские аффиксы пишутся слитно со ссылкой: «ofertani», «siyosatiga». */}
               {tt(' и даю согласие на обработку персональных данных по ', 'ni qabul qilaman va shaxsga doir maʼlumotlarimni ')}
               <Link href="/legal/privacy" target="_blank" className="text-teal-700 underline">{tt('Политике конфиденциальности', 'Maxfiylik siyosati')}</Link>
               {tt('', 'ga muvofiq qayta ishlashga rozilik beraman')}

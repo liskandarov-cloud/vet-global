@@ -25,7 +25,8 @@ export function LegalView({ doc }: { doc: LegalDocKey }) {
   const { lang, tt } = useI18n();
   const d = LEGAL_DOCS[doc];
   const sections = lang === 'uz' ? LEGAL_SECTIONS_UZ[doc] : d.sections;
-  const [y, m, dd] = LEGAL_VERSION.split('-');
+  // Версия — дата и, если в тот же день правок было несколько, номер: «2026-11-18.2».
+  const [y, m, dd] = LEGAL_VERSION.slice(0, 10).split('-');
 
   return (
     <div className="mx-auto max-w-3xl px-4 py-12">
@@ -43,7 +44,7 @@ export function LegalView({ doc }: { doc: LegalDocKey }) {
       <h1 className="font-heading text-3xl font-extrabold">{tt(d.title, d.titleUz)}</h1>
       <p className="mt-2 text-sm text-ink-muted">
         {tt(`Редакция от ${dd}.${m}.${y}`, `${dd}.${m}.${y} dagi tahrir`)}
-        {lang === 'uz' && ' · Tarjima loyihasi: rasmiy matn yurist tekshiruvidan soʻng eʼlon qilinadi.'}
+        {lang === 'uz' && ' · Matnlar oʻrtasida tafovut boʻlsa, rus tilidagi matn ustun turadi.'}
       </p>
       <div className="mt-8 space-y-8">
         {sections.map((s) => (
