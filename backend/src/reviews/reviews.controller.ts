@@ -33,9 +33,12 @@ export class ReviewsController {
   constructor(private readonly prisma: PrismaService) {}
 
   @Get()
-  async list(@Query('productId') productId?: string, @Query('approved') approved = 'true') {
+  // Публичный список — только прошедшие модерацию. Параметр approved=false
+  // раньше отдавал любому посетителю отзывы, ожидающие проверки или
+  // отклонённые модератором; очередь модерации — /reviews/pending (админ).
+  async list(@Query('productId') productId?: string) {
     const reviews = await this.prisma.review.findMany({
-      where: { isApproved: approved !== 'false', ...(productId ? { productId } : {}) },
+      where: { isApproved: true, ...(productId ? { productId } : {}) },
       orderBy: { createdAt: 'desc' },
       take: 100,
     });

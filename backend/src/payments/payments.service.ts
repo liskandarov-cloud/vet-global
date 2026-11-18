@@ -1,9 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus, PaymentProvider, PaymentStatus, UserRole } from '@prisma/client';
+import { OrderStatus, PaymentProvider, PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderReleaseService } from '../orders/order-release.service';
-import { notPayableReason } from './payable';
+import { notPayableReason, payerError } from './payable';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { buildCheckoutUrl } from './providers';
 import { frontendUrl } from '../common/frontend-url';
@@ -30,9 +30,8 @@ export class PaymentsService {
       include: { payments: { select: { status: true } } },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (user.role === UserRole.BUYER && order.buyerId !== user.id) {
-      throw new ForbiddenException('Not authorized');
-    }
+    const denied = payerError(order, user);
+    if (denied) throw new ForbiddenException(denied);
     // Правило оплатимости общее с протоколами Payme и Click: провайдеры
     // попадают в систему минуя эту проверку, и держать её здесь в одиночку
     // значит разрешить им то, что запрещено в кабинете.
@@ -82,8 +81,11 @@ export class PaymentsService {
       where: { id: paymentId },
       data: { status: PaymentStatus.PAID, providerTransId },
     });
-    await this.prisma.order.update({
-      where: { id: payment.orderId },
+    // Подтверждаем только новый заказ. Безусловное обновление возвращало к
+    // жизни отменённый заказ (склад и баллы по нему уже вернули), а оплату
+    // отсрочки после доставки откатывало из «Доставлен» в «Подтверждён».
+    await this.prisma.order.updateMany({
+      where: { id: payment.orderId, status: OrderStatus.PENDING },
       data: { status: OrderStatus.CONFIRMED },
     });
     // Лимит резервировался под неоплаченный долг: после оплаты он должен
@@ -107,9 +109,10 @@ export class PaymentsService {
   private async getOwned(id: string, user: AuthUser) {
     const payment = await this.prisma.payment.findUnique({ where: { id }, include: { order: true } });
     if (!payment) throw new NotFoundException('Payment not found');
-    if (user.role === UserRole.BUYER && payment.order.buyerId !== user.id) {
-      throw new ForbiddenException('Not authorized');
-    }
+    // Тот же круг, что и при создании платежа: продавец чужой платёж не
+    // подтверждает и не смотрит (см. payerError).
+    const denied = payerError(payment.order, user);
+    if (denied) throw new ForbiddenException(denied);
     return payment;
   }
 }

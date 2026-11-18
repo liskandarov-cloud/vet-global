@@ -30,6 +30,11 @@ export class FinancingService {
 
   // Покупатель подаёт заявку. В mock-режиме — мгновенный скоринг и авто-решение.
   async apply(dto: ApplyCreditDto, user: AuthUser) {
+    // Заявка — только от своего юрлица (тот же принцип, что в заказе).
+    if (dto.counterpartyId) {
+      const cp = await this.prisma.counterparty.findFirst({ where: { id: dto.counterpartyId, userId: user.id } });
+      if (!cp) throw new BadRequestException('Юрлицо не найдено среди ваших реквизитов');
+    }
     const app = await this.prisma.creditApplication.create({
       data: {
         buyerId: user.id,

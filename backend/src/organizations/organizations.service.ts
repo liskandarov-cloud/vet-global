@@ -90,7 +90,30 @@ export class OrganizationsService {
         spendLimit: dto.spendLimit ?? 0,
       },
     });
+    // Приглашённого не спрашивают — значит, он хотя бы должен узнать, что его
+    // заказы теперь согласует эта организация, и где из неё выйти.
+    void this.alerts.notify(target.id, {
+      title: 'Вас добавили в организацию',
+      body: `${user.fullName} добавил вас в организацию. Если это ошибка — выйдите из неё на странице «Организация».`,
+      url: '/org',
+    });
     return this.myOrg(user);
+  }
+
+  // Выход из организации по собственной воле. Единственный владелец выйти не
+  // может — организация осталась бы без управления (как и при удалении).
+  async leave(user: AuthUser) {
+    const m = await this.prisma.orgMembership.findFirst({ where: { userId: user.id } });
+    if (!m) throw new NotFoundException('Вы не состоите в организации');
+    if (m.role === OrgRole.OWNER) {
+      const owners = await this.prisma.orgMembership.count({ where: { orgId: m.orgId, role: OrgRole.OWNER } });
+      const others = await this.prisma.orgMembership.count({ where: { orgId: m.orgId, userId: { not: user.id } } });
+      if (owners <= 1 && others > 0) {
+        throw new BadRequestException('Вы единственный владелец: передайте права владельца, затем выйдите');
+      }
+    }
+    await this.prisma.orgMembership.delete({ where: { id: m.id } });
+    return { org: null };
   }
 
   async updateMember(membershipId: string, dto: UpdateMemberDto, user: AuthUser) {

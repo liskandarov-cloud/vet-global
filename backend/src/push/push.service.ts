@@ -1,4 +1,5 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import { isPushEndpointAllowed } from './endpoint';
 import { ConfigService } from '@nestjs/config';
 import * as webpush from 'web-push';
 import { PrismaService } from '../prisma/prisma.service';
@@ -42,6 +43,10 @@ export class PushService {
     user: AuthUser,
   ) {
     if (!sub?.endpoint || !sub.keys) return { ok: false };
+    // Сервер сам шлёт POST на этот адрес — только сервисы уведомлений браузеров.
+    if (!isPushEndpointAllowed(sub.endpoint)) {
+      throw new BadRequestException('Неподдерживаемый адрес push-подписки');
+    }
     await this.prisma.pushSubscription.upsert({
       where: { endpoint: sub.endpoint },
       create: { userId: user.id, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth },

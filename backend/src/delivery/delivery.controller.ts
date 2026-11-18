@@ -1,6 +1,6 @@
 import { Body, Controller, Get, Param, Patch, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
-import { IsEnum, IsNumber, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNumber, IsOptional, IsString, Min } from 'class-validator';
 import { DeliveryMethod, ShipmentStatus, UserRole } from '@prisma/client';
 import { DeliveryService } from './delivery.service';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -15,7 +15,9 @@ class ShipmentBodyDto {
   @IsOptional() @IsString() address?: string;
   @IsOptional() @IsString() recipientName?: string;
   @IsOptional() @IsString() recipientPhone?: string;
-  @IsOptional() @IsNumber() cost?: number;
+  // Не меньше нуля: отрицательная доставка уменьшала сумму к оплате всего
+  // заказа — в заказе нескольких поставщиков за счёт товара другого продавца.
+  @IsOptional() @IsNumber() @Min(0) cost?: number;
   @IsOptional() @IsString() carrier?: string;
   @IsOptional() @IsString() trackingNumber?: string;
   @IsOptional() @IsString() estimatedDate?: string;
