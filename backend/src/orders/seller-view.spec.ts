@@ -44,4 +44,22 @@ describe('заказ глазами продавца', () => {
     const single = { ...order, items: [order.items[0]] };
     expect(sellerView(single, 's-1')).toBe(single);
   });
+
+  it('статус — своей части, чужие части скрыты', () => {
+    const withParts = { ...order, status: 'CONFIRMED', parts: [{ sellerId: 's-1', status: 'SHIPPED' }, { sellerId: 's-2', status: 'CONFIRMED' }] };
+    const v = sellerView(withParts, 's-1');
+    expect(v.status).toBe('SHIPPED');
+    expect(v.parts).toEqual([{ sellerId: 's-1', status: 'SHIPPED' }]);
+  });
+
+  // Продавец отменил свою часть: его позиций в заказе больше нет, но чужие
+  // позиции ему всё равно не показываются.
+  it('отменённая часть: ни своих, ни чужих позиций', () => {
+    const rest = { ...order, items: [order.items[1]], invoices: [order.invoices[1]], shipments: [order.shipments[1]], parts: [{ sellerId: 's-1', status: 'CANCELLED' }, { sellerId: 's-2', status: 'SHIPPED' }] };
+    const v = sellerView(rest, 's-1');
+    expect(v.items).toEqual([]);
+    expect(v.invoices).toEqual([]);
+    expect(v.total).toBe(0);
+    expect(v.status).toBe('CANCELLED');
+  });
 });

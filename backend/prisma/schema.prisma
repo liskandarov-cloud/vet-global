@@ -649,12 +649,29 @@ model Order {
   items        OrderItem[]
   invoices     Invoice[]
   shipments    Shipment[]
+  parts        OrderPart[]
   payments     Payment[]
 
   @@index([buyerId])
   @@index([status])
   @@index([createdAt])
   @@index([orgId, approvalStatus])
+}
+
+// Часть заказа одного продавца в заказе нескольких поставщиков: её статус
+// ведёт только этот продавец. Общий статус заказа — по самой отстающей части.
+// cancelled — снимок позиций и доставки, если продавец отменил свою часть
+// (сами позиции из заказа убираются, чтобы чек, счета и ЭДО сходились с суммой).
+model OrderPart {
+  orderId   String
+  sellerId  String
+  status    OrderStatus @default(PENDING)
+  cancelled Json?
+  updatedAt DateTime    @updatedAt
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@id([orderId, sellerId])
 }
 
 model OrderItem {

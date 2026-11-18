@@ -11,7 +11,9 @@ import {
   ApprovalStatus,
   OrderStatus,
   OrgRole,
+  PaymentStatus,
   PaymentTerm,
+  Prisma,
   UserRole,
   VetPointsType,
 } from '@prisma/client';
@@ -24,6 +26,7 @@ import { AlertsService } from '../alerts/alerts.service';
 import {
   orderTotal,
   percentOf,
+  round2,
   unitPriceFinal,
   applyPromotion,
   bestPromotionPercent,
@@ -32,11 +35,12 @@ import {
 import { isTransitionAllowed, transitionError } from './status';
 import { approvalFor, awaitingApprovalError } from './approval';
 import { sellerView } from './seller-view';
+import { aggregateStatus, totalsWithoutPart } from './parts';
 import { creditOverdrawn, pointsOverdrawn } from './reservation';
 import { OrderReleaseService } from './order-release.service';
 import { invoiceNumberFor } from '../common/invoice-number';
 import { splitInvoices } from './invoice-split';
-import { deliveryBySellerForOrder } from '../delivery/order-delivery';
+import { deliveryBySellerForOrder, deliveryTotalForOrder, parseQuote } from '../delivery/order-delivery';
 import { TariffsService } from '../delivery/tariffs.service';
 import { isExpired, publicOffer, SELLABLE_SELLER } from '../common/visibility';
 import { pickBestOffer } from '../offers/best-offer';
@@ -509,14 +513,15 @@ export class OrdersService {
     if (user.role === UserRole.BUYER) {
       where.buyerId = user.id;
     } else if (user.role === UserRole.SELLER) {
-      where.items = { some: { sellerId: user.id } };
+      // Свои позиции — или своя (в том числе отменённая) часть заказа.
+      where.OR = [{ items: { some: { sellerId: user.id } } }, { parts: { some: { sellerId: user.id } } }];
     }
     if (status) where.status = status;
 
     const orders = await this.prisma.order.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: { items: true, invoices: true, shipments: true, payments: true },
+      include: { items: true, invoices: true, shipments: true, payments: true, parts: true },
       take: 200,
     });
     return orders.map((o) => this.forViewer(o, user));
@@ -525,7 +530,7 @@ export class OrdersService {
   async getOne(id: string, user: AuthUser) {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: true, invoices: true, shipments: true, payments: true },
+      include: { items: true, invoices: true, shipments: true, payments: true, parts: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
@@ -548,16 +553,23 @@ export class OrdersService {
   }
 
   async updateStatus(id: string, status: OrderStatus, user: AuthUser) {
-    const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true } });
+    const order = await this.prisma.order.findUnique({ where: { id }, include: { items: true, parts: true } });
     if (!order) throw new NotFoundException('Order not found');
 
-    // Seller may only touch orders containing their items.
-    if (user.role === UserRole.SELLER && !order.items.some((it) => it.sellerId === user.id)) {
+    // Seller may only touch orders containing their items (or their part).
+    const sellers = [...new Set(order.items.map((it) => it.sellerId))];
+    const hasPart = order.parts.some((p) => p.sellerId === user.id);
+    if (user.role === UserRole.SELLER && !sellers.includes(user.id) && !hasPart) {
       throw new ForbiddenException('Not authorized for this order');
     }
 
     const approvalError = awaitingApprovalError(order.approvalStatus, status);
     if (approvalError && user.role !== UserRole.ADMIN) throw new BadRequestException(approvalError);
+
+    // В заказе нескольких поставщиков продавец ведёт только свою часть.
+    if (user.role === UserRole.SELLER && (sellers.length > 1 || order.parts.length > 0)) {
+      return this.updateSellerPart(order, sellers, status, user);
+    }
 
     // Проверка перехода. Администратору она не мешает: исправлять ошибочно
     // выставленный статус задним числом — его работа, и запрещать это значит
@@ -581,6 +593,167 @@ export class OrdersService {
     // доставку начислялись дважды.
     const moved = await this.prisma.order.updateMany({ where: { id, status: order.status }, data: { status } });
     if (moved.count === 0) throw new ConflictException('Статус заказа уже изменён — обновите страницу');
+    // Администратор ведёт заказ целиком — части следуют за ним.
+    if (order.parts.length) {
+      await this.prisma.orderPart.updateMany({
+        where: { orderId: id, status: { not: OrderStatus.CANCELLED } },
+        data: { status },
+      });
+    }
+
+    await this.afterStatusChange(id, status);
+    return this.getOne(id, user);
+  }
+
+  // Часть продавца в заказе нескольких поставщиков. Записи частей заводятся
+  // при первом изменении — статусом заказа на этот момент.
+  private async updateSellerPart(order: any, sellers: string[], status: OrderStatus, user: AuthUser) {
+    await this.prisma.orderPart.createMany({
+      data: sellers.map((sellerId) => ({ orderId: order.id, sellerId, status: order.status })),
+      skipDuplicates: true,
+    });
+    const mine = await this.prisma.orderPart.findUnique({
+      where: { orderId_sellerId: { orderId: order.id, sellerId: user.id } },
+    });
+    if (!mine) throw new ForbiddenException('Not authorized for this order');
+    if (mine.status === status) return this.getOne(order.id, user);
+    if (!isTransitionAllowed(mine.status, status)) {
+      throw new BadRequestException(transitionError(mine.status, status));
+    }
+
+    const others = await this.prisma.orderPart.findMany({
+      where: { orderId: order.id, sellerId: { not: user.id } },
+    });
+    const othersLive = others.some((p) => p.status !== OrderStatus.CANCELLED);
+
+    if (status === OrderStatus.CANCELLED && othersLive) {
+      // Отмена своей части: позиции продавца уходят из заказа, сумма уменьшается.
+      await this.cancelPart(order.id, user.id, mine.status);
+    } else {
+      const moved = await this.prisma.orderPart.updateMany({
+        where: { orderId: order.id, sellerId: user.id, status: mine.status },
+        data: { status },
+      });
+      if (!moved.count) throw new ConflictException('Статус уже изменён — обновите страницу');
+    }
+
+    // Общий статус — заново по свежим частям: параллельный продавец мог
+    // изменить свою, и позднее чтение увидит обе.
+    const parts = await this.prisma.orderPart.findMany({ where: { orderId: order.id } });
+    const next = aggregateStatus(parts.map((p) => p.status));
+    if (next !== order.status) {
+      const moved = await this.prisma.order.updateMany({ where: { id: order.id, status: order.status }, data: { status: next } });
+      if (moved.count) await this.afterStatusChange(order.id, next);
+    }
+    return this.getOne(order.id, user);
+  }
+
+  // Продавец отменяет свою часть заказа нескольких поставщиков.
+  //
+  // Позиции продавца, его отправки и доставка убираются из заказа (снимок —
+  // в записи части): чек Payme, счета и ЭДО строятся из позиций заказа и
+  // должны сходиться с суммой к оплате. Остаток возвращается на склад, разница
+  // освобождает резерв лимита по отсрочке, лишние баллы возвращаются.
+  private async cancelPart(orderId: string, sellerId: string, fromStatus: OrderStatus) {
+    const result = await this.prisma.$transaction(async (tx) => {
+      const part = await tx.orderPart.updateMany({
+        where: { orderId, sellerId, status: fromStatus },
+        data: { status: OrderStatus.CANCELLED },
+      });
+      if (!part.count) throw new ConflictException('Статус уже изменён — обновите страницу');
+
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        include: { items: true, shipments: true, invoices: true, payments: true },
+      });
+      if (!order) throw new NotFoundException('Order not found');
+      if (order.invoices.some((inv) => inv.sellerId === sellerId && inv.didoxStatus)) {
+        throw new BadRequestException('Счёт-фактура по вашей части уже отправлена в ЭДО — сначала отзовите её');
+      }
+
+      const items = order.items.filter((it) => it.sellerId === sellerId);
+      const goods = items.reduce((sum, it) => sum + Number(it.price) * it.quantity, 0);
+      const quote = parseQuote(order.deliveryQuote) ?? {};
+      const delivery = deliveryBySellerForOrder(order.deliveryQuote, order.shipments.map((sh) => ({ sellerId: sh.sellerId, cost: Number(sh.cost) })))[sellerId] ?? 0;
+      const restQuote = Object.fromEntries(Object.entries(quote).filter(([k]) => k !== sellerId));
+      const restShipments = order.shipments.filter((sh) => sh.sellerId !== sellerId);
+      const deliveryCost = deliveryTotalForOrder(restQuote, restShipments.map((sh) => ({ sellerId: sh.sellerId, cost: Number(sh.cost) })));
+      const t = totalsWithoutPart(
+        { subtotal: Number(order.subtotal), vetPointsUsed: Number(order.vetPointsUsed), total: Number(order.total) },
+        goods,
+        deliveryCost,
+        { commission: this.commissionPct, earn: this.earnPct },
+      );
+
+      await tx.orderPart.update({
+        where: { orderId_sellerId: { orderId, sellerId } },
+        data: {
+          cancelled: {
+            items: items.map((it) => ({ productName: it.productName, quantity: it.quantity, price: Number(it.price) })),
+            goods: round2(goods),
+            delivery: round2(delivery),
+            reduction: t.reduction,
+          },
+        },
+      });
+
+      // Склад — только то, что с него действительно ушло.
+      for (const it of items) {
+        if (!it.stockTaken || !it.productId) continue;
+        await tx.product.update({ where: { id: it.productId }, data: { stockQty: { increment: it.quantity }, inStock: true } });
+      }
+      await tx.invoice.deleteMany({ where: { orderId, sellerId } });
+      await tx.shipment.deleteMany({ where: { orderId, sellerId } });
+      await tx.orderItem.deleteMany({ where: { orderId, sellerId } });
+
+      await tx.order.update({
+        where: { id: orderId },
+        data: {
+          subtotal: t.subtotal,
+          deliveryCost: t.deliveryCost,
+          vetPointsUsed: t.vetPointsUsed,
+          total: t.total,
+          commission: t.commission,
+          vetPointsEarned: t.vetPointsEarned,
+          deliveryQuote: restQuote as Prisma.InputJsonValue,
+        },
+      });
+
+      // Резерв лимита держался под всю сумму отсрочки — разница освобождается.
+      if (order.buyerId && order.paymentTerm !== PaymentTerm.PREPAY && !order.creditReleasedAt && t.reduction > 0) {
+        await tx.user.update({ where: { id: order.buyerId }, data: { creditUsed: { decrement: t.reduction } } });
+      }
+      if (order.buyerId && t.pointsBack > 0) {
+        await tx.user.update({ where: { id: order.buyerId }, data: { vetPointsBalance: { increment: t.pointsBack } } });
+        await tx.vetPointsTransaction.create({
+          data: {
+            userId: order.buyerId,
+            amount: t.pointsBack,
+            type: VetPointsType.ADJUSTMENT,
+            description: `Возврат баллов: продавец отменил часть заказа #${orderId.slice(0, 8)}`,
+            orderId,
+          },
+        });
+      }
+      return { buyerId: order.buyerId, reduction: t.reduction, paid: order.payments.some((p) => p.status === PaymentStatus.PAID) };
+    });
+
+    if (result.buyerId) {
+      void this.alerts.notify(result.buyerId, {
+        title: `Заказ #${orderId.slice(0, 8)}`,
+        body: result.paid
+          ? `Один из поставщиков отменил свою часть заказа. Сумма уменьшена на ${Math.round(result.reduction).toLocaleString('ru-RU')} сум — эти деньги вам вернут.`
+          : `Один из поставщиков отменил свою часть заказа. Сумма к оплате уменьшена на ${Math.round(result.reduction).toLocaleString('ru-RU')} сум.`,
+        url: `/orders/${orderId}`,
+      });
+    }
+  }
+
+  // Последствия смены статуса заказа: возврат занятого при отмене, баллы за
+  // доставку, уведомления.
+  private async afterStatusChange(id: string, status: OrderStatus) {
+    const order = await this.prisma.order.findUnique({ where: { id } });
+    if (!order) return;
 
     // Отмена возвращает то, что заказ занял: остаток на склад, кредитный лимит
     // и списанные баллы. Без этого лимит и баллы покупателя сгорали, а склад
@@ -622,7 +795,6 @@ export class OrdersService {
         url: `/orders/${id}`,
       });
     }
-    return this.getOne(id, user);
   }
 
   // Продавец подтверждает наличие по заказу «под заказ» (предзаказу): снимаем
@@ -761,7 +933,11 @@ export class OrdersService {
     if (user.role === UserRole.BUYER && order.buyerId !== user.id) {
       throw new ForbiddenException('Not authorized');
     }
-    if (user.role === UserRole.SELLER && !order.items?.some((it: any) => it.sellerId === user.id)) {
+    if (
+      user.role === UserRole.SELLER &&
+      !order.items?.some((it: any) => it.sellerId === user.id) &&
+      !order.parts?.some((p: any) => p.sellerId === user.id)
+    ) {
       throw new ForbiddenException('Not authorized');
     }
   }
