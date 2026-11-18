@@ -27,10 +27,18 @@ export class OrganizationsController {
     return this.org.invite(dto, user);
   }
 
-  // Выйти из организации самому. Приглашение не спрашивает согласия, и без
-  // этого выхода человек, которого чужой владелец добавил по почте, навсегда
-  // оставался закупщиком с лимитом 0: все его заказы уходили на согласование
-  // постороннему, а свою организацию завести было нельзя.
+  // Приглашение действует только после согласия приглашённого.
+  @Post('invitation/accept')
+  acceptInvitation(@CurrentUser() user: AuthUser, @Body('membershipId') membershipId?: string) {
+    return this.org.acceptInvitation(user, membershipId);
+  }
+
+  @Post('invitation/decline')
+  declineInvitation(@CurrentUser() user: AuthUser, @Body('membershipId') membershipId?: string) {
+    return this.org.declineInvitation(user, membershipId);
+  }
+
+  // Выйти из организации самому.
   @Post('leave')
   leave(@CurrentUser() user: AuthUser) {
     return this.org.leave(user);

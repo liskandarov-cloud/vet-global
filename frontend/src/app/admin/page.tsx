@@ -4,6 +4,7 @@ import { Fragment, useEffect, useState } from 'react';
 import { Check, Ban, ShieldCheck, TrendingUp, Percent, Users, ShoppingCart, Download, Plus, Pencil, Trash2, X, FileText } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { openSellerDocument } from '@/lib/seller-docs';
 import { downloadInvoices } from '@/lib/invoices';
 import { RoleGuard, StatCard } from '@/components/RoleGuard';
 import { WeeklyBars } from '@/components/Charts';
@@ -362,9 +363,9 @@ function AdminContent() {
                       ) : (
                         <div className="flex flex-wrap gap-2">
                           {docsFor[u.id].map((d) => (
-                            <a key={d.id} href={d.fileUrl} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs hover:border-teal-300 dark:border-slate-700 dark:bg-slate-900">
+                            <button key={d.id} type="button" onClick={() => openSellerDocument(d)} className="inline-flex items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2.5 py-1.5 text-xs hover:border-teal-300 dark:border-slate-700 dark:bg-slate-900">
                               <FileText size={13} className="text-teal-700" /> {d.title}
-                            </a>
+                            </button>
                           ))}
                         </div>
                       )}

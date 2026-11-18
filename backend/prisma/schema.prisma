@@ -390,6 +390,9 @@ model OrgMembership {
   role       OrgRole  @default(PURCHASER)
   spendLimit Decimal  @default(0) @db.Decimal(12, 2) // лимит заказа без согласования (0 = требуется всегда)
   createdAt  DateTime @default(now())
+  // null — приглашение ещё не принято: членство не действует, его заказы не
+  // уходят на согласование, контакты не видны организации.
+  acceptedAt DateTime? @default(now())
 
   org  Organization @relation(fields: [orgId], references: [id], onDelete: Cascade)
   user User         @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -957,6 +960,9 @@ model StoredFile {
   name      String
   size      Int
   data      Bytes
+  // Закрытый файл (лицензия продавца) не отдаётся по /api/files/:id — только
+  // владельцу и администратору через /seller-documents/:id/file.
+  private   Boolean  @default(false)
   createdAt DateTime @default(now())
 }
 

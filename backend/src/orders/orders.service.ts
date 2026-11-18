@@ -366,7 +366,7 @@ export class OrdersService {
     // Правило общее с тендером и подпиской (см. approvalFor): иначе какой-то из
     // путей заключения сделки обходил бы лимит закупщика.
     const membership = user
-      ? await this.prisma.orgMembership.findFirst({ where: { userId: user.id } })
+      ? await this.prisma.orgMembership.findFirst({ where: { userId: user.id, acceptedAt: { not: null } } })
       : null;
     const { orgId, approvalStatus } = approvalFor(
       membership ? { orgId: membership.orgId, role: membership.role, spendLimit: Number(membership.spendLimit) } : null,
@@ -486,7 +486,7 @@ export class OrdersService {
     // Push согласующим, если заказ ушёл на согласование.
     if (orgId && approvalStatus === ApprovalStatus.PENDING) {
       void this.prisma.orgMembership
-        .findMany({ where: { orgId, role: { in: [OrgRole.OWNER, OrgRole.MANAGER] } } })
+        .findMany({ where: { orgId, role: { in: [OrgRole.OWNER, OrgRole.MANAGER] }, acceptedAt: { not: null } } })
         .then((approvers) =>
           Promise.all(
             approvers.map((a) =>

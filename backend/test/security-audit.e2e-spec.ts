@@ -211,17 +211,56 @@ describe('аудит безопасности (e2e)', () => {
     expect(Number((await req('/vetpoints/balance', { token: b.token })).body.balance)).toBe(10_000);
   });
 
+  // Лицензии продавцов отдавались всем по ссылке /api/files/:id.
+  it('лицензия продавца закрыта: только владельцу и администратору', async () => {
+    const form = new FormData();
+    form.append('file', new Blob([Buffer.from('%PDF-1.4\n%e2e license\n')], { type: 'application/pdf' }), 'license.pdf');
+    const up = await fetch(`${BASE}/uploads?kind=license`, { method: 'POST', headers: { Authorization: `Bearer ${seller}` }, body: form });
+    expect(up.status).toBe(201);
+    const { url } = await up.json();
+    const doc = (await req('/sellers/me/documents', { token: seller, body: { title: 'Лицензия e2e', fileUrl: url } })).body;
+    expect(doc.id).toBeTruthy();
+
+    // Общая ссылка закрыта (в режиме S3 файл лежит в бакете — проверка про Postgres).
+    if (/\/api\/files\//.test(url)) expect((await fetch(url.replace(/^.*\/api/, BASE))).status).toBe(404);
+
+    const other = await login('agrovet@vetglobal.com', 'seller123');
+    expect((await req(`/seller-documents/${doc.id}/file`, { token: other })).status).toBe(404);
+    expect((await req(`/seller-documents/${doc.id}/file`)).status).toBe(401);
+    expect((await req(`/seller-documents/${doc.id}/file`, { token: seller })).status).toBeLessThan(400);
+    expect((await req(`/seller-documents/${doc.id}/file`, { token: admin })).status).toBeLessThan(400);
+  });
+
   // ── Организация ──
-  it('человек, которого добавили в чужую организацию, может из неё выйти', async () => {
+  // Раньше человека добавляли в чужую организацию без спроса: его заказы
+  // уходили на согласование постороннему, а тот видел его телефон.
+  it('приглашение без согласия не действует; принятое можно покинуть', async () => {
     const owner = await registerBuyer();
     const victim = await registerBuyer();
     await req('/org', { token: owner.token, body: { name: `Чужая ${uniq()}` } });
     expect((await req('/org/members', { token: owner.token, body: { email: victim.email, spendLimit: 0 } })).status).toBe(201);
-    // Заказ жертвы ушёл бы на согласование постороннему.
-    expect((await order(victim.token)).body.approvalStatus).toBe('PENDING');
 
+    // До согласия: заказ не уходит на согласование, контакты не видны.
+    expect((await order(victim.token)).body.approvalStatus).toBe('NONE');
+    const seen = (await req('/org/me', { token: owner.token })).body.members.find((m: any) => m.userId === victim.id);
+    expect(seen.pending).toBe(true);
+    expect(seen.user.phone).toBe('');
+    expect((await req('/org/me', { token: victim.token })).body.invitation).toBeTruthy();
+
+    // Согласился — членство действует; вышел — снова сам по себе.
+    expect((await req('/org/invitation/accept', { token: victim.token, body: {} })).status).toBe(201);
+    expect((await order(victim.token)).body.approvalStatus).toBe('PENDING');
     expect((await req('/org/leave', { token: victim.token, body: {} })).status).toBe(201);
     expect((await order(victim.token)).body.approvalStatus).toBe('NONE');
+  });
+
+  it('приглашение можно отклонить', async () => {
+    const owner = await registerBuyer();
+    const invitee = await registerBuyer();
+    await req('/org', { token: owner.token, body: { name: `Чужая ${uniq()}` } });
+    await req('/org/members', { token: owner.token, body: { email: invitee.email } });
+    expect((await req('/org/invitation/decline', { token: invitee.token, body: {} })).status).toBe(201);
+    expect((await req('/org/me', { token: invitee.token })).body.invitation).toBeNull();
   });
 
   // ── Деньги и реквизиты ──

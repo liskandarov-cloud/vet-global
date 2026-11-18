@@ -17,7 +17,9 @@ export class FilesController {
   @Get(':id')
   async serve(@Param('id') id: string, @Res() res: Response) {
     const file = await this.prisma.storedFile.findUnique({ where: { id } });
-    if (!file) throw new NotFoundException('Файл не найден');
+    // Закрытый файл (лицензия) по общей ссылке не отдаётся: только через
+    // /seller-documents/:id/file владельцу и администратору.
+    if (!file || file.private) throw new NotFoundException('Файл не найден');
     res.set({
       'Content-Type': file.mime,
       // Браузер не угадывает тип по содержимому: файл, сохранённый до проверки
