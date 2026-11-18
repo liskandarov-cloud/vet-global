@@ -106,6 +106,32 @@ jobs:
           test "$ENTRIES" -ge 20 || { echo "::error::в архиве всего $ENTRIES записей — схема не попала в дамп"; exit 1; }
           rm -f toc.txt
 
+      # Оглавление не доказывает, что дамп восстановится. Восстанавливаем его
+      # в чистый Postgres той же версии без права на ошибку и сверяем строки с
+      # продом. Схему public удаляем заранее: дамп создаёт её сам, и в свежей
+      # базе это была бы единственная ошибка восстановления.
+      - name: Пробное восстановление
+        env:
+          DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          docker run -d --name drill -e POSTGRES_PASSWORD=drill -p 55432:5432 "postgres:$PG_MAJOR" >/dev/null
+          for i in $(seq 1 30); do docker exec drill pg_isready -U postgres >/dev/null 2>&1 && break; sleep 2; done
+          R=postgresql://postgres:drill@localhost:55432/postgres
+          psql "$R" -qc 'DROP SCHEMA public CASCADE'
+          pg_restore --no-owner --no-acl --exit-on-error -d "$R" "vetglobal-$STAMP.dump"
+          # Точного равенства не требуем: между дампом и подсчётом на проде
+          # могли появиться новые строки. Ловим пустое или битое восстановление.
+          for t in User Category Product Offer Order StoredFile _prisma_migrations; do
+            src=$(psql "$DB_URL" -tAc "select count(*) from \"$t\"")
+            dst=$(psql "$R" -tAc "select count(*) from \"$t\"")
+            echo "$t: прод $src, восстановлено $dst"
+            if [ "$dst" -gt "$src" ] || { [ "$src" -gt 0 ] && [ "$dst" -eq 0 ]; }; then
+              echo "::error::$t: восстановлено $dst строк при $src на проде"; exit 1
+            fi
+          done
+          docker rm -f drill >/dev/null
+
       # Репозиторий публичный, а артефакт может скачать любой вошедший в GitHub.
       # До этого шага дампы — с пользователями, телефонами, заказами и закрытыми
       # лицензиями — лежали открыто. Наружу уходит только зашифрованный файл;
