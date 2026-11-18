@@ -74,6 +74,14 @@ const nextConfig = {
   // канонические ссылки жили бы на двух адресах.
   async redirects() {
     return [
+      // Корень отдельным правилом: для «/» параметр :path* пуст, и Next
+      // подставлял его буквально — www.vethub.uz/ вёл на «/:path*».
+      {
+        source: '/',
+        has: [{ type: 'host', value: 'www.vethub.uz' }],
+        destination: 'https://vethub.uz/',
+        permanent: true,
+      },
       {
         source: '/:path*',
         has: [{ type: 'host', value: 'www.vethub.uz' }],
