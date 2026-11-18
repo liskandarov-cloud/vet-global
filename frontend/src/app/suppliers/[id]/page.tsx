@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useParams } from 'next/navigation';
 import { ShieldCheck, Star } from 'lucide-react';
 import { api } from '@/lib/api';
@@ -23,14 +24,23 @@ export default function SupplierPage() {
   const { tt } = useI18n();
   const { id } = useParams<{ id: string }>();
   const [seller, setSeller] = useState<Seller | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);
 
   useEffect(() => {
     if (!id) return;
-    api.get(`/sellers/${id}`).then((r) => setSeller(r.data));
-    api.get('/products', { params: { sellerId: id, limit: 24 } }).then((r) => setProducts(r.data.products));
+    api.get(`/sellers/${id}`).then((r) => setSeller(r.data)).catch(() => setNotFound(true));
+    api.get('/products', { params: { sellerId: id, limit: 24 } }).then((r) => setProducts(r.data.products)).catch(() => {});
   }, [id]);
 
+  if (notFound) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <div className="text-ink-subtle">{tt('Поставщик не найден', 'Yetkazib beruvchi topilmadi')}</div>
+        <Link href="/suppliers" className="btn-ghost mt-4">{tt('Все поставщики', 'Barcha yetkazib beruvchilar')}</Link>
+      </div>
+    );
+  }
   if (!seller) return <div className="py-24 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>;
 
   return (

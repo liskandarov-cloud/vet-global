@@ -38,6 +38,7 @@ export default function ProductPage() {
   const currentUser = useAuth((s) => s.user);
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [qty, setQty] = useState(1);
   const [activeImg, setActiveImg] = useState(0);
@@ -59,7 +60,7 @@ export default function ProductPage() {
       const cheapest = p.offers?.[0]; // офферы приходят отсортированными по цене
       setSelectedOfferId(cheapest?.id ?? null);
       setQty(cheapest?.minOrder ?? p.minOrder ?? 1);
-    });
+    }).catch(() => setNotFound(true));
     api.get('/reviews', { params: { productId: id } }).then((r) => setReviews(r.data)).catch(() => {});
   }, [id]);
 
@@ -117,6 +118,14 @@ export default function ProductPage() {
   const effPrice = (o: Offer | undefined, quantity: number): number | undefined =>
     effectiveUnitPrice(o, quantity, contractMap[o?.id ?? ''] ?? null, o?.promoPercent);
 
+  if (notFound) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <div className="text-ink-subtle">{tt('Товар не найден', 'Mahsulot topilmadi')}</div>
+        <Link href="/catalog" className="btn-ghost mt-4">{tt('В каталог', 'Katalogga')}</Link>
+      </div>
+    );
+  }
   if (!product) return <div className="py-24 text-center text-ink-subtle">{t('common.loading')}</div>;
 
   const offers = product.offers ?? [];
