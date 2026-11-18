@@ -340,7 +340,7 @@ describe('Заказ: видят и меняют только участники
     });
     expect(r.status).toBe(400);
 
-    // Гость тоже не может сослаться на чьё-то юрлицо.
+    // Гость заказ не оформляет вовсе — ни на своё юрлицо, ни на чужое.
     const guest = await req('/orders', {
       body: {
         items: [{ productId, quantity: 2 }],
@@ -349,7 +349,7 @@ describe('Заказ: видят и меняют только участники
         buyerPhone: '+998900000001',
       },
     });
-    expect(guest.status).toBe(400);
+    expect(guest.status).toBe(401);
 
     // И заявку на кредитный лимит под чужое юрлицо не подать.
     const credit = await req('/financing/apply', {
