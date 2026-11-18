@@ -1,0 +1,49 @@
+# Новая пара ключей VAPID для push-уведомлений прода.
+#
+# Ключи генерируются здесь же, в раннере, и сразу записываются в окружение
+# сервиса Render: ни в репозиторий, ни в логи, ни в переписку они не попадают
+# (закрытый ключ маскируется). Прежняя пара лежала в коде публичного
+# репозитория, и любой мог слать push от имени площадки.
+#
+# После смены ключей прежние подписки браузеров недействительны: пользователи
+# включают push заново (колокольчик → «Включить push»).
+
+name: Rotate VAPID keys
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rotate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      SERVICE: srv-dbe9iflg1s2s73es8lh0
+      API: https://api.render.com/v1
+    steps:
+      - name: Ключи → Render и выкатка
+        run: |
+          set -euo pipefail
+          test -n "$RENDER_API_KEY" || { echo "::error::секрет RENDER_API_KEY не задан"; exit 1; }
+          keys=$(npx --yes web-push@3.6.7 generate-vapid-keys --json)
+          pub=$(printf '%s' "$keys" | jq -r .publicKey)
+          priv=$(printf '%s' "$keys" | jq -r .privateKey)
+          echo "::add-mask::$priv"
+          test -n "$pub" && test -n "$priv" || { echo "::error::ключи не сгенерировались"; exit 1; }
+          put() {
+            jq -n --arg v "$2" '{value: $v}' | curl -fsS -X PUT "$API/services/$SERVICE/env-vars/$1" \
+              -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' --data @- -o /dev/null
+            echo "$1 записан"
+          }
+          put VAPID_PUBLIC_KEY "$pub"
+          put VAPID_PRIVATE_KEY "$priv"
+          put VAPID_SUBJECT "mailto:info@vethub.uz"
+          # Значения применяются деплоем, а не перезапуском.
+          curl -fsS -X POST "$API/services/$SERVICE/deploys" \
+            -H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json' \
+            -d '{"clearCache":"do_not_clear"}' | jq '{id, status}'
+          echo "публичный ключ: $pub"

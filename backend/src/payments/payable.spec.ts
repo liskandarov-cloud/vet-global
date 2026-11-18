@@ -1,5 +1,5 @@
 import { ApprovalStatus, OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
-import { notPayableReason, payerError, statusAfterPayment, type PayableOrder } from './payable';
+import { notPayableReason, onlinePaymentMode, payerError, statusAfterPayment, type PayableOrder } from './payable';
 
 const order = (over: Partial<PayableOrder> = {}): PayableOrder => ({
   status: OrderStatus.CONFIRMED,
@@ -111,5 +111,24 @@ describe('кто платит по заказу', () => {
   it('гостевой заказ (без покупателя) из кабинета не оплачивается никем, кроме админа', () => {
     expect(payerError({ buyerId: null }, { id: 'buyer-1', role: UserRole.BUYER })).not.toBeNull();
     expect(payerError({ buyerId: null }, { id: 'admin-1', role: UserRole.ADMIN })).toBeNull();
+  });
+});
+
+describe('режим онлайн-оплаты', () => {
+  it('live — настоящая оплата при любых данных', () => {
+    expect(onlinePaymentMode('live', 'false')).toBe('live');
+    expect(onlinePaymentMode('LIVE', 'true')).toBe('live');
+  });
+
+  it('имитация — только рядом с демо-данными', () => {
+    expect(onlinePaymentMode('mock', 'true')).toBe('mock');
+    expect(onlinePaymentMode(undefined, 'true')).toBe('mock');
+  });
+
+  // Прод: SEED_DEMO=false, ключей ещё нет — оплата без денег невозможна.
+  it('без live и без демо-данных оплата выключена', () => {
+    expect(onlinePaymentMode('mock', 'false')).toBe('off');
+    expect(onlinePaymentMode('mock', undefined)).toBe('off');
+    expect(onlinePaymentMode(undefined, undefined)).toBe('off');
   });
 });

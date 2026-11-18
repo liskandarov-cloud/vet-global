@@ -55,6 +55,19 @@ export function statusAfterPayment(current: OrderStatus): OrderStatus {
 }
 
 // null — заказ оплачивать можно.
+// Режим онлайн-оплаты.
+//
+// Имитация (mock) проводила оплату без денег и стояла на проде: любой
+// покупатель нажимал «Оплатить» и получал оплаченный заказ. Теперь она
+// включается только там, где и данные вымышленные (SEED_DEMO=true: локальный
+// и демо-стенд, CI). Без live и без демо-данных онлайн-оплата выключена.
+export type OnlinePaymentMode = 'live' | 'mock' | 'off';
+
+export function onlinePaymentMode(paymentsMode?: string, seedDemo?: string): OnlinePaymentMode {
+  if ((paymentsMode ?? '').toLowerCase() === 'live') return 'live';
+  return seedDemo === 'true' ? 'mock' : 'off';
+}
+
 export function notPayableReason(order: PayableOrder): NotPayable | null {
   if (order.status === OrderStatus.CANCELLED) {
     return { code: 'CANCELLED', message: 'Заказ отменён — оплата невозможна' };

@@ -5,9 +5,11 @@ import * as webpush from 'web-push';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 
-// Демо-VAPID (переопределяется env в проде). НЕ используйте эти ключи для реального прод-трафика.
-const DEFAULT_PUBLIC = 'BPlLuiUv_OFThRAcPO2udhxl6FwgeFIYwurbwuBXViMDGdWiPNwBNX2_Sj1gvq_UtwZ5pAugi2Mqkaq4H8rCfSE';
-const DEFAULT_PRIVATE = 'LYMF-KGBKICwWNdwpUjsY6Yz5AdCE3JYRgiyB0Q-zrQ';
+// Ключи VAPID — только из окружения. Раньше в коде лежала пара «по умолчанию»,
+// и прод работал на ней: закрытый ключ был в публичном репозитории, и любой
+// мог слать push от имени площадки. На проде ключи задаёт workflow
+// «Rotate VAPID keys»; вне прода без ключей пара генерируется при старте
+// (подписки живут до перезапуска — для разработки этого достаточно).
 
 export interface PushPayload {
   title: string;
@@ -25,12 +27,18 @@ export class PushService {
     private readonly prisma: PrismaService,
     config: ConfigService,
   ) {
-    this.publicKey = config.get('VAPID_PUBLIC_KEY') ?? DEFAULT_PUBLIC;
-    const privateKey = config.get('VAPID_PRIVATE_KEY') ?? DEFAULT_PRIVATE;
-    const subject = config.get('VAPID_SUBJECT') ?? 'mailto:info@vetglobal.uz';
-    if (this.publicKey && privateKey) {
-      webpush.setVapidDetails(subject, this.publicKey, privateKey);
+    let publicKey: string | undefined = config.get('VAPID_PUBLIC_KEY');
+    let privateKey: string | undefined = config.get('VAPID_PRIVATE_KEY');
+    if ((!publicKey || !privateKey) && config.get('NODE_ENV') !== 'production') {
+      ({ publicKey, privateKey } = webpush.generateVAPIDKeys());
+    }
+    this.publicKey = publicKey ?? '';
+    const subject = config.get('VAPID_SUBJECT') ?? 'mailto:info@vethub.uz';
+    if (publicKey && privateKey) {
+      webpush.setVapidDetails(subject, publicKey, privateKey);
       this.enabled = true;
+    } else {
+      this.logger.warn('VAPID_PUBLIC_KEY / VAPID_PRIVATE_KEY не заданы — push выключен');
     }
   }
 
