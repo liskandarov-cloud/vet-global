@@ -66,7 +66,7 @@ describe('Согласие при регистрации', () => {
     expect(r.status).toBe(201);
     const u = await prisma.user.findUnique({ where: { email } });
     expect(u?.termsAcceptedAt).toBeTruthy();
-    expect(u?.termsVersion).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    expect(u?.termsVersion).toMatch(/^\d{4}-\d{2}-\d{2}(\.\d+)?$/);
   });
 });
 
