@@ -8,6 +8,7 @@ import { serializeOffer } from '../common/pricing';
 import { canSell, publicOffer, PUBLIC_PRODUCT } from '../common/visibility';
 import { PromotionsService } from '../promotions/promotions.service';
 import { StockAlertsService } from './stock-alerts.service';
+import { StorageService } from '../storage/storage.service';
 
 @Injectable()
 export class ProductsService {
@@ -17,7 +18,12 @@ export class ProductsService {
     private readonly prisma: PrismaService,
     private readonly promotions: PromotionsService,
     private readonly stockAlerts: StockAlertsService,
+    private readonly storage: StorageService,
   ) {}
+
+  // Ссылку на сертификат покупатель открывает из карточки товара: новый
+  // сертификат — только файл, загруженный через платформу.
+  private static readonly CERT_ERROR = 'Сертификат загружается файлом через платформу, а не ссылкой';
 
   async list(q: ProductQueryDto, user?: AuthUser) {
     // Продавец в кабинете видит все свои товары: и снятые с продажи, чтобы
@@ -167,6 +173,7 @@ export class ProductsService {
 
   async create(dto: CreateProductDto, user: AuthUser) {
     await this.assertCategory(dto.categoryId);
+    this.storage.assertOwnUrls(dto.certificates, [], ProductsService.CERT_ERROR);
     const data: any = { ...dto, sellerId: user.id };
     // Если задан числовой остаток — наличие определяется им (0 → «под заказ»).
     if (typeof dto.stockQty === 'number') data.inStock = dto.stockQty > 0;
@@ -203,6 +210,7 @@ export class ProductsService {
     if (!existing) throw new NotFoundException('Product not found');
     this.assertOwnership(existing.sellerId, user);
     await this.assertCategory(dto.categoryId);
+    this.storage.assertOwnUrls(dto.certificates, existing.certificates, ProductsService.CERT_ERROR);
     const data: any = { ...dto };
     // Числовой остаток задаёт наличие: 0 → «под заказ», >0 → в наличии.
     if (typeof dto.stockQty === 'number') data.inStock = dto.stockQty > 0;

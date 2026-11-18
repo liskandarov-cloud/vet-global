@@ -114,6 +114,13 @@ export class StorageService implements OnModuleInit {
   }
 
   // Ссылка ведёт на файл, загруженный через /uploads (см. own-url.ts).
+  // Новые ссылки в списке — только наши файлы; уже сохранённые (например, из
+  // сида) не перепроверяются, иначе правка старой записи падала бы.
+  assertOwnUrls(list: string[] | null | undefined, kept: string[] | null | undefined, message: string) {
+    const before = new Set(kept ?? []);
+    if ((list ?? []).some((u) => !before.has(u) && !this.isOwnUrl(u))) throw new BadRequestException(message);
+  }
+
   isOwnUrl(url: unknown): boolean {
     return isOwnStorageUrl(url, {
       s3Enabled: this.s3Enabled,
