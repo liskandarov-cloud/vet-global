@@ -60,6 +60,20 @@ export class OrdersService {
   }
 
   async create(dto: CreateOrderDto, user?: AuthUser) {
+    // Юрлицо покупателя уходит в счёт-фактуру (ИНН и название в ЭДО). Ссылка
+    // принималась без проверки, и заказ можно было оформить на чужое юрлицо:
+    // документ выписывался компании, которая ничего не заказывала, а её
+    // реквизиты оказывались в счёте у постороннего.
+    if (dto.counterpartyId) {
+      const own = user
+        ? await this.prisma.counterparty.findFirst({
+            where: { id: dto.counterpartyId, userId: user.id },
+            select: { id: true },
+          })
+        : null;
+      if (!own) throw new BadRequestException('Юрлицо не найдено среди ваших');
+    }
+
     // Resolve products + offers from DB (never trust client-supplied prices).
     const productIds = dto.items.map((i) => i.productId);
     const products = await this.prisma.product.findMany({ where: { id: { in: productIds } } });

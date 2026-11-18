@@ -1,5 +1,5 @@
 import { OrgRole } from '@prisma/client';
-import { inviteRoleError, memberChangeError, type MemberRef } from './permissions';
+import { inviteRoleError, memberChangeError, removeMemberError, type MemberRef } from './permissions';
 
 const owner: MemberRef = { membershipId: 'm-owner', role: OrgRole.OWNER };
 const manager: MemberRef = { membershipId: 'm-manager', role: OrgRole.MANAGER };
@@ -58,5 +58,31 @@ describe('кого можно пригласить', () => {
     expect(inviteRoleError(OrgRole.MANAGER, OrgRole.PURCHASER)).toBeNull();
     expect(inviteRoleError(OrgRole.MANAGER, OrgRole.OWNER)).toMatch(/только владелец/);
     expect(inviteRoleError(OrgRole.MANAGER, OrgRole.MANAGER)).toMatch(/только владелец/);
+  });
+});
+
+describe('кого можно исключить', () => {
+  const otherOwner: MemberRef = { membershipId: 'm-owner-2', role: OrgRole.OWNER };
+  const otherManager: MemberRef = { membershipId: 'm-manager-2', role: OrgRole.MANAGER };
+
+  it('владелец исключает любого участника', () => {
+    expect(removeMemberError(owner, purchaser)).toBeNull();
+    expect(removeMemberError(owner, otherManager)).toBeNull();
+    expect(removeMemberError(owner, otherOwner)).toBeNull();
+  });
+
+  it('управляющий исключает закупщика', () => {
+    expect(removeMemberError(manager, purchaser)).toBeNull();
+  });
+
+  // Это и было дырой: при двух владельцах управляющий исключал любого из них.
+  it('управляющий не исключает владельца и другого управляющего', () => {
+    expect(removeMemberError(manager, owner)).toMatch(/только владелец/);
+    expect(removeMemberError(manager, otherOwner)).toMatch(/только владелец/);
+    expect(removeMemberError(manager, otherManager)).toMatch(/только владелец/);
+  });
+
+  it('управляющий может выйти из организации сам', () => {
+    expect(removeMemberError(manager, manager)).toBeNull();
   });
 });
