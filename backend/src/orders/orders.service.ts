@@ -29,7 +29,7 @@ import {
   vetPointsSpendable,
 } from '../common/pricing';
 import { isTransitionAllowed, transitionError } from './status';
-import { approvalFor } from './approval';
+import { approvalFor, awaitingApprovalError } from './approval';
 import { OrderReleaseService } from './order-release.service';
 import { invoiceNumberFor } from '../common/invoice-number';
 import { splitInvoices } from './invoice-split';
@@ -492,6 +492,9 @@ export class OrdersService {
     if (user.role === UserRole.SELLER && !order.items.some((it) => it.sellerId === user.id)) {
       throw new ForbiddenException('Not authorized for this order');
     }
+
+    const approvalError = awaitingApprovalError(order.approvalStatus, status);
+    if (approvalError && user.role !== UserRole.ADMIN) throw new BadRequestException(approvalError);
 
     // Проверка перехода. Администратору она не мешает: исправлять ошибочно
     // выставленный статус задним числом — его работа, и запрещать это значит
