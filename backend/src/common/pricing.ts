@@ -5,6 +5,8 @@
 // поэтому цена единицы заказа = price * packSize / priceUnitQty.
 // Для обычных товаров priceUnitQty = packSize = 1 → цена не меняется.
 
+import { isExpired, isShortDated } from './visibility';
+
 export function packPriceOf(offer: any): number {
   const base = Number(offer?.price ?? 0);
   const unitQty = Number(offer?.priceUnitQty ?? 1) || 1;
@@ -23,6 +25,10 @@ export function serializeOffer(o: any) {
     // Процент действующей акции продавца (0 — акции нет). Цену с акцией считает
     // получатель: она зависит от количества и договорной цены покупателя.
     promoPercent: Number(o.promoPercent ?? 0),
+    // Срок годности (common/visibility): истёкшее покупателю не отдаётся,
+    // флаг нужен кабинету продавца; «короткий срок» — бейдж на витрине.
+    expired: isExpired(o.expiryDate),
+    shortDated: isShortDated(o.expiryDate),
     ...(o.seller ? { seller: { ...o.seller, rating: Number(o.seller.rating ?? 0) } } : {}),
   };
 }

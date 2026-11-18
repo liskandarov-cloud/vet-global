@@ -24,11 +24,43 @@ export const PUBLIC_PRODUCT = {
   seller: SELLABLE_SELLER,
 } satisfies Prisma.ProductWhereInput;
 
-// Предложение продавца по товару, доступное покупателю.
-export const PUBLIC_OFFER = {
-  isActive: true,
-  seller: SELLABLE_SELLER,
-} satisfies Prisma.OfferWhereInput;
+// Предложение продавца по товару, доступное покупателю: активно, продавцу
+// можно продавать, и срок годности партии не истёк (или не указан).
+//
+// Раньше срок годности только подписывался на витрине («просрочено»), а
+// предложение оставалось в продаже: карточка давала его выбрать, заказ
+// проходил. По закону просроченный ветпрепарат продавать нельзя — теперь его
+// нет ни на витрине, ни в подборе заказа, ни в цене «от».
+//
+// Функция, а не константа: «сейчас» у каждого запроса своё.
+export function publicOffer(now: Date = new Date()) {
+  return {
+    isActive: true,
+    seller: SELLABLE_SELLER,
+    OR: [{ expiryDate: null }, { expiryDate: { gt: now } }],
+  } satisfies Prisma.OfferWhereInput;
+}
+
+// Та же граница срока для одной записи (заказ по offerId из корзины):
+// срок, наступивший ровно сейчас, уже истёк.
+export function isExpired(expiryDate: Date | string | null | undefined, now: Date = new Date()): boolean {
+  if (!expiryDate) return false;
+  const t = new Date(expiryDate).getTime();
+  return !Number.isNaN(t) && t <= now.getTime();
+}
+
+// «Короткий срок»: годен, но истекает меньше чем через SHORT_DATED_DAYS дней
+// (по умолчанию 90). Покупатель должен видеть это до заказа.
+export const SHORT_DATED_DAYS = Number(process.env.SHORT_DATED_DAYS) > 0 ? Number(process.env.SHORT_DATED_DAYS) : 90;
+
+export function isShortDated(
+  expiryDate: Date | string | null | undefined,
+  now: Date = new Date(),
+  days: number = SHORT_DATED_DAYS,
+): boolean {
+  if (!expiryDate || isExpired(expiryDate, now)) return false;
+  return new Date(expiryDate).getTime() - now.getTime() < days * 86_400_000;
+}
 
 export function canSell(seller: { isVerified: boolean; isBanned: boolean } | null | undefined): boolean {
   return !!seller && seller.isVerified && !seller.isBanned;

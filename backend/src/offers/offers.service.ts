@@ -1,20 +1,23 @@
-import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Cron } from '@nestjs/schedule';
 import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateOfferDto, UpdateOfferDto } from './dto/offer.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { serializeOffer } from '../common/pricing';
-import { PUBLIC_OFFER } from '../common/visibility';
+import { publicOffer } from '../common/visibility';
 import { recalcProductAggregates } from './product-aggregates';
 
 @Injectable()
 export class OffersService {
+  private readonly logger = new Logger(OffersService.name);
+
   constructor(private readonly prisma: PrismaService) {}
 
   // Публичный список предложений по товару — отсортирован по цене (сравнение цен).
   async listForProduct(productId: string) {
     const offers = await this.prisma.offer.findMany({
-      where: { productId, ...PUBLIC_OFFER },
+      where: { productId, ...publicOffer() },
       orderBy: { price: 'asc' },
       include: {
         seller: {
@@ -116,6 +119,22 @@ export class OffersService {
       where: { id },
       data: { certVerified: verified },
     });
+  }
+
+  // Срок годности истёк — предложение пропадает с витрины само (publicOffer),
+  // но цена «от» и число продавцов у товара хранятся денормализованно. Без
+  // пересчёта каталог показывал бы цену партии, которую уже не купить.
+  // Окно в неделю — на случай, если ночной запуск пропущен (сервер спал).
+  @Cron('10 0 * * *', { name: 'expired-offers-recalc', timeZone: 'Asia/Tashkent' })
+  async recalcExpired(now: Date = new Date()) {
+    const rows = await this.prisma.offer.findMany({
+      where: { expiryDate: { lte: now, gt: new Date(now.getTime() - 7 * 86_400_000) } },
+      distinct: ['productId'],
+      select: { productId: true },
+    });
+    for (const { productId } of rows) await this.recalcProduct(productId);
+    if (rows.length) this.logger.log(`пересчитаны товары с истёкшими партиями: ${rows.length}`);
+    return { products: rows.length };
   }
 
   // Пересчёт агрегатов товара — см. product-aggregates.ts.

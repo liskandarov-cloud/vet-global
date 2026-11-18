@@ -44,6 +44,10 @@ export interface Offer {
   promoPercent?: number;
   batchNumber?: string | null;
   expiryDate?: string | null;
+  // Флаги срока годности (считает бэкенд, common/visibility): истёкшая партия
+  // покупателю не отдаётся, «короткий срок» — меньше SHORT_DATED_DAYS дней.
+  expired?: boolean;
+  shortDated?: boolean;
   regNumber?: string | null;
   isRx: boolean;
   certificates: string[];
