@@ -6,6 +6,7 @@ import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { formatMoney } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
+import { expiryInfo } from '@/lib/expiry';
 
 interface MyOffer {
   id: string;
@@ -18,6 +19,8 @@ interface MyOffer {
   netTermDays?: number | null;
   batchNumber?: string | null;
   expiryDate?: string | null;
+  expired?: boolean;
+  shortDated?: boolean;
   regNumber?: string | null;
   isRx: boolean;
   certVerified: boolean;
@@ -142,6 +145,15 @@ export function SellerOffersPanel() {
                   {o.product?.name ?? o.productId}
                   {o.certVerified && <ShieldCheck size={13} className="ml-1 inline text-teal-700" />}
                   {o.isRx && <span className="ml-1 rounded bg-amber-50 px-1 text-[10px] text-amber-700">Rx</span>}
+                  {o.expired ? (
+                    <span className="ml-1 rounded bg-red-50 px-1 text-[10px] font-medium text-red-700" title={tt('Покупатели его не видят. Укажите новую партию и срок годности.', 'Xaridorlar uni koʻrmaydi. Yangi partiya va yaroqlilik muddatini kiriting.')}>
+                      {tt('срок истёк — не продаётся', 'muddati oʻtgan — sotilmaydi')}
+                    </span>
+                  ) : o.shortDated ? (
+                    <span className="ml-1 rounded bg-orange-50 px-1 text-[10px] text-orange-700">
+                      {tt('короткий срок', 'qisqa muddat')}{o.expiryDate ? ` · ${expiryInfo(o.expiryDate)?.until ?? ''}` : ''}
+                    </span>
+                  ) : null}
                 </td>
                 <td className="font-semibold">{formatMoney(o.price)}</td>
                 <td>{o.inStock ? (o.stockQty ?? '—') : tt('нет', 'yoʻq')}</td>

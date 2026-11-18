@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import { packPriceOf } from '../common/pricing';
-import { PUBLIC_OFFER } from '../common/visibility';
+import { publicOffer } from '../common/visibility';
 import { pickBestOffer } from './best-offer';
 
 // Пересчёт денормализованных агрегатов товара (minPrice / offersCount / наличие).
@@ -20,7 +20,7 @@ import { pickBestOffer } from './best-offer';
 // не втягивая модуль предложений в свои зависимости. Принимает PrismaClient —
 // сервис Nest его расширяет, а сид работает с клиентом напрямую.
 export async function recalcProductAggregates(prisma: PrismaClient, productId: string) {
-  const offers = await prisma.offer.findMany({ where: { productId, ...PUBLIC_OFFER } });
+  const offers = await prisma.offer.findMany({ where: { productId, ...publicOffer() } });
   const best = pickBestOffer(offers);
   await prisma.product.update({
     where: { id: productId },

@@ -244,3 +244,73 @@ describe('Лицензия продавца: от загрузки до пров
     expect(mine[0].isApproved).toBe(true);
   });
 });
+
+// Срок годности (common/visibility → publicOffer): партия с истёкшим сроком
+// снята с продажи — её нет на карточке, и заказ отклоняется, даже если offerId
+// лежит в старой корзине. Партия с коротким сроком продаётся, но с флагом.
+describe('Срок годности: просрочку не продаём', () => {
+  const stamp = Date.now();
+  const day = 86_400_000;
+  const isoDay = (ms: number) => new Date(Date.now() + ms).toISOString().slice(0, 10);
+  let seller: string;
+  let buyer: string;
+  let productId: string;
+  let offerId: string;
+
+  const publicOfferIds = async () =>
+    ((await req(`/products/${productId}/offers`)).body as any[]).map((o) => o.id);
+  const order = (withOffer: boolean) =>
+    req('/orders', {
+      method: 'POST',
+      token: buyer,
+      body: { items: [{ productId, quantity: 1, ...(withOffer ? { offerId } : {}) }] },
+    });
+
+  beforeAll(async () => {
+    seller = await login('seller@vetglobal.com', 'seller123');
+    buyer = await login('buyer@vetglobal.com', 'buyer123');
+    const categoryId = (await req('/categories')).body[0].id;
+    const p = await req('/products', {
+      method: 'POST',
+      token: seller,
+      body: { name: `Expiry probe ${stamp}`, description: 'e2e', price: 1000, categoryId, manufacturer: 'Probe' },
+    });
+    expect(p.status).toBe(201);
+    productId = p.body.id;
+    const o = await req('/offers', {
+      method: 'POST',
+      token: seller,
+      body: { productId, price: 5000, expiryDate: isoDay(-day), batchNumber: `B-${stamp}` },
+    });
+    expect(o.status).toBe(201);
+    offerId = o.body.id;
+  });
+
+  it('истёкшей партии нет ни в списке предложений, ни на карточке', async () => {
+    expect(await publicOfferIds()).not.toContain(offerId);
+    const card = (await req(`/products/${productId}`)).body;
+    expect((card.offers as any[]).map((o) => o.id)).not.toContain(offerId);
+    expect(card.offersCount).toBe(0);
+  });
+
+  it('заказ истёкшей партии — 400, и по offerId из корзины, и подбором по товару', async () => {
+    for (const withOffer of [true, false]) {
+      const r = await order(withOffer);
+      expect(r.status).toBe(400);
+      expect(String(r.body.message)).toContain('Срок годности');
+    }
+  });
+
+  it('продавец видит партию в кабинете с флагом expired', async () => {
+    const mine = (await req('/offers/mine', { token: seller })).body as any[];
+    expect(mine.find((o) => o.id === offerId)).toMatchObject({ expired: true, shortDated: false });
+  });
+
+  it('короткий срок: партия на витрине с флагом shortDated и заказывается', async () => {
+    const u = await req(`/offers/${offerId}`, { method: 'PUT', token: seller, body: { expiryDate: isoDay(30 * day) } });
+    expect(u.status).toBe(200);
+    const offers = (await req(`/products/${productId}/offers`)).body as any[];
+    expect(offers.find((o) => o.id === offerId)).toMatchObject({ expired: false, shortDated: true });
+    expect((await order(true)).status).toBe(201);
+  });
+});
