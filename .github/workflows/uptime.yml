@@ -30,6 +30,13 @@ jobs:
   check:
     runs-on: ubuntu-latest
     steps:
+      # История main нужна сверке версий; без содержимого файлов — быстро.
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 0
+          filter: blob:none
+
       - name: Проверка контуров
         id: check
         run: |
@@ -73,12 +80,23 @@ jobs:
             echo "failed=false" >> "$GITHUB_OUTPUT"
           fi
 
-      # Репозиторий указан явно: checkout здесь не нужен, а без git-каталога
-      # `gh issue` не знает, с каким репозиторием работать. Без этого шаг падал
+      # Доступен — ещё не значит свежий: упавшая выкатка оставляет прежний код,
+      # и он продолжает отвечать 200.
+      - name: Прод совпадает с main
+        id: drift
+        run: |
+          if bash .github/scripts/deploy-drift.sh /tmp/failed.md; then
+            echo "failed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "failed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Репозиторий указан явно: без него `gh issue` вне git-каталога не знает,
+      # с каким репозиторием работать. Без этого шаг падал
       # с первого же сбоя, и о простое прода с 12 октября 2026 не пришло ни
       # одного письма — проверка краснела, а тревога не поднималась.
       - name: Оповестить через issue
-        if: steps.check.outputs.failed == 'true'
+        if: steps.check.outputs.failed == 'true' || steps.drift.outputs.failed == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -90,7 +108,7 @@ jobs:
           # падении репозиторий завалило бы десятками одинаковых тикетов.
           EXISTING=$(gh issue list --label outage --state open --limit 1 --json number -q '.[0].number' || true)
           {
-            echo "Проверка доступности не прошла:"
+            echo "Проверка прода не прошла:"
             echo
             cat /tmp/failed.md
             echo
@@ -105,11 +123,11 @@ jobs:
             # Ошибку не глушим целиком: «уже существует» — норма, остальное должно
             # быть видно в логе, иначе сломанное оповещение снова промолчит.
             gh label create outage --color B60205 --description "Недоступность прода" || echo "метка outage уже есть"
-            gh issue create --title "Прод недоступен" --label outage --body "$BODY"
+            gh issue create --title "Прод недоступен или отстаёт от main" --label outage --body "$BODY"
           fi
 
       - name: Закрыть issue, если всё поднялось
-        if: steps.check.outputs.failed == 'false'
+        if: steps.check.outputs.failed == 'false' && steps.drift.outputs.failed == 'false'
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
@@ -123,6 +141,6 @@ jobs:
           fi
 
       - name: Уронить прогон при недоступности
-        if: steps.check.outputs.failed == 'true'
+        if: steps.check.outputs.failed == 'true' || steps.drift.outputs.failed == 'true'
         # Красный прогон в списке Actions — второй видимый признак помимо issue.
         run: exit 1
