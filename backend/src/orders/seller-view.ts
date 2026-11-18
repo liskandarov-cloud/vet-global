@@ -12,7 +12,12 @@ const money = (v: unknown) => Math.round(Number(v ?? 0) * 100) / 100;
 
 export function sellerView(order: any, sellerId: string): any {
   const items: any[] = order.items ?? [];
-  if (new Set(items.map((it) => it.sellerId)).size <= 1) return order;
+  const parts: any[] = order.parts ?? [];
+  // Весь заказ — его: показываем как есть.
+  if (items.length && items.every((it) => it.sellerId === sellerId) && !parts.some((p) => p.sellerId !== sellerId)) {
+    return order;
+  }
+  const part = parts.find((p) => p.sellerId === sellerId);
 
   const revenue: Record<string, number> = {};
   for (const it of items) revenue[it.sellerId] = (revenue[it.sellerId] ?? 0) + Number(it.price) * Number(it.quantity);
@@ -33,6 +38,9 @@ export function sellerView(order: any, sellerId: string): any {
     // Баллы — скидка площадки, к расчётам с продавцом не относятся.
     vetPointsUsed: 0,
     vetPointsEarned: 0,
+    // Статус — своей части; чужие части продавцу не показываются.
+    status: part?.status ?? order.status,
+    parts: part ? [part] : [],
     partial: true,
   };
 }

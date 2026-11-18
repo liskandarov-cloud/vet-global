@@ -212,6 +212,13 @@ function OrderContent() {
               </div>
             ))}
           </div>
+          {/* Поставщик отменил свою часть: позиции ушли из заказа, сумма уменьшена. */}
+          {(order.parts ?? []).filter((p: any) => p.status === 'CANCELLED' && p.cancelled).map((p: any) => (
+            <div key={p.sellerId} className="mt-3 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300">
+              {tt('Поставщик отменил свою часть', 'Yetkazib beruvchi oʻz qismini bekor qildi')}: {(p.cancelled.items ?? []).map((i: any) => `${i.productName} × ${i.quantity}`).join(', ')}
+              {p.cancelled.reduction > 0 && <> · −{formatMoney(p.cancelled.reduction)}</>}
+            </div>
+          ))}
           <div className="mt-3 space-y-1 border-t border-line pt-3 text-sm">
             <div className="flex justify-between"><span className="text-ink-muted">{tt('Сумма позиций', 'Pozitsiyalar summasi')}</span><span>{formatMoney(order.subtotal)}</span></div>
             {order.vetPointsUsed > 0 && <div className="flex justify-between text-secondary"><span>VetPoints</span><span>-{formatMoney(order.vetPointsUsed)}</span></div>}

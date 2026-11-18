@@ -231,6 +231,70 @@ describe('аудит безопасности (e2e)', () => {
     expect((await req(`/seller-documents/${doc.id}/file`, { token: admin })).status).toBeLessThan(400);
   });
 
+  // Раньше у заказа нескольких поставщиков был один статус, и любой продавец
+  // менял его целиком: отменял часть конкурента или ставил «Доставлен».
+  describe('заказ двух поставщиков: каждый ведёт свою часть', () => {
+    let other: string;
+    let otherProduct: any;
+
+    beforeAll(async () => {
+      other = await login('agrovet@vetglobal.com', 'seller123');
+      const any = (await req(`/products?limit=1`)).body.products[0];
+      otherProduct = (await req('/products', {
+        token: other,
+        body: { name: `zz-sec2-${uniq()}`, description: 'x', categoryId: any.categoryId, price: 50000, minOrder: 1, inStock: true },
+      })).body;
+      expect(otherProduct.id).toBeTruthy();
+    });
+
+    afterAll(async () => {
+      await req(`/products/${otherProduct.id}`, { method: 'DELETE', token: other });
+    });
+
+    const twoSellerOrder = async (token: string) =>
+      (await req('/orders', {
+        token,
+        body: { items: [{ productId: product.id, quantity: 2 }, { productId: otherProduct.id, quantity: 2 }] },
+      })).body;
+    const move = (id: string, token: string, status: string) =>
+      req(`/orders/${id}/status`, { method: 'PATCH', token, body: { status } });
+
+    it('продавец отменяет только свою часть: сумма уменьшается, чужая часть идёт дальше', async () => {
+      const b = await registerBuyer();
+      const o = await twoSellerOrder(b.token);
+      expect(o.total).toBe(300_000);
+
+      expect((await move(o.id, other, 'CANCELLED')).status).toBe(200);
+      const afterCancel = (await req(`/orders/${o.id}`, { token: b.token })).body;
+      expect(afterCancel.status).toBe('PENDING');
+      expect(afterCancel.total).toBe(200_000);
+      expect(afterCancel.items.map((it: any) => it.productId)).toEqual([product.id]);
+
+      // Отменённую часть не оживить; первый продавец свою часть ведёт сам.
+      expect((await move(o.id, other, 'CONFIRMED')).status).toBe(400);
+      for (const status of ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED']) {
+        expect((await move(o.id, seller, status)).status).toBe(200);
+      }
+      const done = (await req(`/orders/${o.id}`, { token: b.token })).body;
+      expect(done.status).toBe('DELIVERED');
+      // Баллы — от оставшихся товаров: 1 % от 200 000.
+      expect(Number((await req('/vetpoints/balance', { token: b.token })).body.balance)).toBe(2_000);
+    });
+
+    it('один продавец не доводит заказ до «Доставлен» за второго', async () => {
+      const b = await registerBuyer();
+      const o = await twoSellerOrder(b.token);
+      for (const status of ['CONFIRMED', 'PROCESSING', 'SHIPPED', 'DELIVERED']) {
+        expect((await move(o.id, seller, status)).status).toBe(200);
+      }
+      const view = (await req(`/orders/${o.id}`, { token: b.token })).body;
+      expect(view.status).toBe('PENDING');
+      expect((await req(`/orders/${o.id}`, { token: seller })).body.status).toBe('DELIVERED');
+      expect((await req(`/orders/${o.id}`, { token: other })).body.status).toBe('PENDING');
+      expect(Number((await req('/vetpoints/balance', { token: b.token })).body.balance)).toBe(0);
+    });
+  });
+
   // ── Организация ──
   // Раньше человека добавляли в чужую организацию без спроса: его заказы
   // уходили на согласование постороннему, а тот видел его телефон.
