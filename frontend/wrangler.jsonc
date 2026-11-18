@@ -17,6 +17,10 @@
       "id": "a3c248fe2c7245d08ed930e6ef38a117"
     }
   ],
+  // Воркер вызывает сам себя, чтобы перестроить устаревшую страницу ISR
+  // (очередь в open-next.config.ts). Привязки не наследуются окружениями —
+  // у demo своя, на свой воркер.
+  "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "vethub-web" }],
   "vars": {
     // Адрес API для браузера. API_INTERNAL_URL здесь намеренно не задан:
     // он имеет смысл только внутри docker-сети, а снаружи серверные запросы
@@ -38,6 +42,7 @@
     "demo": {
       "name": "vethub-demo",
       "kv_namespaces": [{ "binding": "NEXT_INC_CACHE_KV", "id": "bbf439a57bec42afa5a44ec70d96d4d5" }],
+      "services": [{ "binding": "WORKER_SELF_REFERENCE", "service": "vethub-demo" }],
       "vars": {
         "NEXT_PUBLIC_API_URL": "https://vethub-demo-api.onrender.com/api",
         "SITE_URL": "https://demo.vethub.uz",
