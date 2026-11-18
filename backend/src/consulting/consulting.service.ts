@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { AnimalType, ConsultStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AlertsService } from '../alerts/alerts.service';
 import { NotificationsService } from '../mail/notifications.service';
 
 export interface CreateConsultInput {
@@ -17,6 +18,7 @@ export class ConsultingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notifications: NotificationsService,
+    private readonly alerts: AlertsService,
   ) {}
 
   async create(input: CreateConsultInput) {
@@ -37,8 +39,18 @@ export class ConsultingService {
     return this.prisma.consultRequest.findMany({ where: { userId }, orderBy: { createdAt: 'desc' } });
   }
 
-  answer(id: string, answer: string, answeredBy: string, status: ConsultStatus = ConsultStatus.ANSWERED) {
-    return this.prisma.consultRequest.update({ where: { id }, data: { answer, answeredBy, status } });
+  // Ответ ветврача. Раньше он только сохранялся: пользователь не узнавал, что
+  // ему ответили, и не видел ответа нигде на сайте.
+  async answer(id: string, answer: string, answeredBy: string, status: ConsultStatus = ConsultStatus.ANSWERED) {
+    const consult = await this.prisma.consultRequest.update({ where: { id }, data: { answer, answeredBy, status } });
+    if (consult.userId) {
+      void this.alerts.notify(consult.userId, {
+        title: 'Ответ ветеринара',
+        body: `На ваш вопрос «${consult.topic}» пришёл ответ.`,
+        url: '/consult',
+      });
+    }
+    return consult;
   }
 
   updateStatus(id: string, status: ConsultStatus) {

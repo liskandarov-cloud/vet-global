@@ -142,6 +142,19 @@ function SellerContent() {
       toast.error(e?.response?.data?.message ?? tt('Ошибка ЭДО', 'EDI xatosi'));
     }
   };
+  const downloadInvoice = async (id: string) => {
+    try {
+      const { data } = await api.get(`/orders/${id}/invoice`, { responseType: 'blob' });
+      const url = URL.createObjectURL(new Blob([data], { type: 'application/pdf' }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `invoice-${id.slice(0, 8)}.pdf`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error(tt('Не удалось получить счёт', 'Hisobni olib boʻlmadi'));
+    }
+  };
   const syncDidox = async (id: string) => {
     const { data } = await api.get(`/didox/status/${id}`);
     const doc = data.documents?.[0];
@@ -419,6 +432,8 @@ function SellerContent() {
                     ) : (
                       <button className="btn-secondary !px-3 !py-1.5 text-xs" onClick={() => sendDidox(o.id)}>{tt('Отправить в ЭДО', 'EDIga yuborish')}</button>
                     )}
+                    {/* Свой счёт PDF: сервер отдаёт продавцу только его часть заказа. */}
+                    <button className="btn-ghost ml-1 !px-2 !py-1 text-xs" onClick={() => downloadInvoice(o.id)}>{tt('Счёт PDF', 'Hisob PDF')}</button>
                   </td>
                   <td>
                     {ownShipment<any>(o, user?.id) ? (

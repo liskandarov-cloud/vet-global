@@ -135,6 +135,19 @@ describe('Организация: лимиты закупщиков и согл�
     expect(pay.body.message).toMatch(/согласован/);
   });
 
+  // Согласовать заказ, не видя его позиций, — согласовывать вслепую.
+  it('владелец и управляющий открывают заказ закупщика и видят его в заказах организации', async () => {
+    const o = await order(purchaser.token, 1);
+    for (const who of [owner, manager]) {
+      const r = await req(`/orders/${o.id}`, { token: who.token });
+      expect(r.status).toBe(200);
+      expect(r.body.items.length).toBeGreaterThan(0);
+      expect((await req('/org/orders', { token: who.token })).body.some((x: any) => x.id === o.id)).toBe(true);
+    }
+    expect((await req(`/orders/${o.id}`, { token: outsider.token })).status).toBe(403);
+    expect((await req('/org/orders', { token: purchaser.token })).body).toEqual([]);
+  });
+
   it('заказ на согласовании видят владелец и управляющий своей организации — и только они', async () => {
     expect(await approvals(owner.token)).toContain(pending.id);
     expect(await approvals(manager.token)).toContain(pending.id);

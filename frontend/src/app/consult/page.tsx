@@ -1,10 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Stethoscope } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
+import { useAuth } from '@/lib/store';
 
 export default function ConsultPage() {
   const { tt } = useI18n();
@@ -64,6 +65,45 @@ export default function ConsultPage() {
           <button className="btn-primary w-full" disabled={loading}>{loading ? '…' : tt('Отправить', 'Yuborish')}</button>
         </form>
       )}
+
+      <MyConsults refreshKey={sent} />
+    </div>
+  );
+}
+
+// Свои вопросы и ответы ветеринара — раньше ответ только сохранялся, и
+// пользователь его не видел.
+function MyConsults({ refreshKey }: { refreshKey: unknown }) {
+  const { tt } = useI18n();
+  const user = useAuth((s) => s.user);
+  const [list, setList] = useState<any[]>([]);
+  useEffect(() => {
+    if (!user) return;
+    api.get('/consultations/mine').then((r) => setList(r.data)).catch(() => setList([]));
+  }, [user, refreshKey]);
+  if (!user || list.length === 0) return null;
+  return (
+    <div className="mt-8">
+      <h2 className="mb-2 font-heading text-lg font-bold">{tt('Мои вопросы', 'Mening savollarim')}</h2>
+      <div className="space-y-3">
+        {list.map((c) => (
+          <div key={c.id} className="card p-4 text-sm">
+            <div className="flex items-center justify-between gap-2">
+              <span className="font-medium">{c.topic}</span>
+              <span className="text-xs text-ink-subtle">{new Date(c.createdAt).toLocaleDateString('ru-RU')}</span>
+            </div>
+            <p className="mt-1 text-ink-muted">{c.message}</p>
+            {c.answer ? (
+              <div className="mt-3 rounded-lg bg-teal-50 p-3 text-ink dark:bg-teal-950/30">
+                <div className="mb-1 text-xs font-semibold text-teal-700">{tt('Ответ ветеринара', 'Veterinar javobi')}{c.answeredBy ? ` · ${c.answeredBy}` : ''}</div>
+                {c.answer}
+              </div>
+            ) : (
+              <div className="mt-2 text-xs text-amber-700">{tt('Ждёт ответа', 'Javob kutilmoqda')}</div>
+            )}
+          </div>
+        ))}
+      </div>
     </div>
   );
 }

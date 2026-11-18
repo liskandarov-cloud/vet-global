@@ -223,7 +223,22 @@ export class OrganizationsService {
       total: Number(o.total),
       createdAt: o.createdAt,
       itemsCount: o.items.length,
+      items: o.items.map((it) => ({ productName: it.productName, quantity: it.quantity, price: Number(it.price) })),
     }));
+  }
+
+  // Все заказы организации — владельцу и управляющему: раньше они видели
+  // только заказы на согласовании, а общей истории закупок не было.
+  async orgOrders(user: AuthUser) {
+    const me = await this.prisma.orgMembership.findFirst({ where: { userId: user.id, acceptedAt: { not: null } } });
+    if (!me || (me.role !== OrgRole.OWNER && me.role !== OrgRole.MANAGER)) return [];
+    const orders = await this.prisma.order.findMany({
+      where: { orgId: me.orgId },
+      orderBy: { createdAt: 'desc' },
+      take: 100,
+      select: { id: true, buyerName: true, total: true, status: true, approvalStatus: true, createdAt: true, _count: { select: { items: true } } },
+    });
+    return orders.map(({ _count, ...o }) => ({ ...o, total: Number(o.total), itemsCount: _count.items }));
   }
 
   async decideApproval(orderId: string, approve: boolean, user: AuthUser) {

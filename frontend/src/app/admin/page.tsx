@@ -79,7 +79,11 @@ function AdminContent() {
     const { data } = await api.get(`/admin/sellers/${id}/documents`);
     setDocsFor((m) => ({ ...m, [id]: data }));
   };
-  const verify = async (id: string) => { await api.patch(`/admin/users/${id}/verify`, { isVerified: true }); toast.success(tt('Подтверждён', 'Tasdiqlandi')); load(); };
+  const verify = async (id: string, isVerified = true) => {
+    await api.patch(`/admin/users/${id}/verify`, { isVerified });
+    toast.success(isVerified ? tt('Подтверждён', 'Tasdiqlandi') : tt('Проверка снята', 'Tasdiq bekor qilindi'));
+    load();
+  };
   const delUser = async (id: string, email: string) => {
     if (!confirm(tt(`Удалить пользователя ${email}? Его заказы и данные будут удалены безвозвратно.`,
                     `${email} foydalanuvchisi oʻchirilsinmi? Buyurtmalari va maʼlumotlari butunlay oʻchiriladi.`))) return;
@@ -350,7 +354,9 @@ function AdminContent() {
                         <FileText size={15} /> <span className="text-xs">{u.documentsCount ?? 0}</span>
                       </button>
                     )}
-                    {!u.isVerified && u.role === 'SELLER' && <button className="btn-ghost !px-2 !py-1 text-teal-700" onClick={() => verify(u.id)}><Check size={15} /></button>}
+                    {!u.isVerified && u.role === 'SELLER' && <button className="btn-ghost !px-2 !py-1 text-teal-700" onClick={() => verify(u.id)} title={tt('Подтвердить', 'Tasdiqlash')}><Check size={15} /></button>}
+                    {/* Снять проверку: продавец сменил документы, истекла лицензия или нарушил правила. */}
+                    {u.isVerified && u.role === 'SELLER' && <button className="btn-ghost !px-2 !py-1 text-amber-600" onClick={() => { if (window.confirm(tt('Снять проверку? Товары продавца скроются с витрины до повторной проверки.', 'Tasdiqni bekor qilasizmi? Sotuvchi tovarlari qayta tekshiruvgacha vitrinadan yashiriladi.'))) verify(u.id, false); }} title={tt('Снять проверку', 'Tasdiqni bekor qilish')}><ShieldCheck size={15} /></button>}
                     {u.role !== 'ADMIN' && <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => ban(u.id, !u.isBanned)} title={u.isBanned ? tt('Разблокировать', 'Blokdan chiqarish') : tt('Заблокировать', 'Bloklash')}><Ban size={15} /></button>}
                     {u.role !== 'ADMIN' && <button className="btn-ghost !px-2 !py-1 text-red-500" onClick={() => delUser(u.id, u.email)} title={tt('Удалить', 'Oʻchirish')}><Trash2 size={15} /></button>}
                   </td>

@@ -54,6 +54,11 @@ export class OrganizationsController {
     return this.org.removeMember(id, user);
   }
 
+  @Get('orders')
+  orders(@CurrentUser() user: AuthUser) {
+    return this.org.orgOrders(user);
+  }
+
   @Get('approvals')
   approvals(@CurrentUser() user: AuthUser) {
     return this.org.pendingApprovals(user);
