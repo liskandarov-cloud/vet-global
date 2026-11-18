@@ -10,6 +10,7 @@ import {
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { downloadInvoices } from '@/lib/invoices';
 import { useAuth, useCart } from '@/lib/store';
 import { formatMoney } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
@@ -123,9 +124,23 @@ function OrderContent() {
   const currentIdx = FLOW.indexOf(order.status);
   const payment = order.payments?.[order.payments.length - 1];
 
+  // В заказе от нескольких поставщиков у каждого свой счёт: без sellerId API
+  // отвечает 400, поэтому скачиваем так же, как в кабинете.
   const invoice = async () => {
-    const { data } = await api.get(`/orders/${id}/invoice`, { responseType: 'blob' });
-    downloadBlob(data, `invoice-${String(id).slice(0, 8)}.pdf`, 'application/pdf');
+    const count = await downloadInvoices(
+      order,
+      async (orderId, sellerId) => {
+        const { data } = await api.get(`/orders/${orderId}/invoice`, {
+          params: sellerId ? { sellerId } : undefined,
+          responseType: 'blob',
+        });
+        return data;
+      },
+      (data, filename) => downloadBlob(data as BlobPart, filename, 'application/pdf'),
+    );
+    if (count > 1) {
+      toast.success(tt(`Счетов по заказу: ${count} — по одному от каждого поставщика`, `Buyurtma bo'yicha hisob-fakturalar: ${count}`));
+    }
   };
   const pay = async (provider: string) => {
     try {
@@ -206,7 +221,12 @@ function OrderContent() {
 
         {/* Side: docs, payment, delivery */}
         <div className="space-y-4">
-          {order.status === 'PENDING' && order.requiresConfirmation ? (
+          {order.status === 'PENDING' && order.approvalStatus === 'PENDING' ? (
+            <div className="card p-5">
+              <h3 className="mb-2 font-semibold">{tt('Оплата', 'Toʻlov')}</h3>
+              <p className="text-sm text-amber-700 dark:text-amber-300">{tt('Оплата откроется после согласования в организации', 'Toʻlov tashkilotda kelishilgandan soʻng ochiladi')}</p>
+            </div>
+          ) : order.status === 'PENDING' && order.requiresConfirmation ? (
             <div className="card p-5">
               <h3 className="mb-2 font-semibold">{tt('Оплата', 'Toʻlov')}</h3>
               <p className="text-sm text-amber-700 dark:text-amber-300">{tt('Заказ содержит позицию «под заказ». Оплата откроется после того, как продавец подтвердит наличие.', 'Buyurtmada «buyurtma asosida» pozitsiya bor. Toʻlov sotuvchi mavjudligini tasdiqlagach ochiladi.')}</p>
@@ -251,10 +271,14 @@ function OrderContent() {
               <span className="flex items-center gap-2 font-medium"><FileText size={15} /> {tt('Счёт', 'Hisob-faktura')}</span>
               <button className="btn-ghost !px-2 !py-1 text-xs text-teal-700" onClick={invoice}>{tt('Скачать PDF', 'PDF yuklab olish')}</button>
             </div>
-            {order.invoice?.number && <div className="text-ink-subtle">№ {order.invoice.number}</div>}
-            {order.invoice?.didoxStatus && (
-              <div className="mt-1 flex items-center gap-1 text-ink-subtle">{tt('ЭДО (Didox)', 'EHF (Didox)')}: <span className="font-medium text-teal-700">{didoxLabel[order.invoice.didoxStatus] ?? DIDOX_RU[order.invoice.didoxStatus] ?? order.invoice.didoxStatus}</span></div>
-            )}
+            {(order.invoices ?? []).map((inv: any) => (
+              <div key={inv.id ?? inv.number} className="mt-1 text-ink-subtle">
+                {inv.number && <div>№ {inv.number}</div>}
+                {inv.didoxStatus && (
+                  <div className="flex items-center gap-1">{tt('ЭДО (Didox)', 'EHF (Didox)')}: <span className="font-medium text-teal-700">{didoxLabel[inv.didoxStatus] ?? DIDOX_RU[inv.didoxStatus] ?? inv.didoxStatus}</span></div>
+                )}
+              </div>
+            ))}
           </div>
 
           {/* Отправок столько же, сколько поставщиков в заказе: у каждого свой

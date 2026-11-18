@@ -5,7 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { serializeOffer } from '../common/pricing';
-import { canSell, PUBLIC_OFFER, PUBLIC_PRODUCT } from '../common/visibility';
+import { canSell, publicOffer, PUBLIC_PRODUCT } from '../common/visibility';
 import { PromotionsService } from '../promotions/promotions.service';
 import { StockAlertsService } from './stock-alerts.service';
 
@@ -122,7 +122,7 @@ export class ProductsService {
           select: { id: true, company: true, fullName: true, isVerified: true, rating: true, createdAt: true },
         },
         offers: {
-          where: PUBLIC_OFFER,
+          where: publicOffer(),
           orderBy: { price: 'asc' },
           include: {
             seller: {

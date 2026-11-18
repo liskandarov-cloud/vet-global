@@ -27,6 +27,7 @@ import { useCart, useAuth } from '@/lib/store';
 import { Product, Offer } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 import { formatMoney } from '@/lib/utils';
+import { expiryInfo } from '@/lib/expiry';
 import { applyPromotion, effectiveUnitPrice, unitPriceForQty } from '@/lib/pricing';
 
 interface Review { id: string; buyerName: string; rating: number; comment: string; createdAt: string }
@@ -38,6 +39,7 @@ export default function ProductPage() {
   const currentUser = useAuth((s) => s.user);
 
   const [product, setProduct] = useState<Product | null>(null);
+  const [notFound, setNotFound] = useState(false);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [qty, setQty] = useState(1);
   const [activeImg, setActiveImg] = useState(0);
@@ -59,7 +61,7 @@ export default function ProductPage() {
       const cheapest = p.offers?.[0]; // офферы приходят отсортированными по цене
       setSelectedOfferId(cheapest?.id ?? null);
       setQty(cheapest?.minOrder ?? p.minOrder ?? 1);
-    });
+    }).catch(() => setNotFound(true));
     api.get('/reviews', { params: { productId: id } }).then((r) => setReviews(r.data)).catch(() => {});
   }, [id]);
 
@@ -117,11 +119,20 @@ export default function ProductPage() {
   const effPrice = (o: Offer | undefined, quantity: number): number | undefined =>
     effectiveUnitPrice(o, quantity, contractMap[o?.id ?? ''] ?? null, o?.promoPercent);
 
+  if (notFound) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <div className="text-ink-subtle">{tt('Товар не найден', 'Mahsulot topilmadi')}</div>
+        <Link href="/catalog" className="btn-ghost mt-4">{tt('В каталог', 'Katalogga')}</Link>
+      </div>
+    );
+  }
   if (!product) return <div className="py-24 text-center text-ink-subtle">{t('common.loading')}</div>;
 
   const offers = product.offers ?? [];
   const selectedOffer: Offer | undefined =
     offers.find((o) => o.id === selectedOfferId) ?? offers[0];
+  const selectedExp = selectedOffer ? expiryInfo(selectedOffer.expiryDate, { shortDated: selectedOffer.shortDated }) : null;
 
   // Эффективная цена/минимум/наличие: из выбранного оффера, иначе — базовый товар (легаси).
   const hasPromo = (pct: number) => pct > 0;
@@ -301,6 +312,7 @@ export default function ProductPage() {
               )}
               {selectedOffer?.leadTimeDays != null && (<><span>·</span><span className="inline-flex items-center gap-1"><Truck size={13} /> {selectedOffer.leadTimeDays} {tt('дн.', 'kun')}</span></>)}
               {selectedOffer?.isRx && (<><span>·</span><span className="inline-flex items-center gap-1 text-amber-600"><Pill size={13} /> {tt('по рецепту', 'retsept boʻyicha')}</span></>)}
+              {selectedExp?.short && (<><span>·</span><span className="inline-flex items-center gap-1 font-medium text-orange-700"><CalendarClock size={13} /> {tt(`Короткий срок: до ${selectedExp.until}`, `Qisqa muddat: ${selectedExp.until} gacha`)}</span></>)}
             </div>
             {!effInStock && (
               <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
@@ -379,7 +391,7 @@ export default function ProductPage() {
                 {offers.map((o, idx) => {
                   const isSel = o.id === selectedOffer?.id;
                   const isCheapest = idx === 0;
-                  const exp = expiryInfo(o.expiryDate);
+                  const exp = expiryInfo(o.expiryDate, { shortDated: o.shortDated });
                   const isOpen = expandedOfferId === o.id;
                   return (
                     <Fragment key={o.id}>
@@ -452,6 +464,11 @@ export default function ProductPage() {
                           {o.isRx && (
                             <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-700"><Pill size={12} /> Rx</span>
                           )}
+                          {exp?.short && (
+                            <span className="inline-flex items-center gap-1 rounded bg-orange-50 px-1.5 py-0.5 text-[11px] font-medium text-orange-700" title={tt('Срок годности партии истекает менее чем через 3 месяца', 'Partiyaning yaroqlilik muddati 3 oydan kamroq vaqtda tugaydi')}>
+                              <CalendarClock size={12} /> {tt(`Короткий срок: до ${exp.until}`, `Qisqa muddat: ${exp.until} gacha`)}
+                            </span>
+                          )}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-right">
@@ -507,8 +524,8 @@ export default function ProductPage() {
                               icon={exp?.expired ? <ShieldAlert size={14} /> : <CalendarClock size={14} />}
                               label={tt('Годен до', 'Yaroqlilik muddati')}
                               value={exp?.label ?? '—'}
-                              tone={exp?.expired ? 'danger' : exp?.warn ? 'warn' : 'ok'}
-                              note={exp?.expired ? tt('просрочено', 'muddati oʻtgan') : exp?.warn ? tt('скоро истекает', 'tez orada tugaydi') : undefined}
+                              tone={exp?.expired ? 'danger' : exp?.short ? 'warn' : 'ok'}
+                              note={exp?.expired ? tt('срок истёк, не продаётся', 'muddati oʻtgan, sotilmaydi') : exp?.short ? tt('короткий срок', 'qisqa muddat') : undefined}
                             />
                             <div>
                               <div className="mb-1 flex items-center gap-1 text-ink-subtle"><FileText size={14} /> {tt('Сертификаты', 'Sertifikatlar')}</div>
@@ -600,15 +617,6 @@ export default function ProductPage() {
       )}
     </div>
   );
-}
-
-// Срок годности: метка + флаги «скоро истекает» / «просрочено».
-function expiryInfo(iso?: string | null): { label: string; warn: boolean; expired: boolean } | null {
-  if (!iso) return null;
-  const d = new Date(iso);
-  if (isNaN(d.getTime())) return null;
-  const months = (d.getTime() - Date.now()) / (1000 * 60 * 60 * 24 * 30);
-  return { label: d.toLocaleDateString('ru-RU'), warn: months < 6, expired: months < 0 };
 }
 
 function Detail({

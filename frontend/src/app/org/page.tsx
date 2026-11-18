@@ -76,6 +76,9 @@ function CreateOrg({ onCreated }: { onCreated: () => void }) {
 function OrgManage({ data, approvals, reload }: { data: OrgData; approvals: any[]; reload: () => void }) {
   const { tt } = useI18n();
   const canManage = data.myRole === 'OWNER' || data.myRole === 'MANAGER';
+  // Роли меняет и управляющих приглашает только владелец (правило сервера в
+  // organizations/permissions.ts); управляющему эти варианты не показываем.
+  const isOwner = data.myRole === 'OWNER';
   const [email, setEmail] = useState('');
   const [role, setRole] = useState('PURCHASER');
   const [limit, setLimit] = useState(5_000_000);
@@ -149,11 +152,15 @@ function OrgManage({ data, approvals, reload }: { data: OrgData; approvals: any[
               </div>
               {canManage && m.role !== 'OWNER' ? (
                 <div className="flex items-center gap-2">
-                  <select className="input !h-9 !w-auto text-sm" value={m.role} onChange={(e) => updateMember(m.id, { role: e.target.value })}>
-                    <option value="PURCHASER">{tt('Закупщик', 'Xaridor')}</option>
-                    <option value="MANAGER">{tt('Менеджер', 'Menejer')}</option>
-                    <option value="OWNER">{tt('Владелец', 'Egasi')}</option>
-                  </select>
+                  {isOwner ? (
+                    <select className="input !h-9 !w-auto text-sm" value={m.role} onChange={(e) => updateMember(m.id, { role: e.target.value })}>
+                      <option value="PURCHASER">{tt('Закупщик', 'Xaridor')}</option>
+                      <option value="MANAGER">{tt('Менеджер', 'Menejer')}</option>
+                      <option value="OWNER">{tt('Владелец', 'Egasi')}</option>
+                    </select>
+                  ) : (
+                    <span className="text-sm text-ink-muted">{tt(ROLE_RU[m.role], ROLE_UZ[m.role] ?? '')}</span>
+                  )}
                   {m.role === 'PURCHASER' && (
                     <input className="input !h-9 w-32 text-sm" type="number" defaultValue={m.spendLimit} title={tt('Лимит без согласования', 'Kelishuvsiz limit')}
                       onBlur={(e) => { const v = Number(e.target.value); if (v !== m.spendLimit) updateMember(m.id, { spendLimit: v }); }} />
@@ -179,7 +186,7 @@ function OrgManage({ data, approvals, reload }: { data: OrgData; approvals: any[
           <div className="flex gap-2">
             <select className="input flex-1" value={role} onChange={(e) => setRole(e.target.value)}>
               <option value="PURCHASER">{tt('Закупщик', 'Xaridor')}</option>
-              <option value="MANAGER">{tt('Менеджер', 'Menejer')}</option>
+              {isOwner && <option value="MANAGER">{tt('Менеджер', 'Menejer')}</option>}
             </select>
             {role === 'PURCHASER' && (
               <input className="input w-40" type="number" value={limit} onChange={(e) => setLimit(Number(e.target.value))} title={tt('Лимит без согласования', 'Kelishuvsiz limit')} />

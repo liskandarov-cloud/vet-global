@@ -5,7 +5,7 @@
 // путей обходит лимит закупщика — так и было с тендером: закупщик с лимитом
 // 0 мог выбрать победителя на любую сумму, и заказ создавался согласованным.
 
-import { ApprovalStatus, OrgRole } from '@prisma/client';
+import { ApprovalStatus, OrderStatus, OrgRole } from '@prisma/client';
 
 export interface Membership {
   orgId: string;
@@ -28,4 +28,14 @@ export function approvalFor(membership: Membership | null | undefined, total: nu
     orgId: membership.orgId,
     approvalStatus: needs ? ApprovalStatus.PENDING : ApprovalStatus.NONE,
   };
+}
+
+// Заказ, ждущий согласования в организации, в работу не берётся: продавец
+// подтверждал и отгружал его раньше, чем руководитель покупателя соглашался
+// на трату. Отменить его можно — это не трата.
+export function awaitingApprovalError(approvalStatus: ApprovalStatus, to: OrderStatus): string | null {
+  if (to === OrderStatus.CANCELLED) return null;
+  if (approvalStatus === ApprovalStatus.PENDING) return 'Заказ ждёт согласования в организации покупателя';
+  if (approvalStatus === ApprovalStatus.REJECTED) return 'Заказ отклонён организацией покупателя';
+  return null;
 }

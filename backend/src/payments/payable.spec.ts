@@ -1,5 +1,5 @@
-import { ApprovalStatus, OrderStatus, PaymentStatus } from '@prisma/client';
-import { notPayableReason, type PayableOrder } from './payable';
+import { ApprovalStatus, OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
+import { notPayableReason, payerError, statusAfterPayment, type PayableOrder } from './payable';
 
 const order = (over: Partial<PayableOrder> = {}): PayableOrder => ({
   status: OrderStatus.CONFIRMED,
@@ -60,5 +60,56 @@ describe('можно ли оплатить заказ', () => {
       payments: [{ status: PaymentStatus.PAID }],
     });
     expect(notPayableReason(o)?.code).toBe('CANCELLED');
+  });
+});
+
+describe('статус заказа после оплаты', () => {
+  it('новый заказ оплата подтверждает', () => {
+    expect(statusAfterPayment(OrderStatus.PENDING)).toBe(OrderStatus.CONFIRMED);
+  });
+
+  // Отсрочка: товар уже отгружен или получен, деньги приходят потом. Перевод в
+  // CONFIRMED откатывал такой заказ назад по потоку.
+  it('заказ дальше по потоку оплата назад не откатывает', () => {
+    for (const s of [OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED]) {
+      expect(statusAfterPayment(s)).toBe(s);
+    }
+  });
+
+  // Провайдер может провести транзакцию, начатую до отмены: отменённый заказ от
+  // этого не оживает.
+  it('отменённый заказ оплата не воскрешает', () => {
+    expect(statusAfterPayment(OrderStatus.CANCELLED)).toBe(OrderStatus.CANCELLED);
+  });
+});
+
+// Кто может создавать платёж по заказу и подтверждать его.
+//
+// Проверка касалась только роли BUYER: продавец (и любой не-покупатель)
+// проходил её для любого заказа. На проде, где оплата в демо-режиме, продавец
+// из заказа нескольких поставщиков подтверждал «оплату» целого заказа, и
+// второй продавец отгружал товар, за который никто не платил.
+describe('кто платит по заказу', () => {
+  const order = { buyerId: 'buyer-1' };
+
+  it('покупатель заказа может', () => {
+    expect(payerError(order, { id: 'buyer-1', role: UserRole.BUYER })).toBeNull();
+  });
+
+  it('администратор может', () => {
+    expect(payerError(order, { id: 'admin-1', role: UserRole.ADMIN })).toBeNull();
+  });
+
+  it('продавец — нет, даже если его позиции есть в заказе', () => {
+    expect(payerError(order, { id: 'seller-1', role: UserRole.SELLER })).not.toBeNull();
+  });
+
+  it('чужой покупатель — нет', () => {
+    expect(payerError(order, { id: 'buyer-2', role: UserRole.BUYER })).not.toBeNull();
+  });
+
+  it('гостевой заказ (без покупателя) из кабинета не оплачивается никем, кроме админа', () => {
+    expect(payerError({ buyerId: null }, { id: 'buyer-1', role: UserRole.BUYER })).not.toBeNull();
+    expect(payerError({ buyerId: null }, { id: 'admin-1', role: UserRole.ADMIN })).toBeNull();
   });
 });

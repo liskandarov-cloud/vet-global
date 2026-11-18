@@ -1,10 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { createHash } from 'crypto';
 import { PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from './payments.service';
 import { notPayableReason } from './payable';
+import { clickSignatureValid } from './click-sign';
 
 // Click Shop API error codes.
 const ERR = {
@@ -32,16 +32,15 @@ export class ClickService {
     this.secret = config.get<string>('CLICK_SECRET_KEY');
   }
 
-  private md5(s: string) {
-    return createHash('md5').update(s).digest('hex');
+  // Подпись проверяется в click-sign.ts: без заданного секрета и сервиса
+  // колбэк не принимается вовсе (раньше секретом становилось «undefined»).
+  private signed(p: any, stage: 'prepare' | 'complete') {
+    return clickSignatureValid(p, { serviceId: this.serviceId, secret: this.secret }, stage);
   }
 
   // Prepare (action=0): sign = md5(click_trans_id + service_id + secret + merchant_trans_id + amount + action + sign_time)
   async prepare(p: any) {
-    const expected = this.md5(
-      `${p.click_trans_id}${p.service_id}${this.secret}${p.merchant_trans_id}${p.amount}${p.action}${p.sign_time}`,
-    );
-    if (expected !== p.sign_string) return this.err(p, ERR.SIGN, 'SIGN CHECK FAILED');
+    if (!this.signed(p, 'prepare')) return this.err(p, ERR.SIGN, 'SIGN CHECK FAILED');
 
     const payment = await this.prisma.payment.findUnique({ where: { id: p.merchant_trans_id } });
     if (!payment) return this.err(p, ERR.TX_NOT_FOUND, 'Transaction does not exist');
@@ -72,14 +71,25 @@ export class ClickService {
 
   // Complete (action=1): sign adds merchant_prepare_id before amount.
   async complete(p: any) {
-    const expected = this.md5(
-      `${p.click_trans_id}${p.service_id}${this.secret}${p.merchant_trans_id}${p.merchant_prepare_id}${p.amount}${p.action}${p.sign_time}`,
-    );
-    if (expected !== p.sign_string) return this.err(p, ERR.SIGN, 'SIGN CHECK FAILED');
+    if (!this.signed(p, 'complete')) return this.err(p, ERR.SIGN, 'SIGN CHECK FAILED');
 
     const payment = await this.prisma.payment.findUnique({ where: { id: p.merchant_trans_id } });
     if (!payment) return this.err(p, ERR.TX_NOT_FOUND, 'Transaction does not exist');
     if (payment.status === PaymentStatus.PAID) return this.err(p, ERR.ALREADY_PAID, 'Already paid');
+
+    // Завершение принимается только для транзакции, прошедшей подготовку, и
+    // на ту же сумму: сумма сверялась лишь на подготовке, и завершение на
+    // другую сумму (или без подготовки) проводило оплату как есть.
+    const meta: any = payment.meta ?? {};
+    if (!meta.clickPrepareId || String(p.merchant_prepare_id) !== String(meta.clickPrepareId)) {
+      return this.err(p, ERR.TX_NOT_FOUND, 'Transaction was not prepared');
+    }
+    if (payment.providerTransId && String(payment.providerTransId) !== String(p.click_trans_id)) {
+      return this.err(p, ERR.TX_NOT_FOUND, 'Transaction does not match');
+    }
+    if (Math.round(Number(payment.amount)) !== Math.round(Number(p.amount))) {
+      return this.err(p, ERR.AMOUNT, 'Incorrect amount');
+    }
 
     const blocked = await this.orderNotPayable(payment.orderId);
     if (blocked) {

@@ -29,13 +29,14 @@ import {
   vetPointsSpendable,
 } from '../common/pricing';
 import { isTransitionAllowed, transitionError } from './status';
-import { approvalFor } from './approval';
+import { approvalFor, awaitingApprovalError } from './approval';
+import { creditOverdrawn, pointsOverdrawn } from './reservation';
 import { OrderReleaseService } from './order-release.service';
 import { invoiceNumberFor } from '../common/invoice-number';
 import { splitInvoices } from './invoice-split';
 import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 import { TariffsService } from '../delivery/tariffs.service';
-import { PUBLIC_OFFER, SELLABLE_SELLER } from '../common/visibility';
+import { isExpired, publicOffer, SELLABLE_SELLER } from '../common/visibility';
 import { pickBestOffer } from '../offers/best-offer';
 
 @Injectable()
@@ -60,6 +61,23 @@ export class OrdersService {
   }
 
   async create(dto: CreateOrderDto, user?: AuthUser) {
+    // Юрлицо покупателя уходит в счёт-фактуру (ИНН и название в ЭДО). Ссылка
+    // принималась без проверки, и заказ можно было оформить на чужое юрлицо:
+    // документ выписывался компании, которая ничего не заказывала, а её
+    // реквизиты оказывались в счёте у постороннего.
+    if (dto.counterpartyId) {
+      const own = user
+        ? await this.prisma.counterparty.findFirst({
+            where: { id: dto.counterpartyId, userId: user.id },
+            select: { id: true },
+          })
+        : null;
+      if (!own) throw new BadRequestException('Юрлицо не найдено среди ваших');
+    }
+
+    // Одно «сейчас» на весь заказ: срок годности, акции и договорные цены
+    // сверяются с одним и тем же моментом.
+    const now = new Date();
     // Resolve products + offers from DB (never trust client-supplied prices).
     const productIds = dto.items.map((i) => i.productId);
     const products = await this.prisma.product.findMany({ where: { id: { in: productIds } } });
@@ -78,17 +96,35 @@ export class OrdersService {
     // фасовки, а Number(p.price) — сырая цена прайса (за 1000 доз, не за флакон).
     const noOfferPids = dto.items.filter((i) => !i.offerId).map((i) => i.productId);
     const bestOfferByProduct = new Map<string, (typeof offers)[number]>();
+    // Товары, у которых в продаже остались только партии с истёкшим сроком.
+    // Без этой метки заказ ушёл бы в легаси-ветку и продал бы товар по цене
+    // карточки — то есть ту же просрочку, только в обход предложения.
+    const expiredOnly = new Set<string>();
     if (noOfferPids.length) {
       // Подбираем только из того, что можно заказать: иначе самое дешёвое
       // предложение непроверенного продавца отклонило бы весь заказ, хотя
       // у проверенного товар есть. Правило выбора — то же, что у карточки
       // (best-offer.ts): «под заказ» участвует, если в наличии нет ни у кого.
       const candidates = await this.prisma.offer.findMany({
-        where: { productId: { in: noOfferPids }, ...PUBLIC_OFFER },
+        where: { productId: { in: noOfferPids }, ...publicOffer(now) },
       });
       for (const pid of noOfferPids) {
         const best = pickBestOffer(candidates.filter((o) => o.productId === pid));
         if (best) bestOfferByProduct.set(pid, best);
+      }
+      const unmatched = noOfferPids.filter((pid) => !bestOfferByProduct.has(pid));
+      if (unmatched.length) {
+        const expired = await this.prisma.offer.findMany({
+          where: {
+            productId: { in: unmatched },
+            isActive: true,
+            seller: SELLABLE_SELLER,
+            expiryDate: { lte: now },
+          },
+          distinct: ['productId'],
+          select: { productId: true },
+        });
+        for (const e of expired) expiredOnly.add(e.productId);
       }
     }
 
@@ -115,7 +151,6 @@ export class OrdersService {
     // источник истины о сумме, и витрина обязана показывать то же самое.
     // Одним запросом на всех продавцов: акция бывает на весь ассортимент
     // (productId пуст) или на конкретный товар.
-    const now = new Date();
     const sellerIdsInCart = [
       ...new Set([
         ...products.map((p) => p.sellerId),
@@ -183,6 +218,9 @@ export class OrdersService {
         throw new BadRequestException(`Предложение для «${p.name}» не найдено`);
       }
       const o = i.offerId ? offerMap.get(i.offerId) : bestOfferByProduct.get(i.productId);
+      if (!o && expiredOnly.has(p.id)) {
+        throw new BadRequestException(`Срок годности партии «${p.name}» истёк`);
+      }
 
       if (o) {
         if (o.productId !== p.id) {
@@ -192,6 +230,11 @@ export class OrdersService {
         // это предзаказ (оплата после подтверждения), а не отказ.
         if (!o.isActive || !sellable.has(o.sellerId)) {
           throw new BadRequestException(`Предложение для «${p.name}» недоступно`);
+        }
+        // Просрочку не продаём (common/visibility): корзина хранит offerId
+        // и переживает истечение срока, витрина тут не защита.
+        if (isExpired(o.expiryDate, now)) {
+          throw new BadRequestException(`Срок годности партии «${p.name}» истёк`);
         }
         sellerId = o.sellerId;
         minOrder = o.minOrder;
@@ -383,19 +426,31 @@ export class OrdersService {
         }
       }
 
-      // Резервируем кредитный лимит под отсрочку/рассрочку.
+      // Резервируем кредитный лимит под отсрочку/рассрочку. Проверка — по
+      // значению после резерва (см. reservation.ts): проверка до транзакции
+      // пропускала все одновременные заказы по одному «свободному» остатку.
       if (user && creditToReserve > 0) {
-        await tx.user.update({
+        const after = await tx.user.update({
           where: { id: user.id },
           data: { creditUsed: { increment: creditToReserve } },
+          select: { creditUsed: true, creditLimit: true },
         });
+        if (creditOverdrawn(after)) {
+          throw new BadRequestException(
+            'Недостаточно кредитного лимита: его уже занял другой заказ. Обновите страницу.',
+          );
+        }
       }
 
       if (user && vetPointsUsed > 0) {
-        await tx.user.update({
+        const after = await tx.user.update({
           where: { id: user.id },
           data: { vetPointsBalance: { decrement: vetPointsUsed } },
+          select: { vetPointsBalance: true },
         });
+        if (pointsOverdrawn(after)) {
+          throw new BadRequestException('Баллов уже недостаточно: их списал другой заказ. Обновите страницу.');
+        }
         await tx.vetPointsTransaction.create({
           data: {
             userId: user.id,
@@ -492,6 +547,9 @@ export class OrdersService {
     if (user.role === UserRole.SELLER && !order.items.some((it) => it.sellerId === user.id)) {
       throw new ForbiddenException('Not authorized for this order');
     }
+
+    const approvalError = awaitingApprovalError(order.approvalStatus, status);
+    if (approvalError && user.role !== UserRole.ADMIN) throw new BadRequestException(approvalError);
 
     // Проверка перехода. Администратору она не мешает: исправлять ошибочно
     // выставленный статус задним числом — его работа, и запрещать это значит

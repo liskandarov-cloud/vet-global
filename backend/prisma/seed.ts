@@ -67,6 +67,10 @@ async function main() {
     return;
   }
 
+  // Демо-стенд задаёт свой пароль всем демо-входам: пароли ниже лежат в
+  // публичном репозитории. Без DEMO_PASSWORD (CI, локально) — они.
+  const demoPassword = (fallback: string) => process.env.DEMO_PASSWORD || fallback;
+
   // ── Demo sellers (products are distributed across them) ──
   // Демо-дистрибьюторы (вымышленные компании; распространяют реальные мировые бренды).
   const SELLERS = [
@@ -90,7 +94,7 @@ async function main() {
         update: {},
         create: {
           email: s.email,
-          passwordHash: await bcrypt.hash(s.password, 10),
+          passwordHash: await bcrypt.hash(demoPassword(s.password), 10),
           fullName: s.fullName,
           phone: s.phone,
           company: s.company,
@@ -120,7 +124,7 @@ async function main() {
       update: {},
       create: {
         email: b.email,
-        passwordHash: await bcrypt.hash(b.password, 10),
+        passwordHash: await bcrypt.hash(demoPassword(b.password), 10),
         fullName: b.fullName,
         phone: b.phone,
         company: b.company,
@@ -386,8 +390,15 @@ async function main() {
             priceBreaks: priceBreaks as any,
             regNumber: `UZ-VET-${1000 + i}-${k}`,
             batchNumber: `L${2026}${String((i % 12) + 1).padStart(2, '0')}-${100 + k}`,
-            // срок годности 12–30 мес. от «сейчас» (детерминированно от индекса).
-            expiryDate: new Date(2027, (i % 12), 1 + (k % 27)),
+            // Срок годности считается от даты сида: раньше он был зашит в 2027
+            // год, и с правилом «просрочку не продаём» (common/visibility)
+            // демо-каталог пустел бы сам по мере того, как идёт время.
+            // Каждый 12-й товар — «короткий срок» (30–80 дней) для бейджа на
+            // витрине, остальные — 12–30 месяцев.
+            expiryDate:
+              i % 12 === 0
+                ? new Date(Date.now() + (30 + (i % 40) + k * 7) * 86_400_000)
+                : new Date(new Date().getFullYear(), new Date().getMonth() + 12 + (i % 18), 1 + (k % 27)),
             isRx: p.name.toLowerCase().includes('антибиотик') || i % 6 === 0,
             certVerified: k === 0,
           },

@@ -1,0 +1,150 @@
+# Демо-стенд для показов: https://demo.vethub.uz → vethub-demo-api на Render.
+#
+# Отдельная база (бесплатный Postgres Render) с демо-данными сида: вымышленные
+# продавцы, покупатели, организация с ролями. На боевом сайте таких данных
+# быть не должно, поэтому стенд — отдельный контур.
+#
+# Пароли демо-входов — из сида (seller123, buyer123), у админа admin123: данные
+# стенда вымышлены и с боевыми не связаны. Чтобы закрыть стенд от посторонних
+# (репозиторий публичный), задайте секрет DEMO_PASSWORD и перезапустите с up —
+# он станет паролем всех демо-входов. Повторный запуск безопасен.
+#
+# Бесплатные часы Render (750 в месяц) общие с продом, а прод с пингом
+# расходует ~720–744. Поэтому у стенда нет пинга, он засыпает сам, а после
+# показа его стоит усыпить: action=suspend. Бесплатная база Render живёт 30 дней.
+
+name: Demo stand
+
+# Стенд собирается из ветки demo: туда сначала попадают доработки, и их видно
+# на показе раньше, чем на боевом сайте. Пуш в demo обновляет стенд.
+on:
+  push:
+    branches: [demo]
+  workflow_dispatch:
+    inputs:
+      action:
+        description: up — создать или обновить и выкатить; suspend — усыпить; resume — разбудить
+        type: choice
+        options: [up, suspend, resume]
+        default: up
+
+permissions:
+  contents: read
+
+jobs:
+  demo:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      DEMO_PASSWORD: ${{ secrets.DEMO_PASSWORD }}
+      OWNER: tea-dbe9688ae00c73cc1gjg
+      DB_NAME: vethub-demo-db
+      SVC_NAME: vethub-demo-api
+      SITE: https://demo.vethub.uz
+      API: https://api.render.com/v1
+      ACTION: ${{ inputs.action || 'up' }}
+    steps:
+      - name: Проверка секретов
+        run: |
+          test -n "$RENDER_API_KEY" || { echo "::error::секрет RENDER_API_KEY не задан"; exit 1; }
+          test -n "$DEMO_PASSWORD" || echo "DEMO_PASSWORD не задан — пароли из сида"
+
+      - name: Сервис
+        id: svc
+        run: |
+          set -euo pipefail
+          id=$(curl -fsS "$API/services?name=$SVC_NAME&ownerId=$OWNER&limit=1" -H "Authorization: Bearer $RENDER_API_KEY" | jq -r '.[0].service.id // empty')
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          echo "сервис: ${id:-нет}"
+
+      - name: Усыпить или разбудить
+        if: env.ACTION != 'up'
+        env:
+          ID: ${{ steps.svc.outputs.id }}
+        run: |
+          set -euo pipefail
+          test -n "$ID" || { echo "::error::стенд ещё не создан"; exit 1; }
+          curl -fsS -X POST "$API/services/$ID/$ACTION" -H "Authorization: Bearer $RENDER_API_KEY" -o /dev/null
+          echo "$ACTION: готово"
+
+      - name: База
+        if: env.ACTION == 'up'
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer $RENDER_API_KEY")
+          db=$(curl -fsS "$API/postgres?name=$DB_NAME&ownerId=$OWNER&limit=1" "${auth[@]}" | jq -r '.[0].postgres.id // empty')
+          if [ -z "$db" ]; then
+            db=$(curl -fsS -X POST "$API/postgres" "${auth[@]}" -H 'Content-Type: application/json' \
+              -d "{\"name\":\"$DB_NAME\",\"ownerId\":\"$OWNER\",\"plan\":\"free\",\"version\":\"16\",\"region\":\"oregon\",\"databaseName\":\"vethub_demo\",\"databaseUser\":\"vethub_demo\"}" | jq -r '.id')
+            echo "база создана: $db"
+          fi
+          for i in $(seq 1 60); do
+            st=$(curl -fsS "$API/postgres/$db" "${auth[@]}" | jq -r '.status')
+            [ "$st" = available ] && break
+            echo "база: $st"; sleep 10
+          done
+          test "$st" = available || { echo "::error::база не поднялась: $st"; exit 1; }
+          url=$(curl -fsS "$API/postgres/$db/connection-info" "${auth[@]}" | jq -r '.internalConnectionString')
+          echo "::add-mask::$url"
+          printf '%s' "$url" > "$RUNNER_TEMP/db_url"
+
+      - name: Переменные и выкатка
+        if: env.ACTION == 'up'
+        env:
+          ID: ${{ steps.svc.outputs.id }}
+        run: |
+          set -euo pipefail
+          auth=(-H "Authorization: Bearer $RENDER_API_KEY")
+          vars=$(jq -n --rawfile db "$RUNNER_TEMP/db_url" --arg pw "$DEMO_PASSWORD" --arg apw "${DEMO_PASSWORD:-admin123}" --arg site "$SITE" '[
+            {key:"DATABASE_URL", value:$db},
+            {key:"SEED_DEMO", value:"true"},
+            {key:"DEMO_PASSWORD", value:$pw},
+            {key:"ADMIN_EMAIL", value:"admin@vetglobal.com"},
+            {key:"ADMIN_PASSWORD", value:$apw},
+            {key:"FRONTEND_URL", value:$site},
+            {key:"CORS_ORIGINS", value:$site},
+            {key:"MAIL_FROM", value:"VetHub Demo <no-reply@vethub.uz>"},
+            {key:"JWT_EXPIRES_IN", value:"7d"},
+            {key:"PLATFORM_COMMISSION_PERCENT", value:"12"},
+            {key:"VETPOINTS_EARN_PERCENT", value:"1"},
+            {key:"VETPOINTS_MAX_SPEND_PERCENT", value:"10"},
+            {key:"PAYMENTS_MODE", value:"mock"},
+            {key:"DIDOX_MODE", value:"mock"},
+            {key:"FINANCING_MODE", value:"mock"},
+            {key:"SWAGGER_ENABLED", value:"false"}
+          ] | map(select(.value != ""))')
+          rm -f "$RUNNER_TEMP/db_url"
+          if [ -z "$ID" ]; then
+            body=$(jq -n --argjson vars "$vars" --arg owner "$OWNER" --arg name "$SVC_NAME" '{
+              type:"web_service", name:$name, ownerId:$owner,
+              repo:"https://github.com/liskandarov-cloud/vet-global", branch:"demo", autoDeploy:"no",
+              envVars: ($vars + [{key:"JWT_SECRET", generateValue:true}]),
+              serviceDetails:{runtime:"docker", plan:"free", region:"oregon", healthCheckPath:"/api/health",
+                envSpecificDetails:{dockerfilePath:"./Dockerfile", dockerContext:"."}}}')
+            code=$(printf '%s' "$body" | curl -s -o resp.json -w '%{http_code}' -X POST "$API/services" "${auth[@]}" -H 'Content-Type: application/json' --data @-)
+            test "$code" = 201 || { echo "::error::Render ответил $code"; jq -r '.message? // .' resp.json; exit 1; }
+            ID=$(jq -r '.service.id' resp.json)
+            echo "сервис создан: $ID"
+          else
+            # PUT по одному ключу, чтобы не стереть сгенерированный JWT_SECRET.
+            printf '%s' "$vars" | jq -c '.[]' | while read -r v; do
+              k=$(printf '%s' "$v" | jq -r .key)
+              printf '%s' "$v" | jq '{value}' | curl -fsS -X PUT "$API/services/$ID/env-vars/$k" "${auth[@]}" -H 'Content-Type: application/json' --data @- -o /dev/null
+            done
+            curl -fsS -X POST "$API/services/$ID/resume" "${auth[@]}" -o /dev/null || true
+            curl -fsS -X POST "$API/services/$ID/deploys" "${auth[@]}" -H 'Content-Type: application/json' -d '{"clearCache":"do_not_clear"}' -o /dev/null
+          fi
+          rm -f resp.json
+          for i in $(seq 1 90); do
+            st=$(curl -fsS "$API/services/$ID/deploys?limit=1" "${auth[@]}" | jq -r '.[0].deploy.status')
+            case "$st" in
+              live) break ;;
+              build_failed|update_failed|canceled|deactivated) echo "::error::выкатка: $st"; exit 1 ;;
+            esac
+            echo "выкатка: $st"; sleep 20
+          done
+          test "$st" = live || { echo "::error::выкатка не завершилась: $st"; exit 1; }
+          url=$(curl -fsS "$API/services/$ID" "${auth[@]}" | jq -r '.serviceDetails.url')
+          echo "API: $url/api"
+          curl -fsS --max-time 120 "$url/api/health"; echo

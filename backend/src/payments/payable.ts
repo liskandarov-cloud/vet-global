@@ -10,7 +10,21 @@
 // Оплата после доставки не запрещена намеренно: при отсрочке покупатель платит
 // уже полученный товар, и статус DELIVERED — нормальное состояние для оплаты.
 
-import { ApprovalStatus, OrderStatus, PaymentStatus } from '@prisma/client';
+import { ApprovalStatus, OrderStatus, PaymentStatus, UserRole } from '@prisma/client';
+
+// Кто вправе создавать платёж по заказу и подтверждать его: покупатель этого
+// заказа или администратор. Раньше проверялась только роль BUYER, и продавец
+// проходил проверку для любого заказа — в демо-режиме оплаты он мог «оплатить»
+// заказ нескольких поставщиков, после чего другой продавец отгружал товар без
+// денег. null — можно.
+export function payerError(
+  order: { buyerId?: string | null },
+  user: { id: string; role: string },
+): string | null {
+  if (user.role === UserRole.ADMIN) return null;
+  if (order.buyerId && order.buyerId === user.id) return null;
+  return 'Not authorized';
+}
 
 export type NotPayableCode =
   | 'CANCELLED'
@@ -29,6 +43,15 @@ export interface PayableOrder {
   requiresConfirmation: boolean;
   // Платежи заказа. Достаточно статусов: важно лишь, есть ли среди них успешный.
   payments?: { status: PaymentStatus }[];
+}
+
+// Статус заказа после успешной оплаты.
+//
+// Оплата подтверждает новый заказ — и только его. Остальные статусы уже дальше
+// по потоку: заказ по отсрочке платится отгруженным или доставленным, и перевод
+// в CONFIRMED откатывал бы его назад (доставленный снова «Подтверждён»).
+export function statusAfterPayment(current: OrderStatus): OrderStatus {
+  return current === OrderStatus.PENDING ? OrderStatus.CONFIRMED : current;
 }
 
 // null — заказ оплачивать можно.

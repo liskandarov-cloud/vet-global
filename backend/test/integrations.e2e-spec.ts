@@ -1026,6 +1026,22 @@ describe('VetHub integrations (e2e)', () => {
       expect(order.approvalStatus).toBe('PENDING');
     });
 
+    // Раньше продавец подтверждал и отгружал заказ раньше, чем руководитель
+    // покупателя соглашался на трату.
+    it('продавец не берёт в работу заказ на согласовании, после согласования — берёт', async () => {
+      const order = await awardRfq(purchaser, 5_000_000, [{ name: 'Корма', quantity: 10 }]);
+      const confirm = () =>
+        req(`/orders/${order.id}/status`, { method: 'PATCH', token: seller, body: { status: 'CONFIRMED' } });
+
+      const blocked = await confirm();
+      expect(blocked.status).toBe(400);
+      expect(blocked.body.message).toMatch(/согласования/);
+
+      const decided = await req(`/org/approvals/${order.id}`, { token: buyer, body: { approve: true } });
+      expect(decided.status).toBeLessThan(300);
+      expect((await confirm()).status).toBe(200);
+    });
+
     it('сумма в пределах лимита согласования не требует, но заказ принадлежит организации', async () => {
       const order = await awardRfq(purchaser, 1_000_000, [{ name: 'Корма', quantity: 1 }]);
       expect(order.orgId).toBeTruthy();
