@@ -2,4 +2,4 @@
 // пользователь при регистрации. Меняется вместе с текстами документов на сайте
 // (frontend/src/lib/legal.ts → LEGAL_VERSION) — по ней видно, кто какую
 // редакцию принял.
-export const TERMS_VERSION = '2026-11-18.2';
+export const TERMS_VERSION = '2026-11-18.3';

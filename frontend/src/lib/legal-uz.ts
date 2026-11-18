@@ -1,14 +1,12 @@
 // Hujjatlarning oʻzbekcha matni — legal.ts dagi ruscha matnning tarjimasi.
 // Boʻlimlar va xatboshilar ruscha matn bilan birma-bir mos boʻlishi shart
 // (legal.test.ts tekshiradi). Ruscha matn oʻzgarsa, bu yerda ham
-// oʻzgartiriladi. Kvadrat qavsda — kodda yoʻq faktlar (operator rekvizitlari,
-// shaxsiy maʼlumotlar bazasini roʻyxatdan oʻtkazish raqami).
+// oʻzgartiriladi.
 
 import type { LegalDocKey } from './legal';
 
-const OPERATOR = 'VetHub';
-const OPERATOR_DETAILS =
-  '[VetHub operatori boʻlgan yuridik shaxsning toʻliq nomi], [STIR], [yuridik manzil], [bank rekvizitlari]; murojaatlar uchun manzil — info@vethub.uz';
+const OPERATOR = '«VetHub» MChJ';
+const OPERATOR_DETAILS = 'murojaatlar uchun manzil — info@vethub.uz';
 
 export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]> = {
   terms: [
@@ -155,7 +153,7 @@ export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]
       ],
     },
     {
-      h: '19. Operator rekvizitlari',
+      h: '19. Operator va aloqa',
       p: [`${OPERATOR}; ${OPERATOR_DETAILS}.`],
     },
   ],
@@ -201,7 +199,7 @@ export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]
       h: '5. Maʼlumotlar qayerda saqlanadi',
       p: [
         'Platforma maʼlumotlari AQShdagi serverlarda (Supabase, Render) saqlanadi va Cloudflare tarmogʻi orqali uzatiladi. Transchegaraviy uzatish foydalanuvchining roziligi bilan va ushbu xizmat koʻrsatuvchilar bilan tuzilgan shartnomalarda belgilangan, maʼlumotlarning himoyasini taʼminlaydigan qayta ishlash shartlarida amalga oshiriladi. Platforma biometrik va genetik maʼlumotlarni qayta ishlamaydi.',
-        'Platformaning shaxsiy maʼlumotlar bazasi Shaxsga doir maʼlumotlar bazalari davlat reyestrida roʻyxatdan oʻtkazilgan: [roʻyxatdan oʻtkazish raqami va sanasi].',
+        'Platformaning shaxsiy maʼlumotlar bazasi Shaxsga doir maʼlumotlar bazalari davlat reyestrida qonunchilikda belgilangan tartibda roʻyxatdan oʻtkaziladi.',
       ],
     },
     {
@@ -323,7 +321,7 @@ export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]
       ],
     },
     {
-      h: '12. Operator rekvizitlari',
+      h: '12. Operator va aloqa',
       p: [`${OPERATOR}; ${OPERATOR_DETAILS}.`],
     },
   ],
