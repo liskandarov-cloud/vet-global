@@ -28,6 +28,12 @@ jobs:
   dump:
     runs-on: ubuntu-latest
     steps:
+      # Из репозитория нужен только сертификат для шифрования дампа.
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: .github/backup-cert.pem
+          sparse-checkout-cone-mode: false
+
       - name: Клиент PostgreSQL под версию сервера
         env:
           DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
@@ -100,10 +106,26 @@ jobs:
           test "$ENTRIES" -ge 20 || { echo "::error::в архиве всего $ENTRIES записей — схема не попала в дамп"; exit 1; }
           rm -f toc.txt
 
+      # Репозиторий публичный, а артефакт может скачать любой вошедший в GitHub.
+      # До этого шага дампы — с пользователями, телефонами, заказами и закрытыми
+      # лицензиями — лежали открыто. Наружу уходит только зашифрованный файл;
+      # в репозитории лишь сертификат, закрытый ключ хранит владелец.
+      # Восстановление:
+      #   openssl cms -decrypt -binary -inform DER -inkey backup-decrypt-key.pem \
+      #     -in vetglobal-ДАТА.dump.cms -out vetglobal-ДАТА.dump
+      #   pg_restore --no-owner --no-acl -d "$DATABASE_URL" vetglobal-ДАТА.dump
+      - name: Шифрование
+        run: |
+          set -euo pipefail
+          openssl cms -encrypt -binary -aes256 -outform DER \
+            -in "vetglobal-$STAMP.dump" -out "vetglobal-$STAMP.dump.cms" .github/backup-cert.pem
+          rm "vetglobal-$STAMP.dump"
+          ls -lh "vetglobal-$STAMP.dump.cms"
+
       - uses: actions/upload-artifact@v4
         with:
           name: vetglobal-db-${{ env.STAMP }}
-          path: vetglobal-*.dump
+          path: vetglobal-*.dump.cms
           retention-days: 30
           if-no-files-found: error
 
