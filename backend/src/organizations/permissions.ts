@@ -51,6 +51,22 @@ export function memberChangeError(
   return null;
 }
 
+// Кого можно исключить. Правило то же, что для ролей: состав — дело владельца.
+// Управляющий исключает закупщиков и может выйти сам; владельца или другого
+// управляющего — нет. Раньше удаление проверяло лишь «владелец или
+// управляющий», и управляющий исключал владельца, если их было двое, — тот же
+// захват прав, что запрещён при смене ролей.
+//
+// Единственного владельца не исключить никому — это проверяет вызывающий код.
+export function removeMemberError(actor: MemberRef, target: MemberRef): string | null {
+  if (actor.role === OrgRole.OWNER) return null;
+  if (actor.membershipId === target.membershipId) return null;
+  if (target.role !== OrgRole.PURCHASER) {
+    return 'Исключать владельцев и управляющих может только владелец организации';
+  }
+  return null;
+}
+
 // Кого можно пригласить. Управляющий приглашает только закупщиков: приглашение
 // с ролью владельца — тот же захват прав, только с другой стороны.
 export function inviteRoleError(actorRole: OrgRole, invitedRole: OrgRole): string | null {
