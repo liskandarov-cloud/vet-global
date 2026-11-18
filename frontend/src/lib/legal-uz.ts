@@ -5,9 +5,9 @@
 
 import type { LegalDocKey } from './legal';
 
-const OPERATOR = '«MULTI VET FARM» MChJ';
+const OPERATOR = 'VetHub';
 const OPERATOR_DETAILS =
-  'STIR 312141934, QQS toʻlovchisi sifatida roʻyxatdan oʻtish kodi 326070286419; yuridik manzil: Toshkent sh., Sergeli tumani, Istiqlol MFY, Buyuk Avlod Shoh koʻchasi; hisob raqami 20208000707244643001, «Kapitalbank» AT bankining Yagona filiali (Toshkent sh.), MFO 01158; direktor — Lushch D.; murojaatlar uchun manzil — info@vethub.uz';
+  '[VetHub operatori boʻlgan yuridik shaxsning toʻliq nomi], [STIR], [yuridik manzil], [bank rekvizitlari]; murojaatlar uchun manzil — info@vethub.uz';
 
 export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]> = {
   terms: [
