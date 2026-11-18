@@ -10,9 +10,21 @@ import { splitOrderCommission } from '../analytics/commission-split';
 
 const money = (v: unknown) => Math.round(Number(v ?? 0) * 100) / 100;
 
-export function sellerView(order: any, sellerId: string): any {
-  const items: any[] = order.items ?? [];
-  const parts: any[] = order.parts ?? [];
+// Поля заказа, которые здесь читаются; остальное проходит как есть.
+interface BySeller { sellerId: string }
+export interface SellerViewOrder {
+  items?: (BySeller & { price: unknown; quantity: unknown })[];
+  parts?: (BySeller & { status?: unknown })[];
+  shipments?: (BySeller & { cost?: unknown })[];
+  invoices?: BySeller[];
+  payments?: { id: string; provider: unknown; status: unknown; createdAt: unknown }[];
+  commission?: unknown;
+  status?: unknown;
+}
+
+export function sellerView<T extends SellerViewOrder>(order: T, sellerId: string) {
+  const items = order.items ?? [];
+  const parts = order.parts ?? [];
   // Весь заказ — его: показываем как есть.
   if (items.length && items.every((it) => it.sellerId === sellerId) && !parts.some((p) => p.sellerId !== sellerId)) {
     return order;
@@ -22,15 +34,15 @@ export function sellerView(order: any, sellerId: string): any {
   const revenue: Record<string, number> = {};
   for (const it of items) revenue[it.sellerId] = (revenue[it.sellerId] ?? 0) + Number(it.price) * Number(it.quantity);
   const own = money(revenue[sellerId]);
-  const shipments = (order.shipments ?? []).filter((s: any) => s.sellerId === sellerId);
-  const deliveryCost = money(shipments.reduce((sum: number, s: any) => sum + Number(s.cost ?? 0), 0));
+  const shipments = (order.shipments ?? []).filter((s) => s.sellerId === sellerId);
+  const deliveryCost = money(shipments.reduce((sum, s) => sum + Number(s.cost ?? 0), 0));
 
   return {
     ...order,
     items: items.filter((it) => it.sellerId === sellerId),
-    invoices: (order.invoices ?? []).filter((inv: any) => inv.sellerId === sellerId),
+    invoices: (order.invoices ?? []).filter((inv) => inv.sellerId === sellerId),
     shipments,
-    payments: (order.payments ?? []).map((p: any) => ({ id: p.id, provider: p.provider, status: p.status, createdAt: p.createdAt })),
+    payments: (order.payments ?? []).map((p) => ({ id: p.id, provider: p.provider, status: p.status, createdAt: p.createdAt })),
     subtotal: own,
     deliveryCost,
     total: money(own + deliveryCost),

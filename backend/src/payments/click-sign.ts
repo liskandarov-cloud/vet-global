@@ -10,6 +10,17 @@ import { createHash, timingSafeEqual } from 'crypto';
 
 export type ClickStage = 'prepare' | 'complete';
 
+// Тело колбэка как пришло (form-urlencoded — строки); доверять полям можно
+// только после проверки подписи.
+export type ClickParams = Record<string, unknown>;
+
+// Состояние подготовки в Payment.meta.
+export type ClickMeta = { clickPrepareId?: string };
+
+export function clickMeta(json: unknown): ClickMeta {
+  return json && typeof json === 'object' && !Array.isArray(json) ? (json as ClickMeta) : {};
+}
+
 export interface ClickConfig {
   serviceId?: string | null;
   secret?: string | null;
@@ -20,7 +31,7 @@ const ACTION: Record<ClickStage, string> = { prepare: '0', complete: '1' };
 
 const md5 = (s: string) => createHash('md5').update(s).digest('hex');
 
-export function clickSignatureValid(p: Record<string, any>, cfg: ClickConfig, stage: ClickStage): boolean {
+export function clickSignatureValid(p: ClickParams, cfg: ClickConfig, stage: ClickStage): boolean {
   const secret = (cfg.secret ?? '').trim();
   const serviceId = String(cfg.serviceId ?? '').trim();
   // Без секрета или сервиса проверять нечем: такой магазин колбэки не принимает.
@@ -31,9 +42,10 @@ export function clickSignatureValid(p: Record<string, any>, cfg: ClickConfig, st
   if (String(p.service_id ?? '') !== serviceId) return false;
   if (String(p.action ?? '') !== ACTION[stage]) return false;
 
-  const prepareId = stage === 'complete' ? `${p.merchant_prepare_id}` : '';
+  const f = (k: string) => String(p[k]);
+  const prepareId = stage === 'complete' ? f('merchant_prepare_id') : '';
   const expected = md5(
-    `${p.click_trans_id}${p.service_id}${secret}${p.merchant_trans_id}${prepareId}${p.amount}${p.action}${p.sign_time}`,
+    `${f('click_trans_id')}${f('service_id')}${secret}${f('merchant_trans_id')}${prepareId}${f('amount')}${f('action')}${f('sign_time')}`,
   );
   const given = typeof p.sign_string === 'string' ? p.sign_string.toLowerCase() : '';
   if (given.length !== expected.length) return false;

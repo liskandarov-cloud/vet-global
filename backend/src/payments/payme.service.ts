@@ -6,6 +6,7 @@ import { PaymentsService } from './payments.service';
 import { notPayableReason } from './payable';
 import { statementFor } from './statement';
 import { paymeReceiptDetail } from './payme-receipt';
+import { PaymeParams, parsePaymeParams, paymeAuthValid, paymeMeta } from './payme-params';
 
 // Payme JSON-RPC error. Carries the Payme error code + optional data field.
 export class PaymeError extends Error {
@@ -32,12 +33,13 @@ export class PaymeService {
 
   // Basic auth: header "Basic base64(Paycom:KEY)".
   checkAuth(header?: string): boolean {
-    if (!this.key || !header?.startsWith('Basic ')) return false;
-    const [login, pass] = Buffer.from(header.slice(6), 'base64').toString().split(':');
-    return login === 'Paycom' && pass === this.key;
+    return paymeAuthValid(header, this.key);
   }
 
-  async dispatch(method: string, params: any): Promise<any> {
+  async dispatch(method: unknown, raw: unknown): Promise<unknown> {
+    // Параметры проверяются до запросов к базе: см. payme-params.ts.
+    const params = parsePaymeParams(raw);
+    if (!params) throw new PaymeError(-32600, 'Invalid params');
     switch (method) {
       case 'CheckPerformTransaction':
         return this.checkPerform(params);
@@ -56,8 +58,15 @@ export class PaymeService {
     }
   }
 
-  private async orderFor(params: any) {
-    const orderId = params?.account?.order_id;
+  // Поле, без которого метод не по спецификации. Без id where оставался бы
+  // без условия и находил первый попавшийся платёж.
+  private need<T>(v: T | undefined): T {
+    if (v === undefined) throw new PaymeError(-32600, 'Invalid params');
+    return v;
+  }
+
+  private async orderFor(params: PaymeParams) {
+    const orderId = params.account?.order_id;
     const order = orderId
       ? await this.prisma.order.findUnique({
           where: { id: orderId },
@@ -79,7 +88,7 @@ export class PaymeService {
     return order;
   }
 
-  private async checkPerform(params: any) {
+  private async checkPerform(params: PaymeParams) {
     const order = await this.orderFor(params);
     return { allow: true, ...(await this.receiptDetail(order.id)) };
   }
@@ -115,10 +124,12 @@ export class PaymeService {
     return { detail };
   }
 
-  private async createTransaction(params: any) {
-    const existing = await this.prisma.payment.findFirst({ where: { providerTransId: params.id } });
+  private async createTransaction(params: PaymeParams) {
+    const id = this.need(params.id);
+    const time = this.need(params.time);
+    const existing = await this.prisma.payment.findFirst({ where: { providerTransId: id } });
     if (existing) {
-      const m: any = existing.meta ?? {};
+      const m = paymeMeta(existing.meta);
       if (m.paymeState !== 1) throw new PaymeError(-31008, 'Transaction is not active');
       return { create_time: m.create_time, transaction: existing.id, state: 1 };
     }
@@ -134,22 +145,23 @@ export class PaymeService {
         provider: 'PAYME',
         amount: order.total,
         status: PaymentStatus.PENDING,
-        providerTransId: params.id,
-        meta: { paymeState: 1, create_time: params.time },
+        providerTransId: id,
+        meta: { paymeState: 1, create_time: time },
       },
     });
-    return { create_time: params.time, transaction: payment.id, state: 1 };
+    return { create_time: time, transaction: payment.id, state: 1 };
   }
 
-  private async performTransaction(params: any) {
-    const payment = await this.prisma.payment.findFirst({ where: { providerTransId: params.id } });
+  private async performTransaction(params: PaymeParams) {
+    const id = this.need(params.id);
+    const payment = await this.prisma.payment.findFirst({ where: { providerTransId: id } });
     if (!payment) throw new PaymeError(-31003, 'Transaction not found');
-    const m: any = payment.meta ?? {};
+    const m = paymeMeta(payment.meta);
     if (m.paymeState === 2) return { transaction: payment.id, perform_time: m.perform_time, state: 2 };
     if (m.paymeState !== 1) throw new PaymeError(-31008, 'Transaction is not active');
 
     const perform_time = Date.now();
-    await this.payments.markPaid(payment.id, params.id);
+    await this.payments.markPaid(payment.id, id);
     await this.prisma.payment.update({
       where: { id: payment.id },
       data: { meta: { ...m, paymeState: 2, perform_time } },
@@ -157,10 +169,11 @@ export class PaymeService {
     return { transaction: payment.id, perform_time, state: 2 };
   }
 
-  private async cancelTransaction(params: any) {
-    const payment = await this.prisma.payment.findFirst({ where: { providerTransId: params.id } });
+  private async cancelTransaction(params: PaymeParams) {
+    const id = this.need(params.id);
+    const payment = await this.prisma.payment.findFirst({ where: { providerTransId: id } });
     if (!payment) throw new PaymeError(-31003, 'Transaction not found');
-    const m: any = payment.meta ?? {};
+    const m = paymeMeta(payment.meta);
     const cancel_time = m.cancel_time ?? Date.now();
     const state = m.paymeState === 2 ? -2 : -1;
     await this.prisma.payment.update({
@@ -184,9 +197,9 @@ export class PaymeService {
   // было вовсе, и любое расхождение (потерянный платёж, двойное списание,
   // зависшая транзакция) оставалось невидимым с обеих сторон, пока его не
   // заметит покупатель.
-  private async getStatement(params: any) {
-    const from = Number(params?.from ?? 0);
-    const to = Number(params?.to ?? Date.now());
+  private async getStatement(params: PaymeParams) {
+    const from = params.from ?? 0;
+    const to = params.to ?? Date.now();
 
     // Запас в сутки по краям: в выборку по времени записи должны попасть и те
     // транзакции, чьё время создания в Payme отличается от нашего на часовой
@@ -211,10 +224,11 @@ export class PaymeService {
     };
   }
 
-  private async checkTransaction(params: any) {
-    const payment = await this.prisma.payment.findFirst({ where: { providerTransId: params.id } });
+  private async checkTransaction(params: PaymeParams) {
+    const id = this.need(params.id);
+    const payment = await this.prisma.payment.findFirst({ where: { providerTransId: id } });
     if (!payment) throw new PaymeError(-31003, 'Transaction not found');
-    const m: any = payment.meta ?? {};
+    const m = paymeMeta(payment.meta);
     return {
       create_time: m.create_time ?? 0,
       perform_time: m.perform_time ?? 0,

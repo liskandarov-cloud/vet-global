@@ -4,7 +4,7 @@ import { PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PaymentsService } from './payments.service';
 import { notPayableReason } from './payable';
-import { clickSignatureValid } from './click-sign';
+import { ClickParams, clickMeta, clickSignatureValid } from './click-sign';
 
 // Click Shop API error codes.
 const ERR = {
@@ -34,15 +34,15 @@ export class ClickService {
 
   // Подпись проверяется в click-sign.ts: без заданного секрета и сервиса
   // колбэк не принимается вовсе (раньше секретом становилось «undefined»).
-  private signed(p: any, stage: 'prepare' | 'complete') {
+  private signed(p: ClickParams, stage: 'prepare' | 'complete') {
     return clickSignatureValid(p, { serviceId: this.serviceId, secret: this.secret }, stage);
   }
 
   // Prepare (action=0): sign = md5(click_trans_id + service_id + secret + merchant_trans_id + amount + action + sign_time)
-  async prepare(p: any) {
+  async prepare(p: ClickParams) {
     if (!this.signed(p, 'prepare')) return this.err(p, ERR.SIGN, 'SIGN CHECK FAILED');
 
-    const payment = await this.prisma.payment.findUnique({ where: { id: p.merchant_trans_id } });
+    const payment = await this.prisma.payment.findUnique({ where: { id: String(p.merchant_trans_id) } });
     if (!payment) return this.err(p, ERR.TX_NOT_FOUND, 'Transaction does not exist');
     if (payment.status === PaymentStatus.PAID) return this.err(p, ERR.ALREADY_PAID, 'Already paid');
     if (Math.round(Number(payment.amount)) !== Math.round(Number(p.amount))) {
@@ -54,7 +54,7 @@ export class ClickService {
       return this.err(p, blocked.code === 'ALREADY_PAID' ? ERR.ALREADY_PAID : ERR.CANCELLED, blocked.message);
     }
 
-    const meta: any = payment.meta ?? {};
+    const meta = clickMeta(payment.meta);
     await this.prisma.payment.update({
       where: { id: payment.id },
       data: { providerTransId: String(p.click_trans_id), meta: { ...meta, clickPrepareId: payment.id } },
@@ -70,17 +70,17 @@ export class ClickService {
   }
 
   // Complete (action=1): sign adds merchant_prepare_id before amount.
-  async complete(p: any) {
+  async complete(p: ClickParams) {
     if (!this.signed(p, 'complete')) return this.err(p, ERR.SIGN, 'SIGN CHECK FAILED');
 
-    const payment = await this.prisma.payment.findUnique({ where: { id: p.merchant_trans_id } });
+    const payment = await this.prisma.payment.findUnique({ where: { id: String(p.merchant_trans_id) } });
     if (!payment) return this.err(p, ERR.TX_NOT_FOUND, 'Transaction does not exist');
     if (payment.status === PaymentStatus.PAID) return this.err(p, ERR.ALREADY_PAID, 'Already paid');
 
     // Завершение принимается только для транзакции, прошедшей подготовку, и
     // на ту же сумму: сумма сверялась лишь на подготовке, и завершение на
     // другую сумму (или без подготовки) проводило оплату как есть.
-    const meta: any = payment.meta ?? {};
+    const meta = clickMeta(payment.meta);
     if (!meta.clickPrepareId || String(p.merchant_prepare_id) !== String(meta.clickPrepareId)) {
       return this.err(p, ERR.TX_NOT_FOUND, 'Transaction was not prepared');
     }
@@ -126,7 +126,7 @@ export class ClickService {
     return notPayableReason(order);
   }
 
-  private err(p: any, error: number, note: string) {
+  private err(p: ClickParams, error: number, note: string) {
     return {
       click_trans_id: p.click_trans_id,
       merchant_trans_id: p.merchant_trans_id,
