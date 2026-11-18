@@ -19,8 +19,6 @@
 | Auth | JWT (Passport) + bcrypt, роли buyer / seller / admin |
 | Тесты | Jest e2e (13 тестов против живого API) |
 
-`legacy/` — исходный прототип (FastAPI + React CRA + MongoDB), оставлен как эталон.
-
 ## Быстрый старт (dev)
 
 Нужен только **Docker Desktop**.
@@ -116,7 +114,6 @@ backend/    NestJS API
 frontend/   Next.js (App Router): каталог, товар, корзина, кабинеты, блог, …
 docker-compose.yml          dev
 docker-compose.prod.yml     prod
-legacy/     исходный прототип (reference only)
 ```
 
 ## Дорожная карта (для боевого запуска нужны внешние доступы)

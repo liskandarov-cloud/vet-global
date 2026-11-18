@@ -143,7 +143,7 @@ export class StorageService implements OnModuleInit {
   }
 
   // Фолбэк без S3: байты в Postgres, наружу — ссылка на /api/files/:id.
-  // Абсолютный URL обязателен: фронт живёт на другом домене (Vercel).
+  // Абсолютный URL обязателен: фронт живёт на другом домене (vethub.uz).
   // Файл из Postgres по нашей ссылке /api/files/:id (null — ссылка не наша или S3).
   async readDbFile(url: string) {
     const id = dbFileId(url);
