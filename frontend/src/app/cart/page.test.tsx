@@ -11,7 +11,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, cleanup, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { useCart } from '@/lib/store';
+import { useAuth, useCart } from '@/lib/store';
 
 const get = vi.fn();
 const post = vi.fn();
@@ -41,6 +41,7 @@ beforeEach(() => {
   post.mockResolvedValue({ data: { id: 'o1' } });
   useCart.getState().clear();
   useCart.getState().add(ITEM, 2);
+  useAuth.getState().logout();
 });
 
 afterEach(() => {
@@ -104,16 +105,13 @@ describe('корзина: доставка', () => {
   });
 
   it('способ, город и адрес уходят в заказ', async () => {
+    useAuth.getState().setSession('t', { id: 'u1', role: 'BUYER', fullName: 'Пётр Ветеринаров', email: 'p@vg.test' } as any);
     render(<CartPage />);
     await awaitEstimate();
 
     const u = ui();
     await u.type(screen.getByPlaceholderText('Город'), 'Ташкент');
     await u.type(screen.getByPlaceholderText('Адрес доставки'), 'ул. Амира Темура 1');
-    // Гостевой заказ: без имени и телефона оформление на сервер не уходит.
-    // Провайдера перевода в тесте нет, поэтому подписи полей — ключи словаря.
-    await u.type(screen.getByPlaceholderText('cart.name'), 'Пётр Ветеринаров');
-    await u.type(screen.getByPlaceholderText('cart.phone'), '+998901234567');
 
     const buttons = screen.getAllByRole('button');
     await u.click(buttons[buttons.length - 1]);
@@ -124,5 +122,15 @@ describe('корзина: доставка', () => {
       deliveryCity: 'Ташкент',
       deliveryAddress: 'ул. Амира Темура 1',
     });
+  });
+
+  // Заказ — только после входа: гостю предлагается войти, корзина остаётся.
+  it('гостю предлагается войти, заказ не уходит', async () => {
+    render(<CartPage />);
+    await awaitEstimate();
+    expect(screen.getByRole('link', { name: 'Войти' }).getAttribute('href')).toBe('/login?next=/cart');
+    const buttons = screen.getAllByRole('button');
+    await ui().click(buttons[buttons.length - 1]);
+    expect(post).not.toHaveBeenCalled();
   });
 });

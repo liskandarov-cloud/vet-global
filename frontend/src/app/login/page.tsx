@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { safeNext } from '@/lib/next-path';
 import { ShieldCheck } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -24,7 +25,9 @@ export default function LoginPage() {
       const { data } = await api.post('/auth/login', { email, password });
       setSession(data.token, data.user);
       useFavorites.getState().load();
-      const dest = data.user.role === 'ADMIN' ? '/admin' : data.user.role === 'SELLER' ? '/seller' : '/dashboard';
+      const roleDest = data.user.role === 'ADMIN' ? '/admin' : data.user.role === 'SELLER' ? '/seller' : '/dashboard';
+      // Покупателя возвращаем туда, откуда он пришёл входить (например, в корзину).
+      const dest = (data.user.role === 'BUYER' && safeNext(window.location.search)) || roleDest;
       router.push(dest);
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? tt('Неверные данные', 'Notoʻgʻri maʼlumotlar'));

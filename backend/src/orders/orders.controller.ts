@@ -5,7 +5,7 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { OrderStatus, UserRole } from '@prisma/client';
 import { OrdersService } from './orders.service';
 import { CreateOrderDto, UpdateStatusDto } from './dto/order.dto';
-import { JwtAuthGuard, OptionalJwtAuthGuard } from '../common/guards/jwt-auth.guard';
+import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
@@ -19,10 +19,13 @@ export class OrdersController {
     private readonly excel: ExcelService,
   ) {}
 
-  // Guest or authenticated checkout.
+  // Заказ — только после входа. Гостевой заказ был тупиком (оплатить и
+  // отследить его гость не мог: платёж требует входа) и дырой: без входа
+  // можно было списать остаток любого товара и засыпать продавцов заказами.
   @Post()
-  @UseGuards(OptionalJwtAuthGuard)
-  create(@Body() dto: CreateOrderDto, @CurrentUser() user?: AuthUser) {
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  create(@Body() dto: CreateOrderDto, @CurrentUser() user: AuthUser) {
     return this.orders.create(dto, user);
   }
 

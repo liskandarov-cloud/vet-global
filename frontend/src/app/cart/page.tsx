@@ -18,9 +18,6 @@ export default function CartPage() {
   const { items, setQty, remove, clear, subtotal } = useCart();
   const { user, refresh } = useAuth();
 
-  const [name, setName] = useState('');
-  const [phone, setPhone] = useState('');
-  const [company, setCompany] = useState('');
   const [usePoints, setUsePoints] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [counterparties, setCounterparties] = useState<any[]>([]);
@@ -81,18 +78,15 @@ export default function CartPage() {
   const needsApproval = org?.org && org.myRole === 'PURCHASER' && total > (org.myLimit ?? 0);
 
   const checkout = async () => {
-    if (!user && (!name || !phone)) {
-      toast.error(tt('Укажите имя и телефон', 'Ism va telefonni kiriting'));
+    if (!user) {
+      toast.error(tt('Войдите, чтобы оформить заказ', 'Buyurtma berish uchun kiring'));
       return;
     }
     setSubmitting(true);
     try {
       await api.post('/orders', {
         items: items.map((i) => ({ productId: i.productId, offerId: i.offerId, quantity: i.quantity })),
-        buyerName: user ? undefined : name,
-        buyerPhone: user ? undefined : phone,
-        buyerCompany: user ? undefined : company,
-        counterpartyId: user && counterpartyId ? counterpartyId : undefined,
+        counterpartyId: counterpartyId || undefined,
         vetPointsUsed: pointsToUse,
         deliveryMethod,
         deliveryCity: city.trim() || undefined,
@@ -163,10 +157,12 @@ export default function CartPage() {
         {/* Summary / checkout */}
         <div className="card h-max space-y-4 p-5 shadow-soft lg:sticky lg:top-20">
           {!user && (
-            <div className="space-y-3">
-              <input className="input" placeholder={t('cart.name')} value={name} onChange={(e) => setName(e.target.value)} />
-              <input className="input" placeholder={t('cart.phone')} value={phone} onChange={(e) => setPhone(e.target.value)} />
-              <input className="input" placeholder={t('cart.company')} value={company} onChange={(e) => setCompany(e.target.value)} />
+            <div className="space-y-3 rounded-xl border border-teal-100 bg-teal-50/60 p-4 text-sm dark:border-teal-900 dark:bg-teal-950/20">
+              <p>{tt('Чтобы оформить заказ, войдите или зарегистрируйтесь — корзина сохранится. Так вы сможете оплатить заказ, получить счёт-фактуру и отследить доставку.', 'Buyurtma berish uchun kiring yoki roʻyxatdan oʻting — savat saqlanadi. Shunda buyurtmani toʻlash, hisob-faktura olish va yetkazib berishni kuzatish mumkin boʻladi.')}</p>
+              <div className="flex gap-2">
+                <Link href="/login?next=/cart" className="btn-primary flex-1 justify-center">{tt('Войти', 'Kirish')}</Link>
+                <Link href="/register?next=/cart" className="btn-secondary flex-1 justify-center">{tt('Регистрация', 'Roʻyxatdan oʻtish')}</Link>
+              </div>
             </div>
           )}
 

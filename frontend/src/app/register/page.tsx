@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
+import { safeNext } from '@/lib/next-path';
 import { Sprout } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -29,7 +30,9 @@ export default function RegisterPage() {
       const { data } = await api.post('/auth/register', { ...form, acceptTerms: accept });
       setSession(data.token, data.user);
       useFavorites.getState().load();
-      const dest = data.user.role === 'SELLER' ? '/seller' : '/dashboard';
+      const roleDest = data.user.role === 'SELLER' ? '/seller' : '/dashboard';
+      // Покупателя возвращаем туда, откуда он пришёл входить (например, в корзину).
+      const dest = (data.user.role === 'BUYER' && safeNext(window.location.search)) || roleDest;
       toast.success(tt('Аккаунт создан', 'Hisob yaratildi'));
       router.push(dest);
     } catch (e: any) {
