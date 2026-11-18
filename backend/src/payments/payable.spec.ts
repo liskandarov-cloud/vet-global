@@ -1,5 +1,5 @@
 import { ApprovalStatus, OrderStatus, PaymentStatus } from '@prisma/client';
-import { notPayableReason, type PayableOrder } from './payable';
+import { notPayableReason, statusAfterPayment, type PayableOrder } from './payable';
 
 const order = (over: Partial<PayableOrder> = {}): PayableOrder => ({
   status: OrderStatus.CONFIRMED,
@@ -60,5 +60,25 @@ describe('можно ли оплатить заказ', () => {
       payments: [{ status: PaymentStatus.PAID }],
     });
     expect(notPayableReason(o)?.code).toBe('CANCELLED');
+  });
+});
+
+describe('статус заказа после оплаты', () => {
+  it('новый заказ оплата подтверждает', () => {
+    expect(statusAfterPayment(OrderStatus.PENDING)).toBe(OrderStatus.CONFIRMED);
+  });
+
+  // Отсрочка: товар уже отгружен или получен, деньги приходят потом. Перевод в
+  // CONFIRMED откатывал такой заказ назад по потоку.
+  it('заказ дальше по потоку оплата назад не откатывает', () => {
+    for (const s of [OrderStatus.CONFIRMED, OrderStatus.PROCESSING, OrderStatus.SHIPPED, OrderStatus.DELIVERED]) {
+      expect(statusAfterPayment(s)).toBe(s);
+    }
+  });
+
+  // Провайдер может провести транзакцию, начатую до отмены: отменённый заказ от
+  // этого не оживает.
+  it('отменённый заказ оплата не воскрешает', () => {
+    expect(statusAfterPayment(OrderStatus.CANCELLED)).toBe(OrderStatus.CANCELLED);
   });
 });

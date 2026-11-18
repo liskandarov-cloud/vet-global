@@ -31,6 +31,15 @@ export interface PayableOrder {
   payments?: { status: PaymentStatus }[];
 }
 
+// Статус заказа после успешной оплаты.
+//
+// Оплата подтверждает новый заказ — и только его. Остальные статусы уже дальше
+// по потоку: заказ по отсрочке платится отгруженным или доставленным, и перевод
+// в CONFIRMED откатывал бы его назад (доставленный снова «Подтверждён»).
+export function statusAfterPayment(current: OrderStatus): OrderStatus {
+  return current === OrderStatus.PENDING ? OrderStatus.CONFIRMED : current;
+}
+
 // null — заказ оплачивать можно.
 export function notPayableReason(order: PayableOrder): NotPayable | null {
   if (order.status === OrderStatus.CANCELLED) {

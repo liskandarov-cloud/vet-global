@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { OrderStatus, PaymentProvider, PaymentStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderReleaseService } from '../orders/order-release.service';
-import { notPayableReason } from './payable';
+import { notPayableReason, statusAfterPayment } from './payable';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { buildCheckoutUrl } from './providers';
 import { frontendUrl } from '../common/frontend-url';
@@ -30,9 +30,7 @@ export class PaymentsService {
       include: { payments: { select: { status: true } } },
     });
     if (!order) throw new NotFoundException('Order not found');
-    if (user.role === UserRole.BUYER && order.buyerId !== user.id) {
-      throw new ForbiddenException('Not authorized');
-    }
+    this.assertPayer(order.buyerId, user);
     // Правило оплатимости общее с протоколами Payme и Click: провайдеры
     // попадают в систему минуя эту проверку, и держать её здесь в одиночку
     // значит разрешить им то, что запрещено в кабинете.
@@ -81,15 +79,19 @@ export class PaymentsService {
     const payment = await this.prisma.payment.update({
       where: { id: paymentId },
       data: { status: PaymentStatus.PAID, providerTransId },
+      include: { order: { select: { status: true } } },
     });
-    await this.prisma.order.update({
-      where: { id: payment.orderId },
-      data: { status: OrderStatus.CONFIRMED },
-    });
+    // Оплата подтверждает только новый заказ. Заказ по отсрочке платится уже
+    // отгруженным или доставленным, и прежний безусловный перевод в CONFIRMED
+    // откатывал его назад по потоку.
+    const next = statusAfterPayment(payment.order.status);
+    if (next !== payment.order.status) {
+      await this.prisma.order.update({ where: { id: payment.orderId }, data: { status: next } });
+    }
     // Лимит резервировался под неоплаченный долг: после оплаты он должен
     // освободиться, иначе отсрочка расходует лимит покупателя навсегда.
     await this.release.onPaid(payment.orderId);
-    this.logger.log(`Payment ${paymentId} PAID (${payment.provider}) → order ${payment.orderId} CONFIRMED`);
+    this.logger.log(`Payment ${paymentId} PAID (${payment.provider}) → order ${payment.orderId} ${next}`);
     return { id: payment.id, status: payment.status, orderId: payment.orderId };
   }
 
@@ -107,9 +109,21 @@ export class PaymentsService {
   private async getOwned(id: string, user: AuthUser) {
     const payment = await this.prisma.payment.findUnique({ where: { id }, include: { order: true } });
     if (!payment) throw new NotFoundException('Payment not found');
-    if (user.role === UserRole.BUYER && payment.order.buyerId !== user.id) {
+    this.assertPayer(payment.order.buyerId, user);
+    return payment;
+  }
+
+  // Платит покупатель заказа; администратор — для разбора случаев.
+  //
+  // Проверка стояла только для роли BUYER, и продавец проходил её всегда: в
+  // демо-режиме платежей (он же на проде) любой продавец создавал платёж по
+  // любому заказу, в том числе без своих позиций, и подтверждал его — заказ
+  // становился оплаченным и подтверждённым без денег. Продавец, который сам
+  // покупает, остаётся покупателем своего заказа и платит как обычно.
+  private assertPayer(orderBuyerId: string | null, user: AuthUser) {
+    if (user.role === UserRole.ADMIN) return;
+    if (!orderBuyerId || orderBuyerId !== user.id) {
       throw new ForbiddenException('Not authorized');
     }
-    return payment;
   }
 }
