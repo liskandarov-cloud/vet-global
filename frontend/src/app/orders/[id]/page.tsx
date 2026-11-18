@@ -47,6 +47,7 @@ function OrderContent() {
   const router = useRouter();
   const { tt } = useI18n();
   const addToCart = useCart((s) => s.add);
+  const user = useAuth((s) => s.user);
   const [order, setOrder] = useState<any>(null);
   const [notFound, setNotFound] = useState(false);
 
@@ -228,7 +229,7 @@ function OrderContent() {
 
         {/* Side: docs, payment, delivery */}
         <div className="space-y-4">
-          {order.status === 'PENDING' && order.approvalStatus === 'PENDING' ? (
+          {order.buyerId !== user?.id ? null : order.status === 'PENDING' && order.approvalStatus === 'PENDING' ? (
             <div className="card p-5">
               <h3 className="mb-2 font-semibold">{tt('Оплата', 'Toʻlov')}</h3>
               <p className="text-sm text-amber-700 dark:text-amber-300">{tt('Оплата откроется после согласования в организации', 'Toʻlov tashkilotda kelishilgandan soʻng ochiladi')}</p>

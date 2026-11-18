@@ -1,5 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
+import { clientIp } from '../client-ip';
 
 // Ограничитель частоты с явным выключателем для тестов.
 //
@@ -22,5 +23,11 @@ export class AppThrottlerGuard extends ThrottlerGuard {
       );
     }
     return disabled;
+  }
+
+  // Счётчик — по настоящему адресу клиента (см. client-ip.ts), а не по узлу
+  // Cloudflare, через который идут сразу многие.
+  protected async getTracker(req: Record<string, any>): Promise<string> {
+    return clientIp(req);
   }
 }

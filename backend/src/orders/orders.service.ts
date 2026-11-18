@@ -533,8 +533,21 @@ export class OrdersService {
       include: { items: true, invoices: true, shipments: true, payments: true, parts: true },
     });
     if (!order) throw new NotFoundException('Order not found');
+    // Владелец и управляющий организации открывают её заказы: согласовывать
+    // заказ, не видя его позиций, — согласовывать вслепую.
+    if (user.role === UserRole.BUYER && order.buyerId !== user.id && order.orgId && (await this.isOrgManager(user.id, order.orgId))) {
+      return this.forViewer(order, user);
+    }
     this.assertAccess(order, user);
     return this.forViewer(order, user);
+  }
+
+  private async isOrgManager(userId: string, orgId: string): Promise<boolean> {
+    const m = await this.prisma.orgMembership.findFirst({
+      where: { userId, orgId, acceptedAt: { not: null }, role: { in: [OrgRole.OWNER, OrgRole.MANAGER] } },
+      select: { id: true },
+    });
+    return !!m;
   }
 
   // Продавцу — только его часть заказа (см. seller-view.ts).

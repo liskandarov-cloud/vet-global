@@ -58,6 +58,36 @@ export default function OrgPage() {
   );
 }
 
+const STATUS_RU: Record<string, string> = { PENDING: 'Новый', CONFIRMED: 'Подтверждён', PROCESSING: 'В обработке', SHIPPED: 'Отгружен', DELIVERED: 'Доставлен', CANCELLED: 'Отменён' };
+const STATUS_UZ: Record<string, string> = { PENDING: 'Yangi', CONFIRMED: 'Tasdiqlangan', PROCESSING: 'Jarayonda', SHIPPED: 'Joʻnatilgan', DELIVERED: 'Yetkazilgan', CANCELLED: 'Bekor qilingan' };
+
+// История закупок организации — владельцу и управляющему.
+function OrgOrders() {
+  const { tt } = useI18n();
+  const [orders, setOrders] = useState<any[] | null>(null);
+  useEffect(() => { api.get('/org/orders').then((r) => setOrders(r.data)).catch(() => setOrders([])); }, []);
+  if (!orders || orders.length === 0) return null;
+  return (
+    <div>
+      <h2 className="mb-2 font-heading text-lg font-bold">{tt('Заказы организации', 'Tashkilot buyurtmalari')}</h2>
+      <div className="card divide-y divide-slate-100 dark:divide-slate-800">
+        {orders.map((o) => (
+          <Link key={o.id} href={`/orders/${o.id}`} className="flex flex-wrap items-center justify-between gap-2 p-3 text-sm hover:bg-slate-50 dark:hover:bg-slate-900">
+            <span>
+              <span className="font-medium">#{o.id.slice(0, 8)}</span> · {o.buyerName} · {new Date(o.createdAt).toLocaleDateString('ru-RU')}
+              {o.approvalStatus === 'PENDING' && <span className="ml-2 rounded-md bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700">{tt('на согласовании', 'kelishuvda')}</span>}
+            </span>
+            <span className="flex items-center gap-3">
+              <span className="text-xs text-ink-muted">{tt(STATUS_RU[o.status] ?? o.status, STATUS_UZ[o.status] ?? o.status)}</span>
+              <span className="font-semibold">{formatMoney(o.total)}</span>
+            </span>
+          </Link>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // Приглашение действует только после согласия: до него организация не видит
 // контактов, а заказы не уходят ей на согласование.
 function InvitationCard({ invitation, onDone }: { invitation: Invitation; onDone: () => void }) {
@@ -145,6 +175,8 @@ function OrgManage({ data, approvals, reload }: { data: OrgData; approvals: any[
         </div>
       </div>
 
+      {canManage && <OrgOrders />}
+
       {/* Очередь согласования */}
       {canManage && (
         <div>
@@ -158,6 +190,10 @@ function OrgManage({ data, approvals, reload }: { data: OrgData; approvals: any[
                   <div>
                     <div className="font-medium">{a.buyerName} · {formatMoney(a.total)}</div>
                     <div className="text-xs text-ink-subtle">{a.itemsCount} {tt('позиций', 'pozitsiya')} · {new Date(a.createdAt).toLocaleDateString('ru-RU')}</div>
+                    {(a.items ?? []).length > 0 && (
+                      <div className="mt-1 text-xs text-ink-muted">{a.items.map((it: any) => `${it.productName} × ${it.quantity}`).join(', ')}</div>
+                    )}
+                    <Link href={`/orders/${a.id}`} className="mt-1 inline-block text-xs text-teal-700 hover:underline">{tt('Открыть заказ', 'Buyurtmani ochish')}</Link>
                   </div>
                   <div className="flex gap-2">
                     <button className="btn-primary !px-3 !py-1.5 text-xs" onClick={() => decide(a.id, true)}><CheckCircle2 size={14} /> {tt('Согласовать', 'Kelishish')}</button>
