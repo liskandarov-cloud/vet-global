@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { OrderStatus, PaymentProvider, PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderReleaseService } from '../orders/order-release.service';
-import { notPayableReason, payerError, statusAfterPayment } from './payable';
+import { notPayableReason, onlinePaymentMode, payerError, statusAfterPayment, type OnlinePaymentMode } from './payable';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { buildCheckoutUrl } from './providers';
 import { frontendUrl } from '../common/frontend-url';
@@ -12,6 +12,7 @@ import { frontendUrl } from '../common/frontend-url';
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
   private readonly mock: boolean;
+  private readonly mode: OnlinePaymentMode;
   private readonly returnUrl: string;
 
   constructor(
@@ -19,11 +20,15 @@ export class PaymentsService {
     private readonly config: ConfigService,
     private readonly release: OrderReleaseService,
   ) {
-    this.mock = (config.get<string>('PAYMENTS_MODE') ?? 'mock').toLowerCase() !== 'live';
+    this.mode = onlinePaymentMode(config.get<string>('PAYMENTS_MODE'), config.get<string>('SEED_DEMO'));
+    this.mock = this.mode === 'mock';
     this.returnUrl = config.get<string>('PAYMENT_RETURN_URL') ?? frontendUrl();
   }
 
   async create(orderId: string, provider: PaymentProvider, user: AuthUser) {
+    if (this.mode === 'off') {
+      throw new BadRequestException('Онлайн-оплата пока не подключена. Оплатите заказ переводом по счёту продавца.');
+    }
     const order = await this.prisma.order.findUnique({
       where: { id: orderId },
       // Платежи нужны, чтобы не создать второй платёж по оплаченному заказу.
