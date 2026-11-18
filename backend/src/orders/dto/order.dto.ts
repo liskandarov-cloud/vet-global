@@ -7,6 +7,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
   ValidateNested,
 } from 'class-validator';
@@ -41,8 +42,11 @@ export class CreateOrderDto {
 
   // Финансирование (блок 2)
   @IsOptional() @IsEnum(PaymentTerm) paymentTerm?: PaymentTerm;
-  @IsOptional() @IsInt() @Min(1) netTermDays?: number; // для NET_TERMS
-  @IsOptional() @IsInt() @Min(2) installments?: number; // для INSTALLMENT
+  // Сроки ограничены: без верхней границы покупатель сам выбирал отсрочку на
+  // 100 лет или рассрочку на тысячи платежей. Корзина предлагает net-30/60 и
+  // 3/6/12 месяцев; границы с запасом, чтобы не мешать будущим вариантам.
+  @IsOptional() @IsInt() @Min(1) @Max(180) netTermDays?: number; // для NET_TERMS
+  @IsOptional() @IsInt() @Min(2) @Max(24) installments?: number; // для INSTALLMENT
 }
 
 export class UpdateStatusDto {

@@ -30,6 +30,7 @@ import {
 } from '../common/pricing';
 import { isTransitionAllowed, transitionError } from './status';
 import { approvalFor, awaitingApprovalError } from './approval';
+import { creditOverdrawn, pointsOverdrawn } from './reservation';
 import { OrderReleaseService } from './order-release.service';
 import { invoiceNumberFor } from '../common/invoice-number';
 import { splitInvoices } from './invoice-split';
@@ -397,19 +398,31 @@ export class OrdersService {
         }
       }
 
-      // Резервируем кредитный лимит под отсрочку/рассрочку.
+      // Резервируем кредитный лимит под отсрочку/рассрочку. Проверка — по
+      // значению после резерва (см. reservation.ts): проверка до транзакции
+      // пропускала все одновременные заказы по одному «свободному» остатку.
       if (user && creditToReserve > 0) {
-        await tx.user.update({
+        const after = await tx.user.update({
           where: { id: user.id },
           data: { creditUsed: { increment: creditToReserve } },
+          select: { creditUsed: true, creditLimit: true },
         });
+        if (creditOverdrawn(after)) {
+          throw new BadRequestException(
+            'Недостаточно кредитного лимита: его уже занял другой заказ. Обновите страницу.',
+          );
+        }
       }
 
       if (user && vetPointsUsed > 0) {
-        await tx.user.update({
+        const after = await tx.user.update({
           where: { id: user.id },
           data: { vetPointsBalance: { decrement: vetPointsUsed } },
+          select: { vetPointsBalance: true },
         });
+        if (pointsOverdrawn(after)) {
+          throw new BadRequestException('Баллов уже недостаточно: их списал другой заказ. Обновите страницу.');
+        }
         await tx.vetPointsTransaction.create({
           data: {
             userId: user.id,

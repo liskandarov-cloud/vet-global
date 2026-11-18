@@ -27,6 +27,15 @@ export class OrganizationsController {
     return this.org.invite(dto, user);
   }
 
+  // Выйти из организации самому. Приглашение не спрашивает согласия, и без
+  // этого выхода человек, которого чужой владелец добавил по почте, навсегда
+  // оставался закупщиком с лимитом 0: все его заказы уходили на согласование
+  // постороннему, а свою организацию завести было нельзя.
+  @Post('leave')
+  leave(@CurrentUser() user: AuthUser) {
+    return this.org.leave(user);
+  }
+
   @Patch('members/:id')
   updateMember(@Param('id') id: string, @Body() dto: UpdateMemberDto, @CurrentUser() user: AuthUser) {
     return this.org.updateMember(id, dto, user);

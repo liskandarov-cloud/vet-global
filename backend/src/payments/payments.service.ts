@@ -1,9 +1,9 @@
 import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus, PaymentProvider, PaymentStatus, UserRole } from '@prisma/client';
+import { OrderStatus, PaymentProvider, PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderReleaseService } from '../orders/order-release.service';
-import { notPayableReason, statusAfterPayment } from './payable';
+import { notPayableReason, payerError, statusAfterPayment } from './payable';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { buildCheckoutUrl } from './providers';
 import { frontendUrl } from '../common/frontend-url';
@@ -121,9 +121,7 @@ export class PaymentsService {
   // становился оплаченным и подтверждённым без денег. Продавец, который сам
   // покупает, остаётся покупателем своего заказа и платит как обычно.
   private assertPayer(orderBuyerId: string | null, user: AuthUser) {
-    if (user.role === UserRole.ADMIN) return;
-    if (!orderBuyerId || orderBuyerId !== user.id) {
-      throw new ForbiddenException('Not authorized');
-    }
+    const denied = payerError({ buyerId: orderBuyerId }, user);
+    if (denied) throw new ForbiddenException(denied);
   }
 }
