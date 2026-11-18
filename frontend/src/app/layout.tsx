@@ -4,6 +4,7 @@ import { Providers } from '@/components/Providers';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { PWARegister } from '@/components/PWARegister';
+import { EMAIL, PHONE } from '@/lib/contacts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://vethub.uz';
 const TITLE = 'VetHub — B2B-платформа ветеринарных решений';
@@ -32,6 +33,19 @@ export const metadata: Metadata = {
   twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
 };
 
+const ORG_LD = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'Organization',
+  name: 'VetHub',
+  legalName: 'ООО «VetHub»',
+  url: SITE_URL,
+  logo: `${SITE_URL}/icon-512.png`,
+  email: EMAIL,
+  telephone: PHONE,
+  address: { '@type': 'PostalAddress', addressLocality: 'Ташкент', addressCountry: 'UZ' },
+  contactPoint: [{ '@type': 'ContactPoint', telephone: PHONE, email: EMAIL, contactType: 'customer service', availableLanguage: ['ru', 'uz'] }],
+});
+
 export const viewport: Viewport = {
   themeColor: '#0d9488',
 };
@@ -40,6 +54,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="ru">
       <body className="min-h-screen bg-background font-body text-ink antialiased">
+        {/* Карточка организации для поисковиков: телефон и почта в выдаче. */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ORG_LD }} />
         <Providers>
           <PWARegister />
           <div className="flex min-h-screen flex-col">

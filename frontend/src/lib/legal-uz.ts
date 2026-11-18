@@ -6,7 +6,7 @@
 import type { LegalDocKey } from './legal';
 
 const OPERATOR = '«VetHub» MChJ';
-const OPERATOR_DETAILS = 'murojaatlar uchun manzil — info@vethub.uz';
+const OPERATOR_DETAILS = 'murojaatlar uchun manzil — info@vethub.uz, telefon +998 90 022 78 88';
 
 export const LEGAL_SECTIONS_UZ: Record<LegalDocKey, { h: string; p: string[] }[]> = {
   terms: [

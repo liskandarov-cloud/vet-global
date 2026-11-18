@@ -14,6 +14,7 @@ import { CounterpartiesPanel } from '@/components/CounterpartiesPanel';
 import { ProfilePanel } from '@/components/ProfilePanel';
 import { Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
+import { PROVIDER_LABEL, usePayProviders } from '@/lib/pay-providers';
 import { useI18n } from '@/lib/i18n';
 
 interface Order {
@@ -41,6 +42,7 @@ function BuyerContent() {
   const { tt } = useI18n();
   const { user } = useAuth();
   const addToCart = useCart((s) => s.add);
+  const providers = usePayProviders();
   const [orders, setOrders] = useState<Order[]>([]);
   const [txs, setTxs] = useState<Tx[]>([]);
   const [stats, setStats] = useState<any>(null);
@@ -197,7 +199,7 @@ function BuyerContent() {
                   ) : o.status === 'PENDING' && o.requiresConfirmation ? (
                     <span className="rounded-md bg-amber-50 px-2 py-1 text-xs text-amber-700 dark:bg-amber-950/30 dark:text-amber-300">{tt('Ждёт подтверждения продавца', 'Sotuvchi tasdigʻini kutmoqda')}</span>
                   ) : o.status === 'PENDING' ? (
-                    <PayControl onPay={(provider) => pay(o.id, provider)} />
+                    <PayControl providers={providers ?? []} onPay={(provider) => pay(o.id, provider)} />
                   ) : null}
                   <button className="btn-ghost !px-2 !py-1" onClick={() => repeat(o)} title={tt('Повторить', 'Takrorlash')}><RotateCcw size={15} /></button>
                   <button className="btn-ghost !px-2 !py-1" onClick={() => invoice(o)} title={tt('Счёт PDF', 'Hisob-faktura PDF')}><FileText size={15} /></button>
@@ -229,15 +231,15 @@ function BuyerContent() {
   );
 }
 
-function PayControl({ onPay }: { onPay: (provider: string) => void }) {
+function PayControl({ onPay, providers }: { onPay: (provider: string) => void; providers: string[] }) {
   const { tt } = useI18n();
-  const [provider, setProvider] = useState('CLICK');
+  const [picked, setProvider] = useState<string>();
+  const provider = picked ?? providers[0];
+  if (!providers.length) return <span className="text-xs text-ink-subtle">{tt('Оплата по счёту', 'Hisob boʻyicha toʻlov')}</span>;
   return (
     <span className="inline-flex items-center gap-1">
       <select className="input !h-8 !w-auto !px-1 text-xs" value={provider} onChange={(e) => setProvider(e.target.value)}>
-        <option value="CLICK">Click</option>
-        <option value="PAYME">Payme</option>
-        <option value="UZUM">UZUM</option>
+        {providers.map((p) => <option key={p} value={p}>{PROVIDER_LABEL[p] ?? p}</option>)}
       </select>
       <button className="btn-primary !px-2 !py-1 text-xs" onClick={() => onPay(provider)} title={tt('Оплатить', 'Toʻlash')}>
         <CreditCard size={14} /> {tt('Оплатить', 'Toʻlash')}

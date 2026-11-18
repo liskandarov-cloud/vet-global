@@ -6,6 +6,7 @@ import { MailService } from './mail.service';
 import { SmsService } from '../sms/sms.service';
 import { summariesBySeller } from './order-summary';
 import { deliveryBySellerForOrder } from '../delivery/order-delivery';
+import { EMAIL, PHONE_DISPLAY } from '../common/contacts';
 
 const STATUS_RU: Record<OrderStatus, string> = {
   PENDING: 'Новый',
@@ -29,7 +30,7 @@ function layout(title: string, body: string): string {
       ${body}
     </div>
     <div style="padding:16px 24px;border-top:1px solid #f1f5f9;color:#94a3b8;font-size:12px">
-      Это автоматическое уведомление платформы VetHub.
+      Это автоматическое уведомление платформы VetHub. Вопросы: ${PHONE_DISPLAY}, ${EMAIL}.
     </div>
   </div></body></html>`;
 }
