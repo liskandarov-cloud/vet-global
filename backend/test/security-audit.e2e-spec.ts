@@ -196,6 +196,21 @@ describe('аудит безопасности (e2e)', () => {
     });
   });
 
+  // Два одновременных «Доставлен» начисляли баллы дважды: проверка «уже
+  // начислено» и начисление шли без блокировки.
+  it('одновременная доставка начисляет баллы один раз', async () => {
+    const b = await registerBuyer();
+    const o = (await req('/orders', { token: b.token, body: { items: [{ productId: product.id, quantity: 10 }] } })).body;
+    for (const status of ['CONFIRMED', 'PROCESSING', 'SHIPPED']) {
+      await req(`/orders/${o.id}/status`, { method: 'PATCH', token: admin, body: { status } });
+    }
+    const results = await Promise.all(
+      Array.from({ length: 4 }, () => req(`/orders/${o.id}/status`, { method: 'PATCH', token: admin, body: { status: 'DELIVERED' } })),
+    );
+    expect(results.every((r) => r.status === 200 || r.status === 409)).toBe(true);
+    expect(Number((await req('/vetpoints/balance', { token: b.token })).body.balance)).toBe(10_000);
+  });
+
   // ── Организация ──
   it('человек, которого добавили в чужую организацию, может из неё выйти', async () => {
     const owner = await registerBuyer();

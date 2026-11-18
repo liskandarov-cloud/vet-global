@@ -3,6 +3,7 @@ import { OrderStatus, UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
 import { StorageService } from '../storage/storage.service';
+import { sellerIdentityChanged } from '../common/reverify';
 import { ChangePasswordDto, CounterpartyDto, SellerDocumentDto, UpdateProfileDto } from './dto/user.dto';
 import { anonymizedProfile, deletionBlocker } from './account-deletion';
 import { randomBytes } from 'crypto';
@@ -19,7 +20,14 @@ export class UsersService {
 
   // ── Profile ──
   async updateProfile(userId: string, dto: UpdateProfileDto) {
-    const user = await this.prisma.user.update({ where: { id: userId }, data: dto });
+    const prev = await this.prisma.user.findUnique({ where: { id: userId }, select: { role: true, isVerified: true, company: true, inn: true } });
+    // Проверенный продавец, сменивший название или ИНН, проходит проверку
+    // заново: администратор проверял другую компанию.
+    const reverify = prev?.role === UserRole.SELLER && prev.isVerified && sellerIdentityChanged(prev, dto);
+    const user = await this.prisma.user.update({
+      where: { id: userId },
+      data: reverify ? { ...dto, isVerified: false } : dto,
+    });
     return this.sanitize(user);
   }
 

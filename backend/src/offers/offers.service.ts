@@ -7,12 +7,24 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 import { serializeOffer } from '../common/pricing';
 import { publicOffer } from '../common/visibility';
 import { recalcProductAggregates } from './product-aggregates';
+import { StorageService } from '../storage/storage.service';
+import { offerDocsChanged } from '../common/reverify';
 
 @Injectable()
 export class OffersService {
   private readonly logger = new Logger(OffersService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly storage: StorageService,
+  ) {}
+
+  // Сертификат — только файл, загруженный через платформу (как лицензии
+  // продавца): его открывает администратор при проверке, и произвольная
+  // ссылка здесь — ссылка, по которой он перейдёт сам.
+  private assertCertificates(list?: string[] | null, kept?: string[] | null) {
+    this.storage.assertOwnUrls(list, kept, 'Сертификат загружается файлом через платформу, а не ссылкой');
+  }
 
   // Публичный список предложений по товару — отсортирован по цене (сравнение цен).
   async listForProduct(productId: string) {
@@ -52,7 +64,13 @@ export class OffersService {
     const product = await this.prisma.product.findUnique({ where: { id: dto.productId } });
     if (!product) throw new NotFoundException('Товар не найден');
 
+    const existing = await this.prisma.offer.findUnique({
+      where: { productId_sellerId: { productId: dto.productId, sellerId: user.id } },
+      select: { certificates: true, regNumber: true },
+    });
+    this.assertCertificates(dto.certificates, existing?.certificates);
     const data = this.toData(dto);
+    if (existing && offerDocsChanged(existing, dto)) data.certVerified = false;
     const offer = await this.prisma.offer.upsert({
       where: { productId_sellerId: { productId: dto.productId, sellerId: user.id } },
       create: {
@@ -74,9 +92,13 @@ export class OffersService {
     if (offer.sellerId !== user.id && user.role !== UserRole.ADMIN)
       throw new ForbiddenException('Нет доступа к этому офферу');
 
+    this.assertCertificates(dto.certificates, offer.certificates);
+    const data = this.toData(dto);
+    // Проверка относилась к прежним документам — после замены нужна новая.
+    if (offerDocsChanged(offer, dto)) data.certVerified = false;
     const updated = await this.prisma.offer.update({
       where: { id },
-      data: this.toData(dto) as Prisma.OfferUncheckedUpdateInput,
+      data: data as Prisma.OfferUncheckedUpdateInput,
     });
     await this.recalcProduct(offer.productId);
     return serializeOffer(updated);

@@ -1,5 +1,6 @@
 import {
   BadRequestException,
+  ConflictException,
   ForbiddenException,
   Injectable,
   Logger,
@@ -30,6 +31,7 @@ import {
 } from '../common/pricing';
 import { isTransitionAllowed, transitionError } from './status';
 import { approvalFor, awaitingApprovalError } from './approval';
+import { sellerView } from './seller-view';
 import { creditOverdrawn, pointsOverdrawn } from './reservation';
 import { OrderReleaseService } from './order-release.service';
 import { invoiceNumberFor } from '../common/invoice-number';
@@ -517,7 +519,7 @@ export class OrdersService {
       include: { items: true, invoices: true, shipments: true, payments: true },
       take: 200,
     });
-    return orders.map((o) => this.serialize(o));
+    return orders.map((o) => this.forViewer(o, user));
   }
 
   async getOne(id: string, user: AuthUser) {
@@ -527,7 +529,13 @@ export class OrdersService {
     });
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
-    return this.serialize(order);
+    return this.forViewer(order, user);
+  }
+
+  // Продавцу — только его часть заказа (см. seller-view.ts).
+  private forViewer(order: any, user: AuthUser) {
+    const o = this.serialize(order);
+    return user.role === UserRole.SELLER ? sellerView(o, user.id) : o;
   }
 
   // Удаление заказа (админ): позиции/платежи/накладные каскадом (onDelete: Cascade).
@@ -564,7 +572,15 @@ export class OrdersService {
       );
     }
 
-    await this.prisma.order.update({ where: { id }, data: { status } });
+    // Повтор того же статуса ничего не меняет: возврат склада, баллы и
+    // уведомления — только при настоящем переходе.
+    if (order.status === status) return this.getOne(id, user);
+
+    // Переход — условным обновлением от прочитанного статуса. Из двух
+    // одновременных запросов проходит один; раньше оба проходили, и баллы за
+    // доставку начислялись дважды.
+    const moved = await this.prisma.order.updateMany({ where: { id, status: order.status }, data: { status } });
+    if (moved.count === 0) throw new ConflictException('Статус заказа уже изменён — обновите страницу');
 
     // Отмена возвращает то, что заказ занял: остаток на склад, кредитный лимит
     // и списанные баллы. Без этого лимит и баллы покупателя сгорали, а склад
