@@ -58,10 +58,10 @@ export class UsersService {
     const [activeBuyerOrders, activeSellerOrders, ownedOrgs] = await Promise.all([
       this.prisma.order.count({ where: { buyerId: userId, status: { in: active } } }),
       this.prisma.order.count({ where: { status: { in: active }, items: { some: { sellerId: userId } } } }),
-      this.prisma.orgMembership.findMany({ where: { userId, role: 'OWNER' }, select: { orgId: true } }),
+      this.prisma.orgMembership.findMany({ where: { userId, role: 'OWNER', acceptedAt: { not: null } }, select: { orgId: true } }),
     ]);
     const othersInOwnedOrgs = ownedOrgs.length
-      ? await this.prisma.orgMembership.count({ where: { orgId: { in: ownedOrgs.map((o) => o.orgId) }, userId: { not: userId } } })
+      ? await this.prisma.orgMembership.count({ where: { orgId: { in: ownedOrgs.map((o) => o.orgId) }, userId: { not: userId }, acceptedAt: { not: null } } })
       : 0;
     const blocker = deletionBlocker({
       role: user.role,
@@ -73,7 +73,14 @@ export class UsersService {
     if (blocker) throw new ConflictException(blocker);
 
     const now = new Date();
+    const docFiles = await this.prisma.sellerDocument.findMany({ where: { sellerId: userId }, select: { fileUrl: true } });
     await this.prisma.$transaction([
+      // Юрлица, по которым есть заказы, остаются: на них выписаны счета, и
+      // хранить их требует закон. Остальные удаляются.
+      this.prisma.counterparty.deleteMany({ where: { userId, orders: { none: {} } } }),
+      this.prisma.consultRequest.deleteMany({ where: { userId } }),
+      // Заявки (лиды) не привязаны к учётной записи — находятся по телефону.
+      ...(user.phone ? [this.prisma.lead.deleteMany({ where: { phone: user.phone } })] : []),
       this.prisma.user.update({
         where: { id: userId },
         data: {
@@ -103,6 +110,7 @@ export class UsersService {
       this.prisma.offer.updateMany({ where: { sellerId: userId }, data: { isActive: false } }),
       this.prisma.promotion.updateMany({ where: { sellerId: userId }, data: { isActive: false } }),
     ]);
+    await Promise.all(docFiles.map((d) => this.storage.removeDbFile(d.fileUrl)));
     await recalcSellerProducts(this.prisma, userId);
     return { ok: true };
   }
@@ -186,6 +194,16 @@ export class UsersService {
     }
     const title = String(dto.title ?? '').trim().slice(0, 200) || 'Документ';
     return this.prisma.sellerDocument.create({ data: { title, fileUrl: dto.fileUrl, sellerId } });
+  }
+
+  // Файл документа продавца — владельцу и администратору. Чужому — 404, а не
+  // 403: не подтверждаем, что такой документ существует.
+  async sellerDocumentFile(docId: string, user: AuthUser) {
+    const doc = await this.prisma.sellerDocument.findUnique({ where: { id: docId } });
+    if (!doc || (user.role !== UserRole.ADMIN && doc.sellerId !== user.id)) {
+      throw new NotFoundException('Документ не найден');
+    }
+    return { doc, file: await this.storage.readDbFile(doc.fileUrl) };
   }
 
   async listSellerDocuments(sellerId: string) {

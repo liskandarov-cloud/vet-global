@@ -51,7 +51,9 @@ export class StorageController {
     }
 
     const folder = kind === 'certificate' ? 'certificates' : kind === 'license' ? 'licenses' : 'images';
-    const url = await this.storage.upload({ ...file, mimetype: detected.mime }, folder, detected.ext);
+    const url = await this.storage.upload({ ...file, mimetype: detected.mime }, folder, detected.ext, {
+      private: kind === 'license',
+    });
     return { url };
   }
 }

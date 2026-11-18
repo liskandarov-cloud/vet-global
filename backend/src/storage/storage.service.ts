@@ -95,12 +95,15 @@ export class StorageService implements OnModuleInit {
   // Расширение задаёт вызывающий по проверенному типу файла. Из имени файла,
   // присланного клиентом, оно больше не берётся: «photo.html» с заголовком
   // image/png ложился в бакет как .html.
+  // shortcut: в режиме S3 (локальный MinIO) закрытые файлы лежат в публичном
+  // бакете — закрытость работает только для хранения в Postgres, как на проде.
   async upload(
     file: { buffer: Buffer; originalname: string; mimetype: string },
     folder = 'uploads',
     ext = 'bin',
+    opts: { private?: boolean } = {},
   ): Promise<string> {
-    if (!this.s3Enabled) return this.uploadToDb(file);
+    if (!this.s3Enabled) return this.uploadToDb(file, !!opts.private);
     const key = `${folder}/${randomUUID()}.${ext}`;
     await this.client.send(
       new PutObjectCommand({
@@ -141,11 +144,25 @@ export class StorageService implements OnModuleInit {
 
   // Фолбэк без S3: байты в Postgres, наружу — ссылка на /api/files/:id.
   // Абсолютный URL обязателен: фронт живёт на другом домене (Vercel).
-  private async uploadToDb(file: {
-    buffer: Buffer;
-    originalname: string;
-    mimetype: string;
-  }): Promise<string> {
+  // Файл из Postgres по нашей ссылке /api/files/:id (null — ссылка не наша или S3).
+  async readDbFile(url: string) {
+    const id = dbFileId(url);
+    return id ? this.prisma.storedFile.findUnique({ where: { id } }) : null;
+  }
+
+  async removeDbFile(url: string) {
+    const id = dbFileId(url);
+    if (id) await this.prisma.storedFile.deleteMany({ where: { id } });
+  }
+
+  private async uploadToDb(
+    file: {
+      buffer: Buffer;
+      originalname: string;
+      mimetype: string;
+    },
+    isPrivate = false,
+  ): Promise<string> {
     if (file.buffer.length > DB_MAX_SIZE)
       throw new BadRequestException('Файл больше 2 МБ — сожмите фото и попробуйте снова');
     const rec = await this.prisma.storedFile.create({
@@ -154,8 +171,14 @@ export class StorageService implements OnModuleInit {
         name: file.originalname,
         size: file.buffer.length,
         data: file.buffer,
+        private: isPrivate,
       },
     });
     return `${this.apiBase()}/api/files/${rec.id}`;
   }
+}
+
+function dbFileId(url: string): string | null {
+  const m = /\/api\/files\/([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})$/i.exec(String(url ?? ''));
+  return m ? m[1] : null;
 }

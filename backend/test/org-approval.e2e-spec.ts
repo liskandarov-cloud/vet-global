@@ -109,6 +109,10 @@ describe('Организация: лимиты закупщиков и согл�
     expect(
       (await req('/org/members', { token: owner.token, body: { email: purchaser.email, role: 'PURCHASER', spendLimit: 5000 } })).status,
     ).toBe(201);
+    // Приглашение действует после согласия приглашённого.
+    for (const who of [manager, purchaser]) {
+      expect((await req('/org/invitation/accept', { token: who.token, body: {} })).status).toBe(201);
+    }
 
     // Чужая организация со своим владельцем.
     expect((await req('/org', { token: outsider.token, body: { name: `E2E Чужая ${stamp}` } })).status).toBe(201);
@@ -229,6 +233,7 @@ describe('Организация: лимиты закупщиков и согл�
     const purchaser2 = await register(`org-purchaser2-${stamp}@vg.test`);
     for (const [who, role] of [[owner2, 'OWNER'], [manager2, 'MANAGER'], [purchaser2, 'PURCHASER']] as const) {
       expect((await req('/org/members', { token: owner.token, body: { email: who.email, role } })).status).toBe(201);
+      expect((await req('/org/invitation/accept', { token: who.token, body: {} })).status).toBe(201);
     }
 
     for (const target of [owner, owner2, manager2]) {

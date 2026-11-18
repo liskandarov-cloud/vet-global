@@ -1,4 +1,5 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
@@ -84,6 +85,24 @@ export class UsersController {
   @Roles(UserRole.SELLER)
   listSellerDocuments(@CurrentUser() user: AuthUser) {
     return this.users.listSellerDocuments(user.id);
+  }
+
+  // Файл документа (лицензии) — владельцу и администратору. По общей ссылке
+  // /api/files/:id закрытые файлы не отдаются.
+  @Get('seller-documents/:id/file')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  async sellerDocumentFile(@Param('id') id: string, @CurrentUser() user: AuthUser, @Res() res: Response) {
+    const { doc, file } = await this.users.sellerDocumentFile(id, user);
+    // S3 (локальный стенд): файл лежит в бакете, отдаём ссылку на него.
+    if (!file) return res.redirect(doc.fileUrl);
+    res.set({
+      'Content-Type': file.mime,
+      'X-Content-Type-Options': 'nosniff',
+      'Content-Length': String(file.size),
+      'Cache-Control': 'private, no-store',
+    });
+    res.send(Buffer.from(file.data));
   }
 
   // ── Public sellers ──

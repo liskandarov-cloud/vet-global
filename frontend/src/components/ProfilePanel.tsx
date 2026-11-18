@@ -5,6 +5,7 @@ import { Save, User, KeyRound, FileText, Upload, Mail, Trash2 } from 'lucide-rea
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { openSellerDocument } from '@/lib/seller-docs';
 import { useAuth } from '@/lib/store';
 import { useI18n } from '@/lib/i18n';
 
@@ -139,12 +140,12 @@ export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
           {docs.length > 0 && (
             <div className="mb-3 space-y-1.5">
               {docs.map((d) => (
-                <a key={d.id} href={d.fileUrl} target="_blank" rel="noreferrer" className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-sm hover:border-teal-200 dark:border-slate-800">
+                <button key={d.id} type="button" onClick={() => openSellerDocument(d)} className="flex w-full items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 text-left text-sm hover:border-teal-200 dark:border-slate-800">
                   <FileText size={14} className="text-teal-700" /> {d.title}
                   <span className={`ml-auto text-xs ${d.isApproved ? 'text-teal-700' : 'text-amber-600'}`}>
                     {d.isApproved ? tt('Проверен', 'Tasdiqlangan') : tt('На проверке', 'Tekshiruvda')}
                   </span>
-                </a>
+                </button>
               ))}
             </div>
           )}

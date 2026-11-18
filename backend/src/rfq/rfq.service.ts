@@ -129,6 +129,10 @@ export class RfqService {
 
     return {
       ...rfq,
+      // Контакты покупателя — ему самому и администратору. Раньше телефон и имя
+      // видел любой вошедший, знающий ID тендера; продавцу хватает компании, а
+      // контакты для поставки приходят в заказе победителю.
+      buyer: isBuyer || isAdmin ? rfq.buyer : { id: rfq.buyer?.id, company: rfq.buyer?.company ?? null },
       quotes,
       canQuote: user.role === UserRole.SELLER && rfq.status === RfqStatus.OPEN,
       order: order ? { ...order, total: Number(order.total) } : null,
@@ -274,7 +278,7 @@ export class RfqService {
     // Раньше тендерный заказ создавался согласованным и без привязки к
     // организации: закупщик с лимитом выбирал победителя на любую сумму, и заказ
     // не попадал ни под согласование, ни в отчёты организации.
-    const membership = await tx.orgMembership.findFirst({ where: { userId: rfq.buyerId } });
+    const membership = await tx.orgMembership.findFirst({ where: { userId: rfq.buyerId, acceptedAt: { not: null } } });
     const { orgId, approvalStatus } = approvalFor(
       membership
         ? { orgId: membership.orgId, role: membership.role, spendLimit: Number(membership.spendLimit) }
@@ -307,8 +311,10 @@ export class RfqService {
     // целиком, и только списанное потом вернётся при отмене (stockTaken).
     for (const line of order.items) {
       if (!line.productId) continue;
+      // Только остаток товара самого победителя: позиция тендера может
+      // ссылаться на чужой товар каталога, и раньше списывался чужой склад.
       const taken = await tx.product.updateMany({
-        where: { id: line.productId, stockQty: { gte: line.quantity } },
+        where: { id: line.productId, sellerId: quote.sellerId, stockQty: { gte: line.quantity } },
         data: { stockQty: { decrement: line.quantity } },
       });
       if (!taken.count) continue;

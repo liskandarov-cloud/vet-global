@@ -12,8 +12,9 @@ import { useI18n } from '@/lib/i18n';
 const ROLE_RU: Record<string, string> = { OWNER: 'Владелец', MANAGER: 'Менеджер', PURCHASER: 'Закупщик' };
 const ROLE_UZ: Record<string, string> = { OWNER: 'Egasi', MANAGER: 'Menejer', PURCHASER: 'Xaridor' };
 
-interface Member { id: string; userId: string; role: string; spendLimit: number; user: { id: string; fullName: string; email: string; phone: string } }
-interface OrgData { org: { id: string; name: string; inn?: string } | null; myRole?: string; myLimit?: number; members?: Member[] }
+interface Member { id: string; userId: string; role: string; spendLimit: number; pending?: boolean; user: { id: string; fullName: string; email: string; phone: string } }
+interface Invitation { id: string; orgName: string; role: string; spendLimit: number }
+interface OrgData { org: { id: string; name: string; inn?: string } | null; myRole?: string; myLimit?: number; members?: Member[]; invitation?: Invitation | null }
 
 export default function OrgPage() {
   const { user, ready } = useAuth();
@@ -48,8 +49,37 @@ export default function OrgPage() {
       {data.org ? (
         <OrgManage data={data} approvals={approvals} reload={load} />
       ) : (
-        <CreateOrg onCreated={load} />
+        <>
+          {data.invitation && <InvitationCard invitation={data.invitation} onDone={load} />}
+          <CreateOrg onCreated={load} />
+        </>
       )}
+    </div>
+  );
+}
+
+// Приглашение действует только после согласия: до него организация не видит
+// контактов, а заказы не уходят ей на согласование.
+function InvitationCard({ invitation, onDone }: { invitation: Invitation; onDone: () => void }) {
+  const { tt } = useI18n();
+  const answer = async (accept: boolean) => {
+    try {
+      await api.post(`/org/invitation/${accept ? 'accept' : 'decline'}`, { membershipId: invitation.id });
+      toast.success(accept ? tt('Вы в организации', 'Siz tashkilotdasiz') : tt('Приглашение отклонено', 'Taklif rad etildi'));
+      onDone();
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
+  };
+  return (
+    <div className="card mb-6 max-w-md space-y-3 border-teal-200 p-6">
+      <div className="font-semibold">{tt('Приглашение в организацию', 'Tashkilotga taklif')}</div>
+      <p className="text-sm text-ink-muted">
+        {tt(`Вас приглашают в «${invitation.orgName}» с ролью «${ROLE_RU[invitation.role] ?? invitation.role}».`, `Sizni «${invitation.orgName}» tashkilotiga «${ROLE_UZ[invitation.role] ?? invitation.role}» roli bilan taklif qilishmoqda.`)}{' '}
+        {tt('После согласия организация увидит ваши контакты, а ваши заказы сверх лимита будут уходить ей на согласование.', 'Rozilikdan soʻng tashkilot aloqa maʼlumotlaringizni koʻradi, limitdan oshgan buyurtmalaringiz esa unga kelishuvga yuboriladi.')}
+      </p>
+      <div className="flex gap-2">
+        <button className="btn-primary flex-1" onClick={() => answer(true)}>{tt('Принять', 'Qabul qilish')}</button>
+        <button className="btn-ghost flex-1" onClick={() => answer(false)}>{tt('Отклонить', 'Rad etish')}</button>
+      </div>
     </div>
   );
 }
@@ -85,7 +115,7 @@ function OrgManage({ data, approvals, reload }: { data: OrgData; approvals: any[
 
   const invite = async () => {
     if (!email.trim()) { toast.error(tt('Укажите email', 'Email koʻrsating')); return; }
-    try { await api.post('/org/members', { email, role, spendLimit: limit }); toast.success(tt('Участник добавлен', 'Aʼzo qoʻshildi')); setEmail(''); reload(); }
+    try { await api.post('/org/members', { email, role, spendLimit: limit }); toast.success(tt('Приглашение отправлено — участник появится после согласия', 'Taklif yuborildi — aʼzo rozilikdan soʻng qoʻshiladi')); setEmail(''); reload(); }
     catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
   };
   const updateMember = async (id: string, patch: any) => {
@@ -147,7 +177,10 @@ function OrgManage({ data, approvals, reload }: { data: OrgData; approvals: any[
           {data.members?.map((m) => (
             <div key={m.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
-                <div className="flex items-center gap-1 font-medium">{m.user.fullName}{m.role === 'OWNER' && <ShieldCheck size={14} className="text-teal-700" />}</div>
+                <div className="flex items-center gap-1 font-medium">
+                  {m.user.fullName}{m.role === 'OWNER' && <ShieldCheck size={14} className="text-teal-700" />}
+                  {m.pending && <span className="rounded-md bg-amber-50 px-1.5 py-0.5 text-xs text-amber-700">{tt('приглашён', 'taklif qilingan')}</span>}
+                </div>
                 <div className="text-xs text-ink-subtle">{m.user.email}</div>
               </div>
               {canManage && m.role !== 'OWNER' ? (
@@ -180,7 +213,7 @@ function OrgManage({ data, approvals, reload }: { data: OrgData; approvals: any[
       {/* Приглашение */}
       {canManage && (
         <div className="card space-y-3 p-5">
-          <div className="flex items-center gap-2 font-medium"><UserPlus size={18} className="text-teal-700" /> {tt('Добавить участника', 'Aʼzo qoʻshish')}</div>
+          <div className="flex items-center gap-2 font-medium"><UserPlus size={18} className="text-teal-700" /> {tt('Пригласить участника', 'Aʼzo taklif qilish')}</div>
           <p className="text-xs text-ink-subtle">{tt('Пользователь должен быть зарегистрирован на платформе.', 'Foydalanuvchi platformada roʻyxatdan oʻtgan boʻlishi kerak.')}</p>
           <input className="input" placeholder={tt('Email участника', 'Aʼzo email')} value={email} onChange={(e) => setEmail(e.target.value)} />
           <div className="flex gap-2">
