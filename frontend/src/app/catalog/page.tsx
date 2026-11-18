@@ -26,6 +26,9 @@ function CatalogInner() {
   const [products, setProducts] = useState<Product[]>([]);
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  // Сбой загрузки — не «товаров нет»: раньше ошибка API показывалась как пустой каталог.
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   const [search, setSearch] = useState(params.get('search') ?? '');
   const [category, setCategory] = useState(params.get('category') ?? '');
@@ -70,17 +73,28 @@ function CatalogInner() {
 
   useEffect(() => {
     setLoading(true);
+    setFailed(false);
+    // Ответ на прежний фильтр не должен перетирать новый.
+    let alive = true;
+    // Бесплатный Render просыпается до минуты: первый сбой повторяем сами,
+    // второй показываем с кнопкой повтора.
+    const load = () => api.get('/products', { params: query, timeout: 30000 });
     const id = setTimeout(() => {
-      api
-        .get('/products', { params: query })
+      load()
+        .catch(() => new Promise((r) => setTimeout(r, 3000)).then(load))
         .then((r) => {
+          if (!alive) return;
           setProducts(r.data.products);
           setTotal(r.data.total);
         })
-        .finally(() => setLoading(false));
+        .catch(() => alive && setFailed(true))
+        .finally(() => alive && setLoading(false));
     }, 250);
-    return () => clearTimeout(id);
-  }, [query]);
+    return () => {
+      alive = false;
+      clearTimeout(id);
+    };
+  }, [query, attempt]);
 
   const reset = () => {
     setSearch(''); setCategory(''); setManufacturer(''); setAnimalType(''); setInStock(false); setSort('newest'); setPage(1);
@@ -153,7 +167,7 @@ function CatalogInner() {
         {/* Results */}
         <div>
           <div className="mb-4 flex items-center justify-between">
-            <span className="text-sm text-ink-muted">{total} {tt('товаров', 'mahsulot')}</span>
+            <span className="text-sm text-ink-muted">{failed ? '' : `${total} ${tt('товаров', 'mahsulot')}`}</span>
             <select className="input !h-9 !w-auto" value={sort} onChange={(e) => setSort(e.target.value)}>
               <option value="newest">{tt('Сначала новые', 'Avval yangilari')}</option>
               <option value="price_asc">{tt('Дешевле', 'Arzonroq')}</option>
@@ -164,6 +178,13 @@ function CatalogInner() {
 
           {loading ? (
             <div className="py-20 text-center text-ink-subtle">{t('common.loading')}</div>
+          ) : failed ? (
+            <div role="alert" className="py-20 text-center text-ink-subtle">
+              <p>{tt('Не удалось загрузить каталог. Проверьте связь и попробуйте ещё раз.', 'Katalogni yuklab boʻlmadi. Aloqani tekshirib, qayta urinib koʻring.')}</p>
+              <button type="button" className="btn-primary mt-4" onClick={() => setAttempt((n) => n + 1)}>
+                {tt('Повторить', 'Qayta urinish')}
+              </button>
+            </div>
           ) : products.length === 0 ? (
             <div className="py-20 text-center text-ink-subtle">{t('catalog.empty')}</div>
           ) : (
