@@ -2,6 +2,8 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AlertsService } from '../alerts/alerts.service';
+import { REPEAT_AFTER_MS, subscriptionFailureNotice } from './failure-notice';
 import { OrdersService } from '../orders/orders.service';
 import { CreateSubscriptionDto, UpdateSubscriptionDto } from './dto/subscription.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
@@ -16,6 +18,7 @@ export class SubscriptionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly orders: OrdersService,
+    private readonly alerts: AlertsService,
   ) {}
 
   async create(dto: CreateSubscriptionDto, user: AuthUser) {
@@ -105,6 +108,7 @@ export class SubscriptionsService {
         processed++;
       } catch (e: any) {
         this.logger.warn(`Подписка ${sub.id}: ${e?.message ?? e}`);
+        await this.notifyFailure(sub, e).catch(() => undefined);
       }
     }
     return { processed, checked: due.length };
@@ -135,6 +139,18 @@ export class SubscriptionsService {
       },
     });
     return order;
+  }
+
+  // Покупатель узнаёт, что поставка не оформилась (failure-notice.ts); то же
+  // уведомление — не чаще раза в неделю, хотя попытка повторяется каждую ночь.
+  private async notifyFailure(sub: { buyerId: string; productId: string }, error: unknown) {
+    const product = await this.prisma.product.findUnique({ where: { id: sub.productId }, select: { name: true } });
+    const notice = subscriptionFailureNotice(product?.name, error);
+    const recent = await this.prisma.notification.findFirst({
+      where: { userId: sub.buyerId, title: notice.title, body: notice.body, createdAt: { gte: new Date(Date.now() - REPEAT_AFTER_MS) } },
+      select: { id: true },
+    });
+    if (!recent) await this.alerts.notify(sub.buyerId, notice);
   }
 
   private async getOwned(id: string, user: AuthUser) {
