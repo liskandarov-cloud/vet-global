@@ -2,7 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { searchVariants } from './search-variants';
 import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { recalcProductAggregates } from '../offers/product-aggregates';
+import { recalcProductAggregates, syncOwnerOfferStock } from '../offers/product-aggregates';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { serializeOffer } from '../common/pricing';
@@ -223,15 +223,20 @@ export class ProductsService {
     // цену, а покупатель — и платил — прежнюю (так было с «БиоЭквин ФТ»).
     // Только при настоящей смене: переключатель «снять с продажи» присылает
     // цену как есть и не должен затирать цену, заданную в самом предложении.
-    if (typeof dto.price === 'number' && dto.price !== Number(existing.price)) {
-      const moved = await this.prisma.offer.updateMany({
+    const priceChanged = typeof dto.price === 'number' && dto.price !== Number(existing.price);
+    if (priceChanged) {
+      await this.prisma.offer.updateMany({
         where: { productId: id, sellerId: existing.sellerId },
         data: { price: dto.price },
       });
-      if (moved.count) {
-        await recalcProductAggregates(this.prisma, id);
-        product = await this.prisma.product.findUniqueOrThrow({ where: { id } });
-      }
+    }
+    // Остаток и «в наличии» — так же: иначе пересчёт ниже вернул бы товару с
+    // нулевым остатком «в наличии» (см. syncOwnerOfferStock).
+    const stockChanged = product.inStock !== existing.inStock || product.stockQty !== existing.stockQty;
+    if (stockChanged) await syncOwnerOfferStock(this.prisma, id);
+    if (priceChanged || stockChanged) {
+      await recalcProductAggregates(this.prisma, id);
+      product = await this.prisma.product.findUniqueOrThrow({ where: { id } });
     }
 
     // «Сообщить о поступлении»: если товар стал доступен к заказу (был «под заказ»

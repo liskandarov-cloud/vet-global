@@ -1,4 +1,4 @@
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { packPriceOf } from '../common/pricing';
 import { publicOffer } from '../common/visibility';
 import { pickBestOffer } from './best-offer';
@@ -30,6 +30,23 @@ export async function recalcProductAggregates(prisma: PrismaClient, productId: s
       offersCount: offers.length,
       ...(offers.length ? { inStock: offers.some((o) => o.inStock) } : {}),
     },
+  });
+}
+
+// Наличие владельца карточки — в его собственном предложении.
+//
+// Кабинет, заказ, тендер и отмена меняют остаток карточки (stockQty, inStock),
+// а пересчёт выше берёт наличие из предложений: «под заказ», записанное в
+// карточку, затиралось следующим же пересчётом — сменой цены, правкой
+// предложения, импортом. Товар с нулевым остатком снова становился «в
+// наличии», и заказ проходил без подтверждения. Звать после каждого такого
+// изменения, в той же транзакции.
+export async function syncOwnerOfferStock(db: Prisma.TransactionClient, productId: string) {
+  const p = await db.product.findUnique({ where: { id: productId }, select: { sellerId: true, stockQty: true, inStock: true } });
+  if (!p) return;
+  await db.offer.updateMany({
+    where: { productId, sellerId: p.sellerId },
+    data: { inStock: p.inStock, ...(p.stockQty != null ? { stockQty: p.stockQty } : {}) },
   });
 }
 

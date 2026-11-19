@@ -71,3 +71,52 @@ describe('цена из кабинета', () => {
     expect(Number((await shown()).minPrice)).toBe(1100);
   });
 });
+
+// Наличие владельца живёт в его предложении: «под заказ», записанное только в
+// карточку, затиралось следующим пересчётом (смена цены, правка предложения),
+// товар с нулевым остатком снова был «в наличии», и заказ шёл без подтверждения.
+describe('наличие из кабинета и после заказа', () => {
+  const stamp = Date.now();
+  let seller: string;
+  let buyer: string;
+  let productId: string;
+  let offerId: string;
+  let card: { name: string; description: string; categoryId: string };
+
+  const save = (body: Record<string, unknown>) =>
+    req(`/products/${productId}`, { method: 'PUT', token: seller, body: { ...card, price: 1000, ...body } });
+  const inStock = async () => (await req(`/products/${productId}`)).body.inStock as boolean;
+
+  beforeAll(async () => {
+    seller = await login('seller@vetglobal.com', 'seller123');
+    buyer = await login('buyer@vetglobal.com', 'buyer123');
+    const categoryId = (await req('/categories')).body[0].id;
+    card = { name: `Stock probe ${stamp}`, description: 'e2e', categoryId };
+    const p = await req('/products', { method: 'POST', token: seller, body: { ...card, price: 1000 } });
+    productId = p.body.id;
+    const o = await req('/offers', { method: 'POST', token: seller, body: { productId, price: 1000, inStock: true } });
+    offerId = o.body.id;
+  });
+
+  it('остаток 0 в кабинете — «под заказ», и смена цены этого не отменяет', async () => {
+    expect((await save({ stockQty: 0 })).status).toBe(200);
+    expect(await inStock()).toBe(false);
+    expect((await save({ stockQty: 0, price: 1300 })).status).toBe(200);
+    expect(await inStock()).toBe(false);
+    const order = await req('/orders', { method: 'POST', token: buyer, body: { items: [{ productId, quantity: 1 }] } });
+    expect(order.status).toBe(201);
+    expect(order.body.requiresConfirmation).toBe(true);
+  });
+
+  it('заказ выбрал остаток — правка предложения не возвращает «в наличии»', async () => {
+    expect((await save({ stockQty: 2 })).status).toBe(200);
+    expect(await inStock()).toBe(true);
+    const order = await req('/orders', { method: 'POST', token: buyer, body: { items: [{ productId, quantity: 2 }] } });
+    expect(order.status).toBe(201);
+    expect(order.body.requiresConfirmation).toBe(false);
+    expect(await inStock()).toBe(false);
+    // Любая правка предложения пересчитывает агрегаты карточки.
+    expect((await req(`/offers/${offerId}`, { method: 'PUT', token: seller, body: { minOrder: 1 } })).status).toBe(200);
+    expect(await inStock()).toBe(false);
+  });
+});
