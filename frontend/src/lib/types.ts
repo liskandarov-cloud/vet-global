@@ -61,6 +61,7 @@ export interface Product {
   mxikCode?: string | null;
   packageCode?: string | null;
   nameUz?: string;
+  descriptionUz?: string;
   description: string;
   categoryId: string;
   price: number;

@@ -77,7 +77,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   private langKeyboard() {
-    return new InlineKeyboard().text('🇷🇺 Русский', 'lang:ru').text('🇺🇿 O‘zbekcha', 'lang:uz');
+    return new InlineKeyboard().text('🇷🇺 Русский', 'lang:ru').text('🇺🇿 Oʻzbekcha', 'lang:uz');
   }
 
   private registerHandlers(bot: Bot) {

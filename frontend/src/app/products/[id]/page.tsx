@@ -214,7 +214,7 @@ export default function ProductPage() {
         <Link href="/" className="hover:text-teal-700">{tt('Главная', 'Bosh sahifa')}</Link>
         <span>/</span>
         <Link href="/catalog" className="hover:text-teal-700">{t('nav.catalog')}</Link>
-        {product.category && (<><span>/</span><span className="text-ink-muted">{product.category.name}</span></>)}
+        {product.category && (<><span>/</span><span className="text-ink-muted">{(lang === 'uz' && product.category.nameUz) || product.category.name}</span></>)}
       </nav>
       <div className="grid gap-10 md:grid-cols-2 [&>*]:min-w-0">
         {/* Gallery */}
@@ -260,7 +260,7 @@ export default function ProductPage() {
             {product.form && <Row label={t('product.form')} value={product.form} />}
           </div>
 
-          <p className="mt-4 text-ink-muted">{product.description}</p>
+          <p className="mt-4 text-ink-muted">{(lang === 'uz' && product.descriptionUz) || product.description}</p>
 
           {product.certificates?.length > 0 && (
             <a href={product.certificates[0]} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-teal-700 hover:underline">
