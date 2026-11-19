@@ -17,5 +17,7 @@
     { "pattern": "api.vethub.uz/api/blog*", "zone_name": "vethub.uz" },
     { "pattern": "api.vethub.uz/api/reviews*", "zone_name": "vethub.uz" }
   ],
-  "observability": { "enabled": true }
+  "observability": { "enabled": true },
+  // Только маршруты api.vethub.uz: на workers.dev воркер запрашивал бы сам себя.
+  "workers_dev": false
 }
