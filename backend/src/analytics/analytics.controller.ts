@@ -39,10 +39,14 @@ export class AnalyticsController {
       'Биллинг',
       [
         { header: 'Поставщик', key: 'company', width: 32 },
-        { header: 'Заказов', key: 'orders', width: 10 },
+        // Выплата — по доставленным заказам; остальные неотменённые — «в работе».
+        { header: 'Доставлено заказов', key: 'orders', width: 12 },
         { header: 'Оборот', key: 'revenue', width: 16 },
         { header: 'Комиссия', key: 'commission', width: 16 },
+        { header: 'Доставка', key: 'delivery', width: 14 },
         { header: 'К выплате', key: 'payout', width: 16 },
+        { header: 'В работе, заказов', key: 'inProgressOrders', width: 12 },
+        { header: 'В работе, к выплате', key: 'inProgress', width: 18 },
       ],
       rows,
     );

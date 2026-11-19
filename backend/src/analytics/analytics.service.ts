@@ -2,9 +2,8 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { splitOrderCommission } from './commission-split';
+import { sellerBilling } from './billing';
 import { round2 } from '../common/pricing';
-import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 
 // Отменённый заказ не выручка. Фильтр один для всех отчётов: раньше его не было
 // вовсе, и отмены попадали и в GMV, и в комиссию, и в выплаты продавцам.
@@ -94,77 +93,48 @@ export class AnalyticsService {
   // перевозчика выбирает он. Комиссия от неё не берётся по тому же правилу, по
   // которому она не входит в базу комиссии в orderTotal: платформа берёт процент
   // со своей сделки, а не с работы перевозчика.
+  //
+  // «К выплате» — только доставленные заказы: остальные ещё могут отменить, и
+  // выплата по ним означала бы переплату, которую потом пришлось бы взыскивать
+  // с продавца вручную. Неотменённые, но не доставленные — отдельно, «в работе».
   async adminBilling() {
     const items = await this.prisma.orderItem.findMany({
       where: { order: NOT_CANCELLED },
-      select: { sellerId: true, price: true, quantity: true, orderId: true, order: { select: { commission: true } } },
+      select: { sellerId: true, price: true, quantity: true, orderId: true, order: { select: { commission: true, status: true } } },
     });
-
-    const map = new Map<string, { revenue: number; delivery: number; orders: Set<string> }>();
-    const bucket = (sellerId: string) => {
-      const cur = map.get(sellerId) ?? { revenue: 0, delivery: 0, orders: new Set<string>() };
-      map.set(sellerId, cur);
-      return cur;
-    };
-
-    // Комиссия — та, что записана в заказе, поделённая между его продавцами
-    // (см. commission-split.ts), а не пересчитанная от суммарной выручки.
-    const byOrder = new Map<string, { commission: number; revenue: Record<string, number> }>();
-    for (const it of items) {
-      const cur = bucket(it.sellerId);
-      const line = Number(it.price) * it.quantity;
-      cur.revenue += line;
-      cur.orders.add(it.orderId);
-      const o = byOrder.get(it.orderId) ?? { commission: Number(it.order.commission), revenue: {} };
-      o.revenue[it.sellerId] = (o.revenue[it.sellerId] ?? 0) + line;
-      byOrder.set(it.orderId, o);
-    }
-    // В тийинах, чтобы сумма по продавцам не набирала погрешность плавающей точки.
-    const commissionTiyin = new Map<string, number>();
-    for (const o of byOrder.values()) {
-      for (const [sellerId, c] of Object.entries(splitOrderCommission(o.commission, o.revenue))) {
-        commissionTiyin.set(sellerId, (commissionTiyin.get(sellerId) ?? 0) + Math.round(c * 100));
-      }
-    }
-
-    // Доставка по той же разбивке, по которой она попадает в сумму заказа.
-    const ordersWithDelivery = await this.prisma.order.findMany({
+    const deliveryOrders = await this.prisma.order.findMany({
       where: { ...NOT_CANCELLED, OR: [{ deliveryCost: { gt: 0 } }, { shipments: { some: {} } }] },
-      select: { deliveryQuote: true, shipments: { select: { sellerId: true, cost: true } } },
-    });
-    for (const order of ordersWithDelivery) {
-      const split = deliveryBySellerForOrder(
-        order.deliveryQuote,
-        order.shipments.map((sh) => ({ sellerId: sh.sellerId, cost: Number(sh.cost) })),
-      );
-      for (const [sellerId, cost] of Object.entries(split)) {
-        // Пустой ключ — доставка без продавца (наследие): выплатить её некому,
-        // и приписывать произвольному продавцу нельзя.
-        if (!sellerId) continue;
-        bucket(sellerId).delivery += cost;
-      }
-    }
-
-    const sellers = await this.prisma.user.findMany({
-      where: { id: { in: [...map.keys()] } },
-      select: { id: true, company: true },
+      select: { status: true, deliveryQuote: true, shipments: { select: { sellerId: true, cost: true } } },
     });
 
-    const rows = [...map.entries()]
-      .map(([id, v]) => {
-        const commission = (commissionTiyin.get(id) ?? 0) / 100;
-        const revenue = round2(v.revenue);
+    const done = (status: OrderStatus) => status === OrderStatus.DELIVERED;
+    const lines = (pick: (s: OrderStatus) => boolean) =>
+      items
+        .filter((it) => pick(it.order.status))
+        .map((it) => ({ sellerId: it.sellerId, orderId: it.orderId, price: it.price, quantity: it.quantity, orderCommission: it.order.commission }));
+    const completed = sellerBilling(lines(done), deliveryOrders.filter((o) => done(o.status)));
+    const inProgress = sellerBilling(
+      lines((st) => !done(st)),
+      deliveryOrders.filter((o) => !done(o.status)),
+    );
+
+    const ids = [...new Set([...completed.keys(), ...inProgress.keys()])];
+    const sellers = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, company: true } });
+    const zero = { orders: 0, revenue: 0, commission: 0, delivery: 0, payout: 0 };
+
+    const rows = ids
+      .map((id) => {
+        const c = completed.get(id) ?? zero;
+        const p = inProgress.get(id) ?? zero;
         return {
           sellerId: id,
           company: sellers.find((s) => s.id === id)?.company ?? '—',
-          orders: v.orders.size,
-          revenue,
-          commission,
-          delivery: round2(v.delivery),
-          payout: round2(revenue - commission + v.delivery),
+          ...c,
+          inProgressOrders: p.orders,
+          inProgress: p.payout,
         };
       })
-      .sort((a, b) => b.revenue - a.revenue);
+      .sort((a, b) => b.revenue - a.revenue || b.inProgress - a.inProgress);
 
     const totals = rows.reduce(
       (t, r) => ({
@@ -172,8 +142,9 @@ export class AnalyticsService {
         commission: round2(t.commission + r.commission),
         delivery: round2(t.delivery + r.delivery),
         payout: round2(t.payout + r.payout),
+        inProgress: round2(t.inProgress + r.inProgress),
       }),
-      { revenue: 0, commission: 0, delivery: 0, payout: 0 },
+      { revenue: 0, commission: 0, delivery: 0, payout: 0, inProgress: 0 },
     );
 
     return { commissionPercent: this.commissionPct, rows, totals };
