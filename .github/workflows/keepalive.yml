@@ -35,4 +35,8 @@ jobs:
     steps:
       - name: Разбудить API
         # Сбой здесь не повод краснеть: о недоступности сообщает Uptime.
-        run: curl -s -o /dev/null -m 90 -w '%{http_code}\n' https://vethub-api.onrender.com/api/categories || true
+        # Через свой домен, а не onrender.com: адрес сервиса меняется при
+        # переезде (Франкфурт), домен — нет. Параметр делает каждый пинг
+        # промахом кэша на краю: запрос должен дойти до API и базы — Supabase
+        # на бесплатном тарифе усыпляет проект без активности.
+        run: curl -s -o /dev/null -m 90 -w '%{http_code}\n' "https://api.vethub.uz/api/categories?keepalive=$(date +%s)" || true
