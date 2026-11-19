@@ -18,6 +18,7 @@ import {
   VetPointsType,
 } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { syncOwnerOfferStock } from '../offers/product-aggregates';
 import { CreateOrderDto } from './dto/order.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PdfService } from '../documents/pdf.service';
@@ -422,6 +423,7 @@ export class OrdersService {
           });
           if (dec.count === 0) throw new BadRequestException(`Недостаточно на складе: «${p.name}»`);
           await tx.product.updateMany({ where: { id: it.productId, stockQty: 0 }, data: { inStock: false } });
+          await syncOwnerOfferStock(tx, it.productId);
           // Отмечаем, что остаток действительно списан: только такие позиции
           // возвращаются на склад при отмене. Без отметки отмена завышала бы
           // склад позициями «под заказ», которые его не трогали.
@@ -719,6 +721,7 @@ export class OrdersService {
       for (const it of items) {
         if (!it.stockTaken || !it.productId) continue;
         await tx.product.update({ where: { id: it.productId }, data: { stockQty: { increment: it.quantity }, inStock: true } });
+        await syncOwnerOfferStock(tx, it.productId);
       }
       await tx.invoice.deleteMany({ where: { orderId, sellerId } });
       await tx.shipment.deleteMany({ where: { orderId, sellerId } });

@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { VetPointsType } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { syncOwnerOfferStock } from '../offers/product-aggregates';
 import { creditToRelease, pointsToRefund, stockToReturn } from './release';
 
 // Возврат того, что заказ занял при создании.
@@ -79,6 +80,7 @@ export class OrderReleaseService {
               where: { id: line.productId },
               data: { stockQty: { increment: line.quantity }, inStock: true },
             });
+            await syncOwnerOfferStock(tx, line.productId);
           }
         }
       }

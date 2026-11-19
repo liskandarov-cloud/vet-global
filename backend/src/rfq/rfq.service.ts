@@ -2,6 +2,7 @@ import { BadRequestException, ForbiddenException, Injectable, NotFoundException 
 import { ConfigService } from '@nestjs/config';
 import { Prisma, RfqStatus, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { syncOwnerOfferStock } from '../offers/product-aggregates';
 import { CreateRfqDto, QuoteDto } from './dto/rfq.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { percentOf } from '../common/pricing';
@@ -320,6 +321,7 @@ export class RfqService {
       if (!taken.count) continue;
       await tx.orderItem.update({ where: { id: line.id }, data: { stockTaken: true } });
       await tx.product.updateMany({ where: { id: line.productId, stockQty: 0 }, data: { inStock: false } });
+      await syncOwnerOfferStock(tx, line.productId);
     }
 
     return order;
