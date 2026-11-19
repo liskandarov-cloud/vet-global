@@ -206,7 +206,7 @@ function AdminContent() {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="text-left text-ink-subtle">
-                <tr className="border-b border-slate-100"><th className="py-2">{tt('Поставщик', 'Yetkazib beruvchi')}</th><th>{tt('Заказов', 'Buyurtmalar')}</th><th>{tt('Оборот', 'Aylanma')}</th><th>{tt('Комиссия', 'Komissiya')}</th><th>{tt('К выплате', 'Toʻlovga')}</th></tr>
+                <tr className="border-b border-slate-100"><th className="py-2">{tt('Поставщик', 'Yetkazib beruvchi')}</th><th>{tt('Заказов', 'Buyurtmalar')}</th><th>{tt('Оборот', 'Aylanma')}</th><th>{tt('Комиссия', 'Komissiya')}</th><th>{tt('Доставка', 'Yetkazish')}</th><th title={tt('По доставленным заказам', 'Yetkazilgan buyurtmalar boʻyicha')}>{tt('К выплате', 'Toʻlovga')}</th><th title={tt('Не отменены, но ещё не доставлены — к выплате после доставки', 'Bekor qilinmagan, lekin hali yetkazilmagan')}>{tt('В работе', 'Jarayonda')}</th></tr>
               </thead>
               <tbody>
                 {(billing?.rows ?? []).map((r: any) => (
@@ -215,7 +215,9 @@ function AdminContent() {
                     <td>{r.orders}</td>
                     <td>{formatMoney(r.revenue)}</td>
                     <td className="text-secondary">{formatMoney(r.commission)}</td>
+                    <td>{formatMoney(r.delivery)}</td>
                     <td className="font-semibold">{formatMoney(r.payout)}</td>
+                    <td className="text-ink-subtle">{formatMoney(r.inProgress?.payout ?? 0)}</td>
                   </tr>
                 ))}
                 {billing?.totals && billing.rows.length > 0 && (
@@ -224,7 +226,9 @@ function AdminContent() {
                     <td></td>
                     <td>{formatMoney(billing.totals.revenue)}</td>
                     <td className="text-secondary">{formatMoney(billing.totals.commission)}</td>
+                    <td>{formatMoney(billing.totals.delivery)}</td>
                     <td className="text-teal-700">{formatMoney(billing.totals.payout)}</td>
+                    <td className="text-ink-subtle">{formatMoney(billing.totals.inProgress?.payout ?? 0)}</td>
                   </tr>
                 )}
               </tbody>

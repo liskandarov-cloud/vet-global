@@ -175,6 +175,18 @@ describe('VetHub API (e2e)', () => {
     }
   });
 
+  // «К выплате» — только доставленные заказы: новый заказ ещё могут отменить,
+  // и выплата по нему была бы переплатой. Он виден отдельно, «в работе».
+  it('новый заказ — «в работе», а не «к выплате»', async () => {
+    const before = (await req('/admin/billing', { token: admin })).body.totals;
+    const products = (await req('/products?limit=1')).body.products;
+    const o = await req('/orders', { method: 'POST', token: buyer, body: { items: [{ productId: products[0].id, quantity: products[0].offerMinOrder ?? 1 }] } });
+    expect(o.status).toBe(201);
+    const after = (await req('/admin/billing', { token: admin })).body.totals;
+    expect(after.payout).toBeCloseTo(before.payout, 2);
+    expect(after.inProgress.payout).toBeGreaterThan(before.inProgress.payout);
+  });
+
   it('exposes public promotions as an array', async () => {
     const r = await req('/promotions');
     expect(r.status).toBe(200);
