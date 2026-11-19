@@ -1,5 +1,8 @@
 import { sellerView } from './seller-view';
 
+// Вид продавца — либо заказ как есть, либо его часть; поля читаем у любой формы.
+const field = (v: object, k: string) => (v as Record<string, unknown>)[k];
+
 const order = {
   id: 'o-1',
   subtotal: 500,
@@ -32,12 +35,12 @@ describe('заказ глазами продавца', () => {
   it('суммы и комиссия — по своей части, сумма платежа скрыта', () => {
     const v = sellerView(order, 's-1');
     expect(v.subtotal).toBe(200);
-    expect(v.deliveryCost).toBe(20);
+    expect(field(v, 'deliveryCost')).toBe(20);
     expect(v.total).toBe(220);
     expect(v.commission).toBe(24); // 60 × 200 / 500
     expect(v.vetPointsUsed).toBe(0);
     expect(v.payments[0]).toEqual({ id: 'p-1', provider: 'PAYME', status: 'PAID', createdAt: 'x' });
-    expect(v.partial).toBe(true);
+    expect(field(v, 'partial')).toBe(true);
   });
 
   it('заказ одного продавца не меняется', () => {
@@ -48,7 +51,7 @@ describe('заказ глазами продавца', () => {
   it('статус — своей части, чужие части скрыты', () => {
     const withParts = { ...order, status: 'CONFIRMED', parts: [{ sellerId: 's-1', status: 'SHIPPED' }, { sellerId: 's-2', status: 'CONFIRMED' }] };
     const v = sellerView(withParts, 's-1');
-    expect(v.status).toBe('SHIPPED');
+    expect(field(v, 'status')).toBe('SHIPPED');
     expect(v.parts).toEqual([{ sellerId: 's-1', status: 'SHIPPED' }]);
   });
 
@@ -60,6 +63,6 @@ describe('заказ глазами продавца', () => {
     expect(v.items).toEqual([]);
     expect(v.invoices).toEqual([]);
     expect(v.total).toBe(0);
-    expect(v.status).toBe('CANCELLED');
+    expect(field(v, 'status')).toBe('CANCELLED');
   });
 });

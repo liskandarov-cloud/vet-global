@@ -396,14 +396,14 @@ export class OrdersService {
           deliveryCost,
           // Пустой расчёт — это «доставку не считали»: такой заказ ведёт себя
           // как прежние, где стоимость целиком приходит из отправок.
-          deliveryQuote: deliveryMethod == null ? undefined : (quoteBySeller as any),
+          deliveryQuote: deliveryMethod == null ? undefined : quoteBySeller,
           vetPointsEarned,
           commission,
           paymentTerm,
           netTermDays,
           dueDate,
           installments,
-          paymentSchedule: (paymentSchedule as any) ?? undefined,
+          paymentSchedule: paymentSchedule ?? undefined,
           orgId,
           approvalStatus,
           items: { create: items },
@@ -509,7 +509,7 @@ export class OrdersService {
   }
 
   async list(user: AuthUser, status?: OrderStatus) {
-    const where: any = {};
+    const where: Prisma.OrderWhereInput = {};
     if (user.role === UserRole.BUYER) {
       where.buyerId = user.id;
     } else if (user.role === UserRole.SELLER) {
@@ -551,7 +551,7 @@ export class OrdersService {
   }
 
   // Продавцу — только его часть заказа (см. seller-view.ts).
-  private forViewer(order: any, user: AuthUser) {
+  private forViewer<T extends SerializableOrder>(order: T, user: AuthUser) {
     const o = this.serialize(order);
     return user.role === UserRole.SELLER ? sellerView(o, user.id) : o;
   }
@@ -620,7 +620,12 @@ export class OrdersService {
 
   // Часть продавца в заказе нескольких поставщиков. Записи частей заводятся
   // при первом изменении — статусом заказа на этот момент.
-  private async updateSellerPart(order: any, sellers: string[], status: OrderStatus, user: AuthUser) {
+  private async updateSellerPart(
+    order: { id: string; status: OrderStatus },
+    sellers: string[],
+    status: OrderStatus,
+    user: AuthUser,
+  ) {
     await this.prisma.orderPart.createMany({
       data: sellers.map((sellerId) => ({ orderId: order.id, sellerId, status: order.status })),
       skipDuplicates: true,
@@ -941,21 +946,24 @@ export class OrdersService {
     return { buffer, number };
   }
 
-  private assertAccess(order: any, user: AuthUser) {
+  private assertAccess(
+    order: { buyerId?: string | null; items?: { sellerId: string }[]; parts?: { sellerId: string }[] },
+    user: AuthUser,
+  ) {
     if (user.role === UserRole.ADMIN) return;
     if (user.role === UserRole.BUYER && order.buyerId !== user.id) {
       throw new ForbiddenException('Not authorized');
     }
     if (
       user.role === UserRole.SELLER &&
-      !order.items?.some((it: any) => it.sellerId === user.id) &&
-      !order.parts?.some((p: any) => p.sellerId === user.id)
+      !order.items?.some((it) => it.sellerId === user.id) &&
+      !order.parts?.some((p) => p.sellerId === user.id)
     ) {
       throw new ForbiddenException('Not authorized');
     }
   }
 
-  private serialize(o: any) {
+  private serialize<T extends SerializableOrder>(o: T) {
     return {
       ...o,
       subtotal: Number(o.subtotal),
@@ -964,9 +972,20 @@ export class OrdersService {
       commission: Number(o.commission),
       vetPointsUsed: Number(o.vetPointsUsed),
       vetPointsEarned: Number(o.vetPointsEarned),
-      items: o.items?.map((it: any) => ({ ...it, price: Number(it.price) })),
+      items: o.items?.map((it) => ({ ...it, price: Number(it.price) })),
     };
   }
+}
+
+// Денежные поля заказа приходят из Prisma как Decimal; serialize делает из них числа.
+interface SerializableOrder {
+  subtotal: unknown;
+  total: unknown;
+  deliveryCost?: unknown;
+  commission: unknown;
+  vetPointsUsed: unknown;
+  vetPointsEarned: unknown;
+  items?: ({ sellerId: string; price: unknown; quantity: unknown })[];
 }
 
 const ORDER_STATUS_RU: Record<string, string> = {

@@ -42,7 +42,7 @@ export class OrdersController {
   @UseGuards(JwtAuthGuard)
   async export(@CurrentUser() user: AuthUser, @Res() res: Response) {
     const orders = await this.orders.list(user);
-    const rows = orders.map((o: any) => ({
+    const rows = orders.map((o) => ({
       id: o.id.slice(0, 8),
       date: new Date(o.createdAt).toLocaleDateString('ru-RU'),
       buyer: o.buyerName,

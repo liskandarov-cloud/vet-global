@@ -285,6 +285,24 @@ describe('VetHub integrations (e2e)', () => {
     expect(wrongAmt.body.error.code).toBe(-31001);
   });
 
+  // Объект вместо строки Prisma читала как фильтр: { not: null } находил первый
+  // же платёж, и PerformTransaction провёл бы его как оплаченный. Пропущенный
+  // id давал where без условия — то же самое.
+  (PAYME_KEY ? it : it.skip)('payme: id только строкой — фильтр Prisma не проходит', async () => {
+    const auth = { Authorization: 'Basic ' + Buffer.from(`Paycom:${PAYME_KEY}`).toString('base64') };
+    for (const params of [{ id: { not: null } }, {}, { id: ['x'] }]) {
+      for (const method of ['PerformTransaction', 'CheckTransaction', 'CancelTransaction']) {
+        const r = await req('/payments/payme', { headers: auth, body: { id: 1, method, params: { ...params, reason: 1 } } });
+        expect(r.body.error?.code).toBe(-32600);
+      }
+    }
+    const byOrder = await req('/payments/payme', {
+      headers: auth,
+      body: { id: 1, method: 'CheckPerformTransaction', params: { amount: 100, account: { order_id: { contains: '' } } } },
+    });
+    expect(byOrder.body.error?.code).toBe(-32600);
+  });
+
   // Оплата запрещена там, где она не имеет смысла. Проверки стояли только на
   // кнопке в кабинете, а провайдеры попадают в систему минуя её: через Payme
   // можно было оплатить отменённый заказ, а по уже оплаченному — провести

@@ -53,7 +53,7 @@ export class PaymentsController {
 
   // ── Payme Merchant API (JSON-RPC, public; Basic auth Paycom:KEY) ──
   @Post('payme')
-  async paymeWebhook(@Headers('authorization') auth: string, @Body() body: any) {
+  async paymeWebhook(@Headers('authorization') auth: string, @Body() body: { id?: unknown; method?: unknown; params?: unknown } | undefined) {
     const id = body?.id ?? null;
     if (!this.payme.checkAuth(auth)) {
       return { jsonrpc: '2.0', id, error: { code: -32504, message: 'Insufficient privileges' } };
@@ -71,12 +71,12 @@ export class PaymentsController {
 
   // ── Click Shop API (public; md5 signature) ──
   @Post('click/prepare')
-  clickPrepare(@Body() body: any) {
+  clickPrepare(@Body() body: Record<string, unknown>) {
     return this.click.prepare(body);
   }
 
   @Post('click/complete')
-  clickComplete(@Body() body: any) {
+  clickComplete(@Body() body: Record<string, unknown>) {
     return this.click.complete(body);
   }
 }
