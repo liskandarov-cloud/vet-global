@@ -9,6 +9,9 @@ api.interceptors.request.use((config) => {
   if (typeof window !== 'undefined') {
     const token = localStorage.getItem('vg_token');
     if (token) config.headers.Authorization = `Bearer ${token}`;
+    // Язык сайта — серверу: ошибки (нет в наличии, минимальный заказ…) он
+    // вернёт на нём. Accept-Language безопасен для CORS — без лишнего preflight.
+    config.headers['Accept-Language'] = localStorage.getItem('vg_lang') === 'uz' ? 'uz' : 'ru';
   }
   return config;
 });

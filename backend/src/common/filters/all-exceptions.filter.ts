@@ -7,6 +7,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
+import { localizeErrorBody, wantsUz } from '../i18n/uz-messages';
 
 // Глобальный обработчик ошибок.
 //
@@ -42,7 +43,9 @@ export class AllExceptionsFilter implements ExceptionFilter {
     // Клиентские ошибки (4xx) — это обычная валидация/доступ, не инцидент:
     // отвечаем и уходим, канал оповещений не трогаем.
     if (status < HttpStatus.INTERNAL_SERVER_ERROR) {
-      res.status(status).json(body);
+      // Сообщение — на языке сайта: покупатель в узбекском интерфейсе должен
+      // понять, почему не прошёл заказ (common/i18n/uz-messages.ts).
+      res.status(status).json(wantsUz(req.headers['accept-language']) ? localizeErrorBody(body) : body);
       return;
     }
 
