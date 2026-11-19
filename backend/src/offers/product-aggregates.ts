@@ -50,6 +50,25 @@ export async function syncOwnerOfferStock(db: Prisma.TransactionClient, productI
   });
 }
 
+// Обратное направление: владелец правит своё предложение в панели — карточка
+// повторяет цену, минимальный заказ и остаток. Заказ ограничивает и списывает
+// остаток карточки, а кабинет показывает её цену: без этого склад, заданный в
+// предложении, заказ не видел, а продавец видел в таблице прежнюю цену.
+export async function syncProductFromOwnerOffer(
+  db: Prisma.TransactionClient,
+  offer: { productId: string; sellerId: string; price: Prisma.Decimal; minOrder: number; inStock: boolean; stockQty: number | null },
+) {
+  await db.product.updateMany({
+    where: { id: offer.productId, sellerId: offer.sellerId },
+    data: {
+      price: offer.price,
+      minOrder: offer.minOrder,
+      inStock: offer.inStock,
+      ...(offer.stockQty != null ? { stockQty: offer.stockQty } : {}),
+    },
+  });
+}
+
 // Статус продавца поменялся: пересчитать все товары, где у него есть предложения.
 export async function recalcSellerProducts(prisma: PrismaClient, sellerId: string) {
   const rows = await prisma.offer.findMany({

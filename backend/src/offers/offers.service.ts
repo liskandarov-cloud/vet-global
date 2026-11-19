@@ -6,7 +6,7 @@ import { CreateOfferDto, UpdateOfferDto } from './dto/offer.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { serializeOffer } from '../common/pricing';
 import { publicOffer } from '../common/visibility';
-import { recalcProductAggregates } from './product-aggregates';
+import { recalcProductAggregates, syncProductFromOwnerOffer } from './product-aggregates';
 import { StorageService } from '../storage/storage.service';
 import { offerDocsChanged } from '../common/reverify';
 
@@ -82,6 +82,7 @@ export class OffersService {
       update: data as Prisma.OfferUncheckedUpdateInput,
     });
 
+    await syncProductFromOwnerOffer(this.prisma, offer);
     await this.recalcProduct(dto.productId);
     return serializeOffer(offer);
   }
@@ -100,6 +101,7 @@ export class OffersService {
       where: { id },
       data: data as Prisma.OfferUncheckedUpdateInput,
     });
+    await syncProductFromOwnerOffer(this.prisma, updated);
     await this.recalcProduct(offer.productId);
     return serializeOffer(updated);
   }

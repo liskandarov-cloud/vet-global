@@ -62,13 +62,23 @@ describe('цена из кабинета', () => {
     expect(Number(own?.price)).toBe(1200);
   });
 
-  // Цену можно задать и в самом предложении; сохранение карточки с прежней
-  // ценой (переключатель «снять с продажи») не должно её затирать.
-  it('сохранение без смены цены не трогает предложение', async () => {
+  // Цену можно задать и в самом предложении: карточка её повторяет, и
+  // переключатель «снять с продажи», присылающий цену карточки, её не трогает.
+  it('правка предложения видна в карточке, переключатель её не затирает', async () => {
     expect((await req(`/offers/${offerId}`, { method: 'PUT', token: seller, body: { price: 1100 } })).status).toBe(200);
-    expect((await save(1200, false)).status).toBe(200);
-    expect((await save(1200, true)).status).toBe(200);
+    expect(Number((await shown()).price)).toBe(1100);
+    expect((await save(1100, false)).status).toBe(200);
+    expect((await save(1100, true)).status).toBe(200);
     expect(Number((await shown()).minPrice)).toBe(1100);
+  });
+
+  // Склад, заданный в предложении, ограничивает заказ: заказ считает остаток карточки.
+  it('остаток из панели предложений ограничивает заказ', async () => {
+    expect((await req(`/offers/${offerId}`, { method: 'PUT', token: seller, body: { stockQty: 3, inStock: true } })).status).toBe(200);
+    const buyer = await login('buyer@vetglobal.com', 'buyer123');
+    const r = await req('/orders', { method: 'POST', token: buyer, body: { items: [{ productId, quantity: 4 }] } });
+    expect(r.status).toBe(400);
+    expect(String(r.body.message)).toContain('3');
   });
 });
 
@@ -118,5 +128,34 @@ describe('наличие из кабинета и после заказа', () =
     // Любая правка предложения пересчитывает агрегаты карточки.
     expect((await req(`/offers/${offerId}`, { method: 'PUT', token: seller, body: { minOrder: 1 } })).status).toBe(200);
     expect(await inStock()).toBe(false);
+  });
+});
+
+// Минимальный заказ из кабинета: витрина и заказ берут его из предложения,
+// и минимум, заданный в кабинете, раньше не действовал вовсе.
+describe('минимальный заказ из кабинета', () => {
+  const stamp = Date.now();
+  let seller: string;
+  let buyer: string;
+  let productId: string;
+  let card: { name: string; description: string; categoryId: string };
+
+  beforeAll(async () => {
+    seller = await login('seller@vetglobal.com', 'seller123');
+    buyer = await login('buyer@vetglobal.com', 'buyer123');
+    const categoryId = (await req('/categories')).body[0].id;
+    card = { name: `MinOrder probe ${stamp}`, description: 'e2e', categoryId };
+    productId = (await req('/products', { method: 'POST', token: seller, body: { ...card, price: 1000 } })).body.id;
+    await req('/offers', { method: 'POST', token: seller, body: { productId, price: 1000, inStock: true } });
+  });
+
+  it('минимум из кабинета — на витрине и в заказе', async () => {
+    const r = await req(`/products/${productId}`, { method: 'PUT', token: seller, body: { ...card, price: 1000, minOrder: 5 } });
+    expect(r.status).toBe(200);
+    expect((await req(`/products/${productId}`)).body.offerMinOrder).toBe(5);
+    const order = (quantity: number) =>
+      req('/orders', { method: 'POST', token: buyer, body: { items: [{ productId, quantity }] } });
+    expect((await order(1)).status).toBe(400);
+    expect((await order(5)).status).toBe(201);
   });
 });

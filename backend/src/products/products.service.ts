@@ -224,17 +224,23 @@ export class ProductsService {
     // Только при настоящей смене: переключатель «снять с продажи» присылает
     // цену как есть и не должен затирать цену, заданную в самом предложении.
     const priceChanged = typeof dto.price === 'number' && dto.price !== Number(existing.price);
-    if (priceChanged) {
+    // Минимальный заказ — так же: витрина («Мин. заказ») и заказ берут его из
+    // предложения, и минимум, заданный в кабинете, раньше не действовал.
+    const minOrderChanged = typeof dto.minOrder === 'number' && dto.minOrder !== existing.minOrder;
+    if (priceChanged || minOrderChanged) {
       await this.prisma.offer.updateMany({
         where: { productId: id, sellerId: existing.sellerId },
-        data: { price: dto.price },
+        data: {
+          ...(priceChanged ? { price: dto.price } : {}),
+          ...(minOrderChanged ? { minOrder: dto.minOrder } : {}),
+        },
       });
     }
     // Остаток и «в наличии» — так же: иначе пересчёт ниже вернул бы товару с
     // нулевым остатком «в наличии» (см. syncOwnerOfferStock).
     const stockChanged = product.inStock !== existing.inStock || product.stockQty !== existing.stockQty;
     if (stockChanged) await syncOwnerOfferStock(this.prisma, id);
-    if (priceChanged || stockChanged) {
+    if (priceChanged || minOrderChanged || stockChanged) {
       await recalcProductAggregates(this.prisma, id);
       product = await this.prisma.product.findUniqueOrThrow({ where: { id } });
     }
