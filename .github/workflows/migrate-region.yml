@@ -1,0 +1,253 @@
+# Переезд API и базы из Орегона во Франкфурт (решение владельца 19.11.2026).
+#
+# Покупатели — в Узбекистане, а API и база стояли в Орегоне: каждый запрос
+# кабинета, корзины и заказа ехал через океан. Кэш на краю ускорил только
+# анонимный каталог.
+#
+# Стадии (запускать по очереди, вручную):
+#   prepare  — без простоя: копия базы в новый проект Supabase (секрет
+#              NEW_DATABASE_URL), новый сервис vethub-api-fra во Франкфурте с
+#              теми же переменными, проверка. Можно повторять.
+#   cutover  — простой 3–5 минут: проверки до точки невозврата, затем старый
+#              сервис усыпляется (чтобы не потерять записи), финальная копия,
+#              перезапуск нового, перенос домена api.vethub.uz и DNS.
+#   rollback — вернуть старый сервис, домен и DNS. Записи, сделанные после
+#              cutover, останутся только в новой базе.
+#
+# Значения переменных и строк подключения не выводятся.
+
+name: Migrate to Frankfurt
+
+on:
+  workflow_dispatch:
+    inputs:
+      stage:
+        description: prepare — копия и новый сервис без простоя; cutover — переключение; rollback — откат
+        type: choice
+        options: [prepare, cutover, rollback]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: migrate-region
+  cancel-in-progress: false
+
+jobs:
+  migrate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      STAGE: ${{ inputs.stage }}
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      OLD_DB: ${{ secrets.PROD_DATABASE_URL }}
+      NEW_DB: ${{ secrets.NEW_DATABASE_URL }}
+      OLD_SVC: srv-dbe9iflg1s2s73es8lh0
+      OLD_HOST: vethub-api.onrender.com
+      OWNER: tea-dbe9688ae00c73cc1gjg
+      NEW_NAME: vethub-api-fra
+      DOMAIN: api.vethub.uz
+      ZONE: vethub.uz
+      API: https://api.render.com/v1
+      CF: https://api.cloudflare.com/client/v4
+    steps:
+      - name: Секреты
+        run: |
+          set -euo pipefail
+          echo "::add-mask::$OLD_DB"; echo "::add-mask::$NEW_DB"
+          test -n "$RENDER_API_KEY" || { echo "::error::нет RENDER_API_KEY"; exit 1; }
+          if [ "$STAGE" != rollback ]; then
+            test -n "$OLD_DB" || { echo "::error::нет PROD_DATABASE_URL"; exit 1; }
+            test -n "$NEW_DB" || { echo "::error::нет NEW_DATABASE_URL — строка session-пулера нового проекта"; exit 1; }
+            printf '%s' "$NEW_DB" | grep -q 'pooler\.supabase\.com:5432/' \
+              || { echo "::error::NEW_DATABASE_URL: нужен session-пулер Supabase, порт 5432"; exit 1; }
+            printf '%s' "$NEW_DB" | grep -q 'eu-central-1' \
+              || { echo "::error::NEW_DATABASE_URL не во Франкфурте (eu-central-1)"; exit 1; }
+            printf '%s' "$NEW_DB" | grep -q 'YOUR-PASSWORD' \
+              && { echo "::error::в NEW_DATABASE_URL остался [YOUR-PASSWORD]"; exit 1; }
+            [ "$OLD_DB" != "$NEW_DB" ] || { echo "::error::старая и новая база совпадают"; exit 1; }
+          fi
+          if [ "$STAGE" != prepare ]; then
+            test -n "$CF_TOKEN" || { echo "::error::нет CLOUDFLARE_API_TOKEN"; exit 1; }
+          fi
+          echo "секреты на месте"
+
+      - name: Клиент PostgreSQL
+        if: env.STAGE != 'rollback'
+        run: |
+          set -euo pipefail
+          sudo sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt $(lsb_release -cs)-pgdg main" > /etc/apt/sources.list.d/pgdg.list'
+          curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg --dearmor -o /etc/apt/trusted.gpg.d/pgdg.gpg
+          sudo apt-get update -qq
+          # pg_dump должен быть не старше обоих серверов.
+          A=$(psql "$OLD_DB" -tAc 'SHOW server_version' | cut -d. -f1 | tr -d '[:space:]')
+          B=$(psql "$NEW_DB" -tAc 'SHOW server_version' | cut -d. -f1 | tr -d '[:space:]')
+          M=$(( A > B ? A : B ))
+          echo "серверы: старый $A, новый $B; клиент $M"
+          sudo apt-get install -y -qq "postgresql-client-$M"
+          echo "/usr/lib/postgresql/$M/bin" >> "$GITHUB_PATH"
+
+      # Общие функции: Render, Cloudflare, ожидание.
+      - name: Инструменты
+        run: |
+          cat > "$RUNNER_TEMP/lib.sh" <<'LIB'
+          set -euo pipefail
+          R=(-H "Authorization: Bearer $RENDER_API_KEY" -H 'Content-Type: application/json')
+          new_id() { curl -fsS "$API/services?name=$NEW_NAME&ownerId=$OWNER&limit=1" "${R[@]}" | jq -r '.[0].service.id // empty'; }
+          svc_host() { curl -fsS "$API/services/$1" "${R[@]}" | jq -r '.serviceDetails.url' | sed 's#^https://##'; }
+          wait_live() {
+            for i in $(seq 1 100); do
+              st=$(curl -fsS "$API/services/$1/deploys?limit=1" "${R[@]}" | jq -r '.[0].deploy.status')
+              case "$st" in live) echo "выкатка: live"; return 0 ;; *failed|canceled|deactivated) echo "::error::выкатка: $st"; return 1 ;; esac
+              sleep 15
+            done
+            echo "::error::выкатка не дошла до live"; return 1
+          }
+          wait_200() {
+            for i in $(seq 1 40); do
+              c=$(curl -s -o /dev/null -m 30 -w '%{http_code}' "$1") || c=000
+              [ "$c" = 200 ] && { echo "$1 -> 200"; return 0; }
+              sleep 15
+            done
+            echo "::error::$1 не ответил 200"; return 1
+          }
+          C=(-H "Authorization: Bearer $CF_TOKEN" -H 'Content-Type: application/json')
+          cf_zone() { curl -fsS "$CF/zones?name=$ZONE" "${C[@]}" | jq -r '.result[0].id // empty'; }
+          cf_record() { curl -fsS "$CF/zones/$1/dns_records?name=$DOMAIN" "${C[@]}" | jq -c '.result[0] // empty'; }
+          cf_point() {
+            curl -fsS -X PATCH "$CF/zones/$1/dns_records/$2" "${C[@]}" -d "$(jq -n --arg c "$3" '{type:"CNAME", content:$c, proxied:true}')" \
+              | jq -e '.success' >/dev/null
+          }
+          move_domain() {
+            curl -s -o /dev/null -X DELETE "$API/services/$1/custom-domains/$DOMAIN" "${R[@]}" || true
+            code=$(curl -s -o resp.json -w '%{http_code}' -X POST "$API/services/$2/custom-domains" "${R[@]}" -d "{\"name\":\"$DOMAIN\"}")
+            case "$code" in 200|201|409) ;; *) echo "::error::домен: Render ответил $code"; jq -r '.message? // .' resp.json; return 1 ;; esac
+            curl -s -o /dev/null -X POST "$API/services/$2/custom-domains/$DOMAIN/verify" "${R[@]}" || true
+            echo "домен $DOMAIN перенесён"
+          }
+          # Строки ключевых таблиц: копия обязана совпасть с источником.
+          compare() {
+            for t in User Category Product Offer Order OrderItem Payment StoredFile _prisma_migrations; do
+              a=$(psql "$OLD_DB" -tAc "select count(*) from \"$t\"")
+              b=$(psql "$NEW_DB" -tAc "select count(*) from \"$t\"")
+              echo "$t: старая $a, новая $b"
+              [ "$a" = "$b" ] || { echo "::error::$t не совпадает — повторите стадию"; return 1; }
+            done
+          }
+          LIB
+          echo "готово"
+
+      # ── prepare и cutover: копия базы ────────────────────────────────────
+      - name: Проверки до точки невозврата
+        if: env.STAGE == 'cutover'
+        run: |
+          source "$RUNNER_TEMP/lib.sh"
+          id=$(new_id); test -n "$id" || { echo "::error::нового сервиса нет — сначала prepare"; exit 1; }
+          host=$(svc_host "$id")
+          wait_200 "https://$host/api/health"
+          zone=$(cf_zone); test -n "$zone" || { echo "::error::токен Cloudflare не видит зону $ZONE"; exit 1; }
+          rec=$(cf_record "$zone"); test -n "$rec" || { echo "::error::нет DNS-записи $DOMAIN"; exit 1; }
+          # Пустая правка той же записью: проверяет право на изменение DNS,
+          # пока прод ещё работает.
+          cf_point "$zone" "$(jq -r .id <<<"$rec")" "$(jq -r .content <<<"$rec")" \
+            || { echo "::error::токен Cloudflare не может менять DNS"; exit 1; }
+          echo "новый сервис отвечает, DNS править можно"
+
+      - name: Усыпить старый сервис
+        if: env.STAGE == 'cutover'
+        run: |
+          source "$RUNNER_TEMP/lib.sh"
+          curl -fsS -X POST "$API/services/$OLD_SVC/suspend" "${R[@]}" -o /dev/null
+          echo "старый сервис усыплён — дальше простой до переключения DNS"
+          sleep 20
+
+      - name: Копия базы
+        if: env.STAGE != 'rollback'
+        run: |
+          source "$RUNNER_TEMP/lib.sh"
+          pg_dump "$OLD_DB" --schema=public --no-owner --no-acl --format=custom --file=db.dump
+          # Схема public в новой базе уже есть: запись о её создании убираем,
+          # остальное восстанавливаем с очисткой — стадию можно повторять.
+          pg_restore --list db.dump | grep -vE ' SCHEMA - public | COMMENT - SCHEMA public ' > toc.txt
+          pg_restore --clean --if-exists --no-owner --no-acl --exit-on-error -L toc.txt -d "$NEW_DB" db.dump
+          rm -f db.dump toc.txt
+          compare
+
+      # ── prepare: новый сервис ──────────────────────────────────────────────
+      - name: Новый сервис во Франкфурте
+        if: env.STAGE == 'prepare'
+        run: |
+          source "$RUNNER_TEMP/lib.sh"
+          # Переменные — как у старого сервиса (JWT_SECRET тот же: вход
+          # пользователей не слетит), кроме строки подключения.
+          curl -fsS "$API/services/$OLD_SVC/env-vars?limit=100" "${R[@]}" \
+            | jq --arg db "$NEW_DB" '[.[].envVar | {key, value} | if .key == "DATABASE_URL" then .value = $db else . end]' > "$RUNNER_TEMP/vars.json"
+          jq -e 'map(.key) | index("DATABASE_URL") and index("JWT_SECRET")' "$RUNNER_TEMP/vars.json" >/dev/null \
+            || { echo "::error::у старого сервиса не нашлись DATABASE_URL и JWT_SECRET"; exit 1; }
+          echo "переменных: $(jq length "$RUNNER_TEMP/vars.json")"
+          id=$(new_id)
+          if [ -z "$id" ]; then
+            body=$(jq -n --slurpfile vars "$RUNNER_TEMP/vars.json" --arg owner "$OWNER" --arg name "$NEW_NAME" '{
+              type:"web_service", name:$name, ownerId:$owner,
+              repo:"https://github.com/liskandarov-cloud/vet-global", branch:"main", autoDeploy:"yes",
+              envVars: $vars[0],
+              serviceDetails:{runtime:"docker", plan:"free", region:"frankfurt", healthCheckPath:"/api/health",
+                envSpecificDetails:{dockerfilePath:"./Dockerfile", dockerContext:"."}}}')
+            code=$(printf '%s' "$body" | curl -s -o resp.json -w '%{http_code}' -X POST "$API/services" "${R[@]}" --data @-)
+            test "$code" = 201 || { echo "::error::Render ответил $code"; jq -r '.message? // .' resp.json; exit 1; }
+            id=$(jq -r '.service.id' resp.json); rm -f resp.json
+            echo "сервис создан: $id"
+          else
+            jq -c '.[]' "$RUNNER_TEMP/vars.json" | while read -r v; do
+              k=$(jq -r .key <<<"$v")
+              jq '{value}' <<<"$v" | curl -fsS -X PUT "$API/services/$id/env-vars/$k" "${R[@]}" --data @- -o /dev/null
+            done
+            curl -fsS -X POST "$API/services/$id/deploys" "${R[@]}" -d '{"clearCache":"do_not_clear"}' -o /dev/null
+            echo "сервис обновлён: $id"
+          fi
+          rm -f "$RUNNER_TEMP/vars.json"
+          wait_live "$id"
+          host=$(svc_host "$id")
+          wait_200 "https://$host/api/health"
+          echo "новый сервис: https://$host — $(curl -s "https://$host/api/health" | jq -c '{commit}')"
+          n_old=$(curl -s -m 60 "https://$OLD_HOST/api/products?limit=1" | jq -r .total)
+          n_new=$(curl -s -m 60 "https://$host/api/products?limit=1" | jq -r .total)
+          echo "товаров на витрине: старый $n_old, новый $n_new"
+          [ "$n_old" = "$n_new" ] || { echo "::error::витрины расходятся"; exit 1; }
+
+      # ── cutover: переключение ─────────────────────────────────────────────
+      - name: Переключение
+        if: env.STAGE == 'cutover'
+        run: |
+          source "$RUNNER_TEMP/lib.sh"
+          id=$(new_id); host=$(svc_host "$id")
+          # Перезапуск: приложение не должно держать соединения и кэш от
+          # копии, которую только что заменили.
+          curl -fsS -X POST "$API/services/$id/restart" "${R[@]}" -o /dev/null
+          sleep 20
+          wait_200 "https://$host/api/health"
+          move_domain "$OLD_SVC" "$id"
+          zone=$(cf_zone); rec=$(cf_record "$zone")
+          cf_point "$zone" "$(jq -r .id <<<"$rec")" "$host"
+          echo "DNS: $DOMAIN -> $host"
+          wait_200 "https://$DOMAIN/api/health"
+          echo "переключено: $(curl -s "https://$DOMAIN/api/health" | jq -c '{commit}')"
+
+      - name: Если переключение сорвалось
+        if: failure() && env.STAGE == 'cutover'
+        run: echo "::error::Переключение не завершилось. Старый сервис, возможно, усыплён — запустите стадию rollback."
+
+      # ── rollback ───────────────────────────────────────────────────────────
+      - name: Откат
+        if: env.STAGE == 'rollback'
+        run: |
+          source "$RUNNER_TEMP/lib.sh"
+          curl -fsS -X POST "$API/services/$OLD_SVC/resume" "${R[@]}" -o /dev/null || true
+          id=$(new_id)
+          [ -n "$id" ] && move_domain "$id" "$OLD_SVC"
+          zone=$(cf_zone); rec=$(cf_record "$zone")
+          cf_point "$zone" "$(jq -r .id <<<"$rec")" "$OLD_HOST"
+          echo "DNS: $DOMAIN -> $OLD_HOST"
+          wait_200 "https://$DOMAIN/api/health"
+          echo "откат завершён"
