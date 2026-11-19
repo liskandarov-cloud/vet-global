@@ -2,6 +2,7 @@ import { ForbiddenException, Injectable, Logger, NotFoundException } from '@nest
 import { searchVariants } from './search-variants';
 import { Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { recalcProductAggregates } from '../offers/product-aggregates';
 import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/product.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { serializeOffer } from '../common/pricing';
@@ -214,8 +215,24 @@ export class ProductsService {
     const data: any = { ...dto };
     // Числовой остаток задаёт наличие: 0 → «под заказ», >0 → в наличии.
     if (typeof dto.stockQty === 'number') data.inStock = dto.stockQty > 0;
-    const product = await this.prisma.product.update({ where: { id }, data });
+    let product = await this.prisma.product.update({ where: { id }, data });
     await this.upsertBrand(product.manufacturer);
+
+    // Цена в кабинете — это цена своего предложения: по нему считаются витрина
+    // («от …») и заказ. Раньше менялась только карточка: продавец видел новую
+    // цену, а покупатель — и платил — прежнюю (так было с «БиоЭквин ФТ»).
+    // Только при настоящей смене: переключатель «снять с продажи» присылает
+    // цену как есть и не должен затирать цену, заданную в самом предложении.
+    if (typeof dto.price === 'number' && dto.price !== Number(existing.price)) {
+      const moved = await this.prisma.offer.updateMany({
+        where: { productId: id, sellerId: existing.sellerId },
+        data: { price: dto.price },
+      });
+      if (moved.count) {
+        await recalcProductAggregates(this.prisma, id);
+        product = await this.prisma.product.findUniqueOrThrow({ where: { id } });
+      }
+    }
 
     // «Сообщить о поступлении»: если товар стал доступен к заказу (был «под заказ»
     // или снят с продажи, а теперь в наличии и в каталоге) — оповещаем подписчиков.
