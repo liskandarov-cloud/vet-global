@@ -1340,12 +1340,16 @@ describe('VetHub integrations (e2e)', () => {
     })).body;
     expect(order.deliveryCost).toBe(45000);
 
+    // Заказ ещё не доставлен — он «в работе», а не «к выплате».
     const after = await row();
-    expect(after.delivery - before.delivery).toBeCloseTo(45000, 2);
+    expect(after.payout).toBeCloseTo(before.payout, 2);
+    const a = after.inProgress;
+    const b = before.inProgress;
+    expect(a.delivery - b.delivery).toBeCloseTo(45000, 2);
     // Комиссия выросла только на процент от товаров.
-    const goods = after.revenue - before.revenue;
-    expect(after.commission - before.commission).toBeCloseTo(goods * 0.12, 2);
-    expect(after.payout - before.payout).toBeCloseTo(goods * 0.88 + 45000, 2);
+    const goods = a.revenue - b.revenue;
+    expect(a.commission - b.commission).toBeCloseTo(goods * 0.12, 2);
+    expect(a.payout - b.payout).toBeCloseTo(goods * 0.88 + 45000, 2);
   });
 
   // Счёт-фактура — документ налогового учёта: строки обязаны сходиться с
@@ -1462,8 +1466,11 @@ describe('VetHub integrations (e2e)', () => {
   it('комиссия в отчёте по выплатам совпадает с общей статистикой', async () => {
     const stats = (await req('/admin/stats', { token: admin })).body;
     const billing = (await req('/admin/billing', { token: admin })).body;
-    expect(billing.totals.commission).toBeCloseTo(stats.commission, 2);
-    expect(billing.totals.revenue).toBeCloseTo(stats.gmv, 2);
+    // Статистика — все неотменённые заказы; отчёт делит их на доставленные
+    // («к выплате») и остальные («в работе»), вместе — то же самое.
+    const t = billing.totals;
+    expect(t.commission + t.inProgress.commission).toBeCloseTo(stats.commission, 2);
+    expect(t.revenue + t.inProgress.revenue).toBeCloseTo(stats.gmv, 2);
     // Выплата включает доставку: деньги за неё берутся с покупателя, а
     // организует её продавец. Комиссией доставка не облагается — платформа
     // берёт процент со своей сделки, а не с работы перевозчика.
@@ -1471,9 +1478,7 @@ describe('VetHub integrations (e2e)', () => {
       billing.totals.revenue - billing.totals.commission + billing.totals.delivery,
       2,
     );
-    // Выручка отчёта — только товары, как и GMV: иначе комиссия считалась бы от
-    // суммы, часть которой продавцу не принадлежит.
-    expect(billing.totals.revenue).toBeCloseTo(stats.gmv, 2);
+    expect(t.inProgress.payout).toBeCloseTo(t.inProgress.revenue - t.inProgress.commission + t.inProgress.delivery, 2);
   });
 
   // Доставку считают в корзине, до оформления заказа, и эта цифра должна

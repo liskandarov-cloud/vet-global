@@ -2,7 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { OrderStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { sellerBilling } from './billing';
+import { SellerBilling, sellerBilling } from './billing';
 import { round2 } from '../common/pricing';
 
 // Отменённый заказ не выручка. Фильтр один для всех отчётов: раньше его не было
@@ -130,22 +130,23 @@ export class AnalyticsService {
           sellerId: id,
           company: sellers.find((s) => s.id === id)?.company ?? '—',
           ...c,
-          inProgressOrders: p.orders,
-          inProgress: p.payout,
+          // Та же разбивка по заказам, которые ещё не доставлены.
+          inProgress: p,
         };
       })
-      .sort((a, b) => b.revenue - a.revenue || b.inProgress - a.inProgress);
+      .sort((a, b) => b.revenue - a.revenue || b.inProgress.payout - a.inProgress.payout);
 
-    const totals = rows.reduce(
-      (t, r) => ({
-        revenue: round2(t.revenue + r.revenue),
-        commission: round2(t.commission + r.commission),
-        delivery: round2(t.delivery + r.delivery),
-        payout: round2(t.payout + r.payout),
-        inProgress: round2(t.inProgress + r.inProgress),
-      }),
-      { revenue: 0, commission: 0, delivery: 0, payout: 0, inProgress: 0 },
-    );
+    const sum = (list: Omit<SellerBilling, 'orders'>[]) =>
+      list.reduce(
+        (t, r) => ({
+          revenue: round2(t.revenue + r.revenue),
+          commission: round2(t.commission + r.commission),
+          delivery: round2(t.delivery + r.delivery),
+          payout: round2(t.payout + r.payout),
+        }),
+        { revenue: 0, commission: 0, delivery: 0, payout: 0 },
+      );
+    const totals = { ...sum(rows), inProgress: sum(rows.map((r) => r.inProgress)) };
 
     return { commissionPercent: this.commissionPct, rows, totals };
   }

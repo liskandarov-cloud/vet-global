@@ -217,7 +217,7 @@ function AdminContent() {
                     <td className="text-secondary">{formatMoney(r.commission)}</td>
                     <td>{formatMoney(r.delivery)}</td>
                     <td className="font-semibold">{formatMoney(r.payout)}</td>
-                    <td className="text-ink-subtle">{formatMoney(r.inProgress)}</td>
+                    <td className="text-ink-subtle">{formatMoney(r.inProgress?.payout ?? 0)}</td>
                   </tr>
                 ))}
                 {billing?.totals && billing.rows.length > 0 && (
@@ -228,7 +228,7 @@ function AdminContent() {
                     <td className="text-secondary">{formatMoney(billing.totals.commission)}</td>
                     <td>{formatMoney(billing.totals.delivery)}</td>
                     <td className="text-teal-700">{formatMoney(billing.totals.payout)}</td>
-                    <td className="text-ink-subtle">{formatMoney(billing.totals.inProgress)}</td>
+                    <td className="text-ink-subtle">{formatMoney(billing.totals.inProgress?.payout ?? 0)}</td>
                   </tr>
                 )}
               </tbody>

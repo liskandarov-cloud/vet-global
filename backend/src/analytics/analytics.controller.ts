@@ -46,9 +46,9 @@ export class AnalyticsController {
         { header: 'Доставка', key: 'delivery', width: 14 },
         { header: 'К выплате', key: 'payout', width: 16 },
         { header: 'В работе, заказов', key: 'inProgressOrders', width: 12 },
-        { header: 'В работе, к выплате', key: 'inProgress', width: 18 },
+        { header: 'В работе, к выплате', key: 'inProgressPayout', width: 18 },
       ],
-      rows,
+      rows.map((r) => ({ ...r, inProgressOrders: r.inProgress.orders, inProgressPayout: r.inProgress.payout })),
     );
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

@@ -184,7 +184,7 @@ describe('VetHub API (e2e)', () => {
     expect(o.status).toBe(201);
     const after = (await req('/admin/billing', { token: admin })).body.totals;
     expect(after.payout).toBeCloseTo(before.payout, 2);
-    expect(after.inProgress).toBeGreaterThan(before.inProgress);
+    expect(after.inProgress.payout).toBeGreaterThan(before.inProgress.payout);
   });
 
   it('exposes public promotions as an array', async () => {
