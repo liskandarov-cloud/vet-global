@@ -35,6 +35,9 @@
     { "pattern": "www.vethub.uz", "custom_domain": true }
   ],
   "observability": { "enabled": true },
+  // Только свой домен: адрес на workers.dev был бы дублем сайта для поисковиков.
+  // Поддомен workers.dev у аккаунта нужен крону keepalive и может появиться.
+  "workers_dev": false,
   // Демо-стенд для показов: `opennextjs-cloudflare deploy --env demo` после
   // сборки с теми же переменными (NEXT_PUBLIC_* вшиваются при сборке), см.
   // .github/workflows/demo-stand.yml.
@@ -48,7 +51,8 @@
         "SITE_URL": "https://demo.vethub.uz",
         "NEXT_PUBLIC_DEMO": "true"
       },
-      "routes": [{ "pattern": "demo.vethub.uz", "custom_domain": true }]
+      "routes": [{ "pattern": "demo.vethub.uz", "custom_domain": true }],
+      "workers_dev": false
     }
   }
 }
