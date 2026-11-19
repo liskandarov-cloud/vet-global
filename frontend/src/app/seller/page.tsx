@@ -44,7 +44,7 @@ function SellerContent() {
   const statusLabels: Record<string, string> = {
     PENDING: tt('Новый', 'Yangi'), CONFIRMED: tt('Подтверждён', 'Tasdiqlangan'),
     PROCESSING: tt('В обработке', 'Qayta ishlanmoqda'), SHIPPED: tt('Отгружен', 'Joʻnatilgan'),
-    DELIVERED: tt('Доставлен', 'Yetkazilgan'), CANCELLED: tt('Отменён', 'Bekor qilindi'),
+    DELIVERED: tt('Доставлен', 'Yetkazilgan'), CANCELLED: tt('Отменён', 'Bekor qilingan'),
   };
   const [tab, setTab] = useState<'products' | 'import' | 'offers' | 'contracts' | 'tariffs' | 'orders' | 'promotions' | 'requisites' | 'profile'>('products');
   const [stats, setStats] = useState<any>(null);

@@ -142,7 +142,7 @@ function OrderContent() {
       (data, filename) => downloadBlob(data as BlobPart, filename, 'application/pdf'),
     );
     if (count > 1) {
-      toast.success(tt(`Счетов по заказу: ${count} — по одному от каждого поставщика`, `Buyurtma bo'yicha hisob-fakturalar: ${count}`));
+      toast.success(tt(`Счетов по заказу: ${count} — по одному от каждого поставщика`, `Buyurtma boʻyicha hisob-fakturalar: ${count}`));
     }
   };
   const pay = async (provider: string) => {

@@ -158,7 +158,7 @@ export function SellerOffersPanel() {
                 <td className="font-semibold">{formatMoney(o.price)}</td>
                 <td>{o.inStock ? (o.stockQty ?? '—') : tt('нет', 'yoʻq')}</td>
                 <td>{o.minOrder}</td>
-                <td>{o.leadTimeDays != null ? `${o.leadTimeDays}д` : '—'}</td>
+                <td>{o.leadTimeDays != null ? tt(`${o.leadTimeDays} дн.`, `${o.leadTimeDays} kun`) : '—'}</td>
                 <td className="text-xs text-ink-subtle">{o.batchNumber ?? '—'}</td>
                 <td className="flex gap-2 py-2">
                   <button className="btn-ghost !px-2 !py-1" onClick={() => startEdit(o)}><Pencil size={15} /></button>

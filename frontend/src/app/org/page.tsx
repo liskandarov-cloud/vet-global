@@ -59,7 +59,7 @@ export default function OrgPage() {
 }
 
 const STATUS_RU: Record<string, string> = { PENDING: 'Новый', CONFIRMED: 'Подтверждён', PROCESSING: 'В обработке', SHIPPED: 'Отгружен', DELIVERED: 'Доставлен', CANCELLED: 'Отменён' };
-const STATUS_UZ: Record<string, string> = { PENDING: 'Yangi', CONFIRMED: 'Tasdiqlangan', PROCESSING: 'Jarayonda', SHIPPED: 'Joʻnatilgan', DELIVERED: 'Yetkazilgan', CANCELLED: 'Bekor qilingan' };
+const STATUS_UZ: Record<string, string> = { PENDING: 'Yangi', CONFIRMED: 'Tasdiqlangan', PROCESSING: 'Qayta ishlanmoqda', SHIPPED: 'Joʻnatilgan', DELIVERED: 'Yetkazilgan', CANCELLED: 'Bekor qilingan' };
 
 // История закупок организации — владельцу и управляющему.
 function OrgOrders() {

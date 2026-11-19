@@ -1,6 +1,7 @@
 'use client';
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { setMoneyLang } from './utils';
 
 export type Lang = 'ru' | 'uz';
 
@@ -81,6 +82,14 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     setLangState(l);
     if (typeof window !== 'undefined') localStorage.setItem('vg_lang', l);
   };
+
+  // До отрисовки детей: цены в них берут язык валюты отсюда.
+  setMoneyLang(lang);
+  // Язык документа — для экранного диктора, переносов и перевода в браузере:
+  // раньше страница всегда объявляла себя русской.
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   const t = (key: string) => DICT[key]?.[lang] ?? key;
   const tt = (ru: string, uz: string) => (lang === 'uz' ? uz : ru);

@@ -181,7 +181,7 @@ export default function CartPage() {
           {user && maxPoints >= 1 && (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={usePoints} onChange={(e) => setUsePoints(e.target.checked)} className="h-4 w-4 accent-teal-600" />
-              {t('cart.usePoints')} (до {formatMoney(maxPoints)})
+              {t('cart.usePoints')} ({tt(`до ${formatMoney(maxPoints)}`, `${formatMoney(maxPoints)} gacha`)})
             </label>
           )}
 

@@ -96,5 +96,5 @@ export const STATUS_LABELS_UZ: Record<string, string> = {
   PROCESSING: 'Qayta ishlanmoqda',
   SHIPPED: 'Joʻnatilgan',
   DELIVERED: 'Yetkazilgan',
-  CANCELLED: 'Bekor qilindi',
+  CANCELLED: 'Bekor qilingan',
 };
