@@ -53,7 +53,10 @@ jobs:
         working-directory: frontend
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-        run: npx wrangler deploy
+          # Коммит сборки отдаётся на /__version — по нему uptime видит, что
+          # прод отстал от main (так полтора месяца жил битый токен).
+          BUILD_SHA: ${{ github.sha }}
+        run: npx wrangler deploy --var "BUILD_SHA:$BUILD_SHA"
 
       - name: Проверка после выкатки
         run: |
@@ -70,3 +73,10 @@ jobs:
             done
             test -n "$ok" || { echo "::error::$path не ответил 200"; exit 1; }
           done
+          # Отвечает именно новая сборка, а не прежняя версия на краю.
+          for i in 1 2 3 4 5 6; do
+            live=$(curl -s -m 30 "$BASE/__version" | jq -r '.sha // empty') || live=
+            if [ "$live" = "$GITHUB_SHA" ]; then echo "/__version -> $live"; exit 0; fi
+            sleep 10
+          done
+          echo "::error::/__version отдаёт «$live», ожидался $GITHUB_SHA"; exit 1
