@@ -1,5 +1,5 @@
 import { ForbiddenException, Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
-import { DeliveryMethod, ShipmentStatus, UserRole, PaymentStatus } from '@prisma/client';
+import { DeliveryMethod, ShipmentStatus, UserRole, PaymentStatus, PaymentTerm } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { SmsService } from '../sms/sms.service';
@@ -113,6 +113,9 @@ export class DeliveryService {
         vetPointsUsed: true,
         total: true,
         deliveryCost: true,
+        buyerId: true,
+        paymentTerm: true,
+        creditReleasedAt: true,
         invoices: { select: { id: true } },
         payments: { where: { status: PaymentStatus.PAID }, select: { id: true } },
         // Расчёт, сделанный при оформлении: он определяет, чью отправку ещё
@@ -151,7 +154,19 @@ export class DeliveryService {
       );
     }
 
-    await this.prisma.order.update({ where: { id: orderId }, data: { total: next, deliveryCost } });
+    // Резерв кредитного лимита под отсрочку — на текущую сумму заказа. Занят он
+    // при оформлении на прежнюю сумму, а освобождается оплатой или отменой по
+    // текущей (orders/release.ts): без доплаты сюда покупатель до оплаты мог
+    // набрать заказов сверх лимита, а оплата возвращала в лимит больше, чем
+    // было занято.
+    const delta = next - Number(order.total);
+    const reserved = !!order.buyerId && order.paymentTerm !== PaymentTerm.PREPAY && !order.creditReleasedAt;
+    await this.prisma.$transaction([
+      this.prisma.order.update({ where: { id: orderId }, data: { total: next, deliveryCost } }),
+      ...(reserved && delta
+        ? [this.prisma.user.update({ where: { id: order.buyerId! }, data: { creditUsed: { increment: delta } } })]
+        : []),
+    ]);
   }
 
   // Чью отправку правит вызывающий.
