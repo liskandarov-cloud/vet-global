@@ -1,0 +1,21 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Кэш публичного каталога и файлов перед API (edge-api.ts).
+  // Выкатка: npx wrangler deploy -c wrangler.edge-api.jsonc
+  "name": "vethub-api-edge",
+  "main": "edge-api.ts",
+  "compatibility_date": "2026-09-12",
+  // Только публичные разделы витрины; вход, заказы, платежи и вебхуки сюда
+  // не попадают вовсе.
+  "routes": [
+    { "pattern": "api.vethub.uz/api/files/*", "zone_name": "vethub.uz" },
+    { "pattern": "api.vethub.uz/api/products*", "zone_name": "vethub.uz" },
+    { "pattern": "api.vethub.uz/api/categories*", "zone_name": "vethub.uz" },
+    { "pattern": "api.vethub.uz/api/sellers*", "zone_name": "vethub.uz" },
+    { "pattern": "api.vethub.uz/api/brands*", "zone_name": "vethub.uz" },
+    { "pattern": "api.vethub.uz/api/promotions*", "zone_name": "vethub.uz" },
+    { "pattern": "api.vethub.uz/api/blog*", "zone_name": "vethub.uz" },
+    { "pattern": "api.vethub.uz/api/reviews*", "zone_name": "vethub.uz" }
+  ],
+  "observability": { "enabled": true }
+}
