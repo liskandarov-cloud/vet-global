@@ -6,6 +6,7 @@
 import { defineCloudflareConfig } from '@opennextjs/cloudflare';
 import kvIncrementalCache from '@opennextjs/cloudflare/overrides/incremental-cache/kv-incremental-cache';
 import memoryQueue from '@opennextjs/cloudflare/overrides/queue/memory-queue';
+import { withRegionalCache } from '@opennextjs/cloudflare/overrides/incremental-cache/regional-cache';
 
 // Очередь обязательна для ISR: без неё устаревшая страница отдаётся как STALE
 // бесконечно — перестройка ставится в пустую очередь и не происходит. Так
@@ -14,7 +15,13 @@ import memoryQueue from '@opennextjs/cloudflare/overrides/queue/memory-queue';
 // (привязка WORKER_SELF_REFERENCE в wrangler.jsonc).
 // shortcut: дедупликация только в пределах изоляции — при большом трафике
 // перейти на doQueue (Durable Objects).
+// Скорость готовых страниц. Медиана HTML была на уровне статики, но холодный
+// изолят поднимал весь рантайм Next ради страницы, которая уже лежит в кэше, —
+// отсюда всплески до 1,5 с. Перехват отдаёт готовую страницу, не запуская
+// Next (несовместим только с PPR, его здесь нет); региональный кэш держит
+// записи KV ближе к воркеру, чтобы не читать KV на каждый запрос.
 export default defineCloudflareConfig({
-  incrementalCache: kvIncrementalCache,
+  incrementalCache: withRegionalCache(kvIncrementalCache, { mode: 'long-lived' }),
   queue: memoryQueue,
+  enableCacheInterception: true,
 });
