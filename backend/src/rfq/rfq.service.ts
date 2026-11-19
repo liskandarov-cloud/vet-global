@@ -230,9 +230,17 @@ export class RfqService {
     // и сбой на создании оставлял тендер в тупике: статус AWARDED выставлен,
     // повторная попытка отвечает «победитель уже выбран», а заказа нет.
     const order = await this.prisma.$transaction(async (tx) => {
+      // Победитель отмечается условием на статус. Проверка выше идёт до
+      // транзакции, и два одновременных выбора (двойной клик, две вкладки) оба
+      // её проходили: на один тендер создавалось два заказа, склад списывался
+      // дважды. Второй запрос дождётся первого и не найдёт что обновлять.
+      const won = await tx.rfq.updateMany({
+        where: { id: rfqId, status: { not: RfqStatus.AWARDED } },
+        data: { status: RfqStatus.AWARDED },
+      });
+      if (!won.count) throw new BadRequestException('Победитель уже выбран');
       await tx.rfqQuote.updateMany({ where: { rfqId }, data: { isAwarded: false } });
       await tx.rfqQuote.update({ where: { id: quoteId }, data: { isAwarded: true } });
-      await tx.rfq.update({ where: { id: rfqId }, data: { status: RfqStatus.AWARDED } });
       return this.createOrderFromQuote(tx, rfq, quote);
     });
 
