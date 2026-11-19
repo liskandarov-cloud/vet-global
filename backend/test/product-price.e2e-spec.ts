@@ -159,3 +159,33 @@ describe('минимальный заказ из кабинета', () => {
     expect((await order(5)).status).toBe(201);
   });
 });
+
+// Выключенное своё предложение останавливает продажи: раньше заказ уходил в
+// легаси-ветку и продавал товар по цене карточки. Легаси — только для
+// карточек, у владельца которых предложения нет вовсе (их покрывают другие
+// e2e: товары без предложений по-прежнему заказываются).
+describe('выключенное предложение владельца', () => {
+  const stamp = Date.now();
+  let seller: string;
+  let buyer: string;
+  let productId: string;
+  let offerId: string;
+  const order = () => req('/orders', { method: 'POST', token: buyer, body: { items: [{ productId, quantity: 1 }] } });
+
+  beforeAll(async () => {
+    seller = await login('seller@vetglobal.com', 'seller123');
+    buyer = await login('buyer@vetglobal.com', 'buyer123');
+    const categoryId = (await req('/categories')).body[0].id;
+    productId = (await req('/products', { method: 'POST', token: seller, body: { name: `Offer off ${stamp}`, description: 'e2e', price: 1000, categoryId } })).body.id;
+    offerId = (await req('/offers', { method: 'POST', token: seller, body: { productId, price: 1000, inStock: true } })).body.id;
+  });
+
+  it('не продаётся, пока выключено, и продаётся снова после включения', async () => {
+    expect((await req(`/offers/${offerId}`, { method: 'PUT', token: seller, body: { isActive: false } })).status).toBe(200);
+    const off = await order();
+    expect(off.status).toBe(400);
+    expect(String(off.body.message)).toContain('нет в продаже');
+    expect((await req(`/offers/${offerId}`, { method: 'PUT', token: seller, body: { isActive: true } })).status).toBe(200);
+    expect((await order()).status).toBe(201);
+  });
+});

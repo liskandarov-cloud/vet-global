@@ -107,6 +107,11 @@ export class OrdersService {
     // Без этой метки заказ ушёл бы в легаси-ветку и продал бы товар по цене
     // карточки — то есть ту же просрочку, только в обход предложения.
     const expiredOnly = new Set<string>();
+    // Товары, владелец которых продаёт через своё предложение, но сейчас оно
+    // не действует (снято в панели предложений). Легаси-ветка — продажа по цене
+    // карточки — для товаров, где у владельца предложения нет вовсе; иначе
+    // выключенное предложение не останавливало продажи.
+    const ownerOfferOff = new Set<string>();
     if (noOfferPids.length) {
       // Подбираем только из того, что можно заказать: иначе самое дешёвое
       // предложение непроверенного продавца отклонило бы весь заказ, хотя
@@ -132,6 +137,14 @@ export class OrdersService {
           select: { productId: true },
         });
         for (const e of expired) expiredOnly.add(e.productId);
+        const own = await this.prisma.offer.findMany({
+          where: { productId: { in: unmatched } },
+          select: { productId: true, sellerId: true },
+        });
+        for (const o of own) {
+          const owner = products.find((x) => x.id === o.productId)?.sellerId;
+          if (o.sellerId === owner && !expiredOnly.has(o.productId)) ownerOfferOff.add(o.productId);
+        }
       }
     }
 
@@ -227,6 +240,9 @@ export class OrdersService {
       const o = i.offerId ? offerMap.get(i.offerId) : bestOfferByProduct.get(i.productId);
       if (!o && expiredOnly.has(p.id)) {
         throw new BadRequestException(`Срок годности партии «${p.name}» истёк`);
+      }
+      if (!o && ownerOfferOff.has(p.id)) {
+        throw new BadRequestException(`«${p.name}» сейчас нет в продаже`);
       }
 
       if (o) {
