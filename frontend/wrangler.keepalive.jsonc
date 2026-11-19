@@ -1,0 +1,13 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  // Пинг API по крону (keepalive.ts). Выкатка:
+  // npx wrangler deploy -c wrangler.keepalive.jsonc
+  "name": "vethub-keepalive",
+  "main": "keepalive.ts",
+  "compatibility_date": "2026-09-12",
+  // Раз в 5 минут: Render засыпает через 15, запас на сбой одного запуска.
+  "triggers": { "crons": ["*/5 * * * *"] },
+  // Только крон, без адреса в интернете.
+  "workers_dev": false,
+  "observability": { "enabled": true }
+}
