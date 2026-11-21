@@ -140,11 +140,12 @@ export class DidoxService implements OnModuleInit {
       // которую наша база уже не отменит. Зависший захват (сбой посреди
       // отправки) истекает через SENDING_STALE_MS.
       const where = { orderId_sellerId: { orderId, sellerId: invoiceSellerId } };
-      await this.prisma.invoice.upsert({
-        where,
-        update: {},
-        // Сумма документа, а не сумма заказа: они различаются на баллы.
-        create: { orderId, sellerId: invoiceSellerId, number, amount: payload.total },
+      // Вставка «если строки нет» атомарна (ON CONFLICT DO NOTHING): upsert
+      // Prisma при одновременных запросах пытался вставить дважды.
+      // Сумма документа, а не сумма заказа: они различаются на баллы.
+      await this.prisma.invoice.createMany({
+        data: [{ orderId, sellerId: invoiceSellerId, number, amount: payload.total }],
+        skipDuplicates: true,
       });
       const now = new Date();
       const claimed = await this.prisma.invoice.updateMany({

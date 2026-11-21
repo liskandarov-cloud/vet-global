@@ -1468,7 +1468,7 @@ describe('VetHub integrations (e2e)', () => {
         body: { items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }] },
       })).body;
       const results = await Promise.all([1, 2, 3].map(() => req(`/didox/send/${order.id}`, { token: admin, body: {} })));
-      expect(results.every((r) => r.status < 300 || r.status === 409)).toBe(true);
+      expect(results.map((r) => r.status).filter((s) => s >= 300 && s !== 409)).toEqual([]);
       const ids = new Set(results.filter((r) => r.status < 300).flatMap((r) => r.body.documents.map((d: any) => d.didoxId)));
       expect(ids.size).toBe(1);
     });
