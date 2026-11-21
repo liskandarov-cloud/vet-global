@@ -163,7 +163,8 @@ describe('VetHub API (e2e)', () => {
     const r = await req('/admin/billing', { token: admin });
     expect(r.status).toBe(200);
     expect(Array.isArray(r.body.rows)).toBe(true);
-    expect(r.body.totals.revenue).toBeGreaterThan(0);
+    // Доставленное делится на оплаченное через площадку и напрямую продавцу.
+    expect(r.body.totals.revenue + r.body.totals.direct.revenue).toBeGreaterThan(0);
     // Выплата = товары − комиссия + доставка.
     //
     // Доставка появилась в отчёте отдельной строкой: деньги за неё берутся с
@@ -172,6 +173,8 @@ describe('VetHub API (e2e)', () => {
     // сделки, а не с работы перевозчика.
     for (const row of r.body.rows) {
       expect(row.payout).toBeCloseTo(row.revenue - row.commission + row.delivery, 2);
+      // Сальдо — взаимозачёт: выплата минус комиссия по прямым оплатам.
+      expect(row.settlement).toBeCloseTo(row.payout - row.direct.commission, 2);
     }
   });
 

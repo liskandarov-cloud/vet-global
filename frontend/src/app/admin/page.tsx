@@ -204,31 +204,45 @@ function AdminContent() {
             <button className="btn-secondary" onClick={exportBilling}><Download size={16} /> Excel</button>
           </div>
           <div className="overflow-x-auto">
+            <p className="mb-3 text-xs text-ink-subtle">
+              {tt(
+                'По доставленным заказам. «К выплате» — оплачено через площадку, деньги у неё; «Комиссия к счёту» — оплачено продавцу напрямую, комиссию должен он. Сальдо: плюс — выплатить продавцу, минус — выставить ему счёт.',
+                'Yetkazilgan buyurtmalar boʻyicha. «Toʻlovga» — platforma orqali toʻlangan, pul platformada; «Hisobga komissiya» — sotuvchiga toʻgʻridan-toʻgʻri toʻlangan, komissiyani u toʻlaydi. Saldo: musbat — sotuvchiga toʻlash, manfiy — unga hisob chiqarish.',
+              )}
+            </p>
             <table className="w-full text-sm">
               <thead className="text-left text-ink-subtle">
-                <tr className="border-b border-slate-100"><th className="py-2">{tt('Поставщик', 'Yetkazib beruvchi')}</th><th>{tt('Заказов', 'Buyurtmalar')}</th><th>{tt('Оборот', 'Aylanma')}</th><th>{tt('Комиссия', 'Komissiya')}</th><th>{tt('Доставка', 'Yetkazish')}</th><th title={tt('По доставленным заказам', 'Yetkazilgan buyurtmalar boʻyicha')}>{tt('К выплате', 'Toʻlovga')}</th><th title={tt('Не отменены, но ещё не доставлены — к выплате после доставки', 'Bekor qilinmagan, lekin hali yetkazilmagan')}>{tt('В работе', 'Jarayonda')}</th></tr>
+                <tr className="border-b border-slate-100">
+                  <th className="py-2">{tt('Поставщик', 'Yetkazib beruvchi')}</th>
+                  <th>{tt('Оборот', 'Aylanma')}</th>
+                  <th>{tt('Комиссия', 'Komissiya')}</th>
+                  <th title={tt('Оплачено через площадку: товары − комиссия + доставка', 'Platforma orqali toʻlangan: tovarlar − komissiya + yetkazish')}>{tt('К выплате', 'Toʻlovga')}</th>
+                  <th title={tt('Оплачено продавцу напрямую: комиссия, которую он должен', 'Sotuvchiga toʻgʻridan-toʻgʻri toʻlangan: u toʻlashi kerak boʻlgan komissiya')}>{tt('Комиссия к счёту', 'Hisobga komissiya')}</th>
+                  <th>{tt('Сальдо', 'Saldo')}</th>
+                  <th title={tt('Не отменены, но ещё не доставлены', 'Bekor qilinmagan, lekin hali yetkazilmagan')}>{tt('В работе', 'Jarayonda')}</th>
+                </tr>
               </thead>
               <tbody>
                 {(billing?.rows ?? []).map((r: any) => (
                   <tr key={r.sellerId} className="border-b border-slate-50">
                     <td className="py-2">{r.company}</td>
-                    <td>{r.orders}</td>
-                    <td>{formatMoney(r.revenue)}</td>
-                    <td className="text-secondary">{formatMoney(r.commission)}</td>
-                    <td>{formatMoney(r.delivery)}</td>
-                    <td className="font-semibold">{formatMoney(r.payout)}</td>
-                    <td className="text-ink-subtle">{formatMoney(r.inProgress?.payout ?? 0)}</td>
+                    <td>{formatMoney(r.revenue + (r.direct?.revenue ?? 0))}</td>
+                    <td className="text-secondary">{formatMoney(r.commission + (r.direct?.commission ?? 0))}</td>
+                    <td>{formatMoney(r.payout)}</td>
+                    <td>{formatMoney(r.direct?.commission ?? 0)}</td>
+                    <td className={`font-semibold ${r.settlement < 0 ? 'text-red-600' : 'text-teal-700'}`}>{formatMoney(r.settlement ?? 0)}</td>
+                    <td className="text-ink-subtle">{formatMoney(r.inProgress?.revenue ?? 0)}</td>
                   </tr>
                 ))}
                 {billing?.totals && billing.rows.length > 0 && (
                   <tr className="border-t-2 border-slate-200 font-bold">
                     <td className="py-2">{tt('Итого', 'Jami')}</td>
-                    <td></td>
-                    <td>{formatMoney(billing.totals.revenue)}</td>
-                    <td className="text-secondary">{formatMoney(billing.totals.commission)}</td>
-                    <td>{formatMoney(billing.totals.delivery)}</td>
-                    <td className="text-teal-700">{formatMoney(billing.totals.payout)}</td>
-                    <td className="text-ink-subtle">{formatMoney(billing.totals.inProgress?.payout ?? 0)}</td>
+                    <td>{formatMoney(billing.totals.revenue + (billing.totals.direct?.revenue ?? 0))}</td>
+                    <td className="text-secondary">{formatMoney(billing.totals.commission + (billing.totals.direct?.commission ?? 0))}</td>
+                    <td>{formatMoney(billing.totals.payout)}</td>
+                    <td>{formatMoney(billing.totals.direct?.commission ?? 0)}</td>
+                    <td className={billing.totals.settlement < 0 ? 'text-red-600' : 'text-teal-700'}>{formatMoney(billing.totals.settlement ?? 0)}</td>
+                    <td className="text-ink-subtle">{formatMoney(billing.totals.inProgress?.revenue ?? 0)}</td>
                   </tr>
                 )}
               </tbody>
