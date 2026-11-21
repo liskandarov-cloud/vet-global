@@ -76,3 +76,24 @@ export function sellerBilling(items: BillingItem[], deliveryOrders: BillingDeliv
   }
   return out;
 }
+
+// Куда относится заказ в расчёте с продавцом — по тому, где деньги.
+//
+// Онлайн-оплаты (Click, Payme, Uzum) идут через площадку: она держит деньги и
+// после доставки выплачивает продавцу товары за вычетом комиссии. Остальное
+// покупатель платит продавцу напрямую (переводом по счёту, в том числе по
+// отсрочке): деньги уже у продавца, и это он должен площадке комиссию. Отчёт
+// показывал всё как «к выплате» — то есть выплату денег, которых площадка не
+// получала. Недоставленное — «в работе»: его ещё могут отменить.
+export type BillingBucket = 'payout' | 'direct' | 'inProgress';
+
+export function billingBucket(orderStatus: string, paidViaPlatform: boolean): BillingBucket {
+  if (orderStatus !== 'DELIVERED') return 'inProgress';
+  return paidViaPlatform ? 'payout' : 'direct';
+}
+
+// Взаимозачёт: из выплаты удерживается комиссия по прямым оплатам. Плюс —
+// площадка платит продавцу, минус — выставляет ему счёт.
+export function settlement(payout: number, directCommission: number): number {
+  return round2(payout - directCommission);
+}

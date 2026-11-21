@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { OrderStatus } from '@prisma/client';
+import { OrderStatus, PaymentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { SellerBilling, sellerBilling } from './billing';
+import { BillingBucket, SellerBilling, billingBucket, sellerBilling, settlement } from './billing';
 import { round2 } from '../common/pricing';
 
 // Отменённый заказ не выручка. Фильтр один для всех отчётов: раньше его не было
@@ -94,9 +94,10 @@ export class AnalyticsService {
   // которому она не входит в базу комиссии в orderTotal: платформа берёт процент
   // со своей сделки, а не с работы перевозчика.
   //
-  // «К выплате» — только доставленные заказы: остальные ещё могут отменить, и
-  // выплата по ним означала бы переплату, которую потом пришлось бы взыскивать
-  // с продавца вручную. Неотменённые, но не доставленные — отдельно, «в работе».
+  // «К выплате» — доставленные заказы, оплаченные через площадку: только эти
+  // деньги она держит. Оплаченные продавцу напрямую — «комиссия к счёту», её
+  // должен продавец. Недоставленные — «в работе»: их ещё могут отменить. Сальдо
+  // — взаимозачёт двух первых (billing.ts).
   async adminBilling() {
     const items = await this.prisma.orderItem.findMany({
       where: { order: NOT_CANCELLED },
@@ -104,37 +105,48 @@ export class AnalyticsService {
     });
     const deliveryOrders = await this.prisma.order.findMany({
       where: { ...NOT_CANCELLED, OR: [{ deliveryCost: { gt: 0 } }, { shipments: { some: {} } }] },
-      select: { status: true, deliveryQuote: true, shipments: { select: { sellerId: true, cost: true } } },
+      select: { id: true, status: true, deliveryQuote: true, shipments: { select: { sellerId: true, cost: true } } },
     });
-
-    const done = (status: OrderStatus) => status === OrderStatus.DELIVERED;
-    const lines = (pick: (s: OrderStatus) => boolean) =>
-      items
-        .filter((it) => pick(it.order.status))
-        .map((it) => ({ sellerId: it.sellerId, orderId: it.orderId, price: it.price, quantity: it.quantity, orderCommission: it.order.commission }));
-    const completed = sellerBilling(lines(done), deliveryOrders.filter((o) => done(o.status)));
-    const inProgress = sellerBilling(
-      lines((st) => !done(st)),
-      deliveryOrders.filter((o) => !done(o.status)),
+    // Оплачен через площадку — есть проведённый онлайн-платёж (billing.ts).
+    const paidOnline = new Set(
+      (await this.prisma.payment.findMany({ where: { status: PaymentStatus.PAID }, select: { orderId: true }, distinct: ['orderId'] })).map(
+        (p) => p.orderId,
+      ),
     );
+    const bucketOfOrder = (id: string, status: OrderStatus) => billingBucket(status, paidOnline.has(id));
 
-    const ids = [...new Set([...completed.keys(), ...inProgress.keys()])];
+    const pick = (bucket: BillingBucket) =>
+      sellerBilling(
+        items
+          .filter((it) => bucketOfOrder(it.orderId, it.order.status) === bucket)
+          .map((it) => ({ sellerId: it.sellerId, orderId: it.orderId, price: it.price, quantity: it.quantity, orderCommission: it.order.commission })),
+        deliveryOrders.filter((o) => bucketOfOrder(o.id, o.status) === bucket),
+      );
+    const payout = pick('payout');
+    const direct = pick('direct');
+    const inProgress = pick('inProgress');
+
+    const ids = [...new Set([...payout.keys(), ...direct.keys(), ...inProgress.keys()])];
     const sellers = await this.prisma.user.findMany({ where: { id: { in: ids } }, select: { id: true, company: true } });
     const zero = { orders: 0, revenue: 0, commission: 0, delivery: 0, payout: 0 };
 
     const rows = ids
       .map((id) => {
-        const c = completed.get(id) ?? zero;
-        const p = inProgress.get(id) ?? zero;
+        const p = payout.get(id) ?? zero;
+        const d = direct.get(id) ?? zero;
         return {
           sellerId: id,
           company: sellers.find((s) => s.id === id)?.company ?? '—',
-          ...c,
-          // Та же разбивка по заказам, которые ещё не доставлены.
-          inProgress: p,
+          // Доставлено и оплачено через площадку: она должна продавцу payout.
+          ...p,
+          // Доставлено, оплачено продавцу напрямую: он должен комиссию.
+          direct: d,
+          // Сальдо взаимозачёта: плюс — выплатить продавцу, минус — счёт ему.
+          settlement: settlement(p.payout, d.commission),
+          inProgress: inProgress.get(id) ?? zero,
         };
       })
-      .sort((a, b) => b.revenue - a.revenue || b.inProgress.payout - a.inProgress.payout);
+      .sort((a, b) => b.revenue + b.direct.revenue - (a.revenue + a.direct.revenue) || b.inProgress.payout - a.inProgress.payout);
 
     const sum = (list: Omit<SellerBilling, 'orders'>[]) =>
       list.reduce(
@@ -146,7 +158,12 @@ export class AnalyticsService {
         }),
         { revenue: 0, commission: 0, delivery: 0, payout: 0 },
       );
-    const totals = { ...sum(rows), inProgress: sum(rows.map((r) => r.inProgress)) };
+    const totals = {
+      ...sum(rows),
+      direct: sum(rows.map((r) => r.direct)),
+      settlement: round2(rows.reduce((t, r) => t + r.settlement, 0)),
+      inProgress: sum(rows.map((r) => r.inProgress)),
+    };
 
     return { commissionPercent: this.commissionPct, rows, totals };
   }

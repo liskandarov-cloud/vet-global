@@ -39,16 +39,28 @@ export class AnalyticsController {
       'Биллинг',
       [
         { header: 'Поставщик', key: 'company', width: 32 },
-        // Выплата — по доставленным заказам; остальные неотменённые — «в работе».
-        { header: 'Доставлено заказов', key: 'orders', width: 12 },
+        // Доставлено и оплачено через площадку — она должна продавцу; оплачено
+        // напрямую — продавец должен комиссию; сальдо — взаимозачёт (billing.ts).
+        { header: 'Оплачено через площадку, заказов', key: 'orders', width: 14 },
         { header: 'Оборот', key: 'revenue', width: 16 },
         { header: 'Комиссия', key: 'commission', width: 16 },
         { header: 'Доставка', key: 'delivery', width: 14 },
         { header: 'К выплате', key: 'payout', width: 16 },
+        { header: 'Оплачено напрямую, заказов', key: 'directOrders', width: 14 },
+        { header: 'Оборот напрямую', key: 'directRevenue', width: 16 },
+        { header: 'Комиссия к счёту', key: 'directCommission', width: 16 },
+        { header: 'Сальдо (+ выплатить, − выставить счёт)', key: 'settlement', width: 20 },
         { header: 'В работе, заказов', key: 'inProgressOrders', width: 12 },
-        { header: 'В работе, к выплате', key: 'inProgressPayout', width: 18 },
+        { header: 'В работе, оборот', key: 'inProgressRevenue', width: 16 },
       ],
-      rows.map((r) => ({ ...r, inProgressOrders: r.inProgress.orders, inProgressPayout: r.inProgress.payout })),
+      rows.map((r) => ({
+        ...r,
+        directOrders: r.direct.orders,
+        directRevenue: r.direct.revenue,
+        directCommission: r.direct.commission,
+        inProgressOrders: r.inProgress.orders,
+        inProgressRevenue: r.inProgress.revenue,
+      })),
     );
     res.set({
       'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',

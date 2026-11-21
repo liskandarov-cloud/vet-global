@@ -1480,11 +1480,11 @@ describe('VetHub integrations (e2e)', () => {
   it('комиссия в отчёте по выплатам совпадает с общей статистикой', async () => {
     const stats = (await req('/admin/stats', { token: admin })).body;
     const billing = (await req('/admin/billing', { token: admin })).body;
-    // Статистика — все неотменённые заказы; отчёт делит их на доставленные
-    // («к выплате») и остальные («в работе»), вместе — то же самое.
+    // Статистика — все неотменённые заказы; отчёт делит их на три части:
+    // оплаченные через площадку, напрямую продавцу и «в работе» — вместе то же.
     const t = billing.totals;
-    expect(t.commission + t.inProgress.commission).toBeCloseTo(stats.commission, 2);
-    expect(t.revenue + t.inProgress.revenue).toBeCloseTo(stats.gmv, 2);
+    expect(t.commission + t.direct.commission + t.inProgress.commission).toBeCloseTo(stats.commission, 2);
+    expect(t.revenue + t.direct.revenue + t.inProgress.revenue).toBeCloseTo(stats.gmv, 2);
     // Выплата включает доставку: деньги за неё берутся с покупателя, а
     // организует её продавец. Комиссией доставка не облагается — платформа
     // берёт процент со своей сделки, а не с работы перевозчика.

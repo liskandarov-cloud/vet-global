@@ -1,4 +1,4 @@
-import { sellerBilling } from './billing';
+import { billingBucket, sellerBilling, settlement } from './billing';
 
 describe('выплаты продавцам', () => {
   it('товары − доля комиссии заказа + своя доставка', () => {
@@ -25,5 +25,27 @@ describe('выплаты продавцам', () => {
 
   it('без позиций — пусто', () => {
     expect(sellerBilling([], []).size).toBe(0);
+  });
+});
+
+describe('где деньги заказа', () => {
+  it('доставлен и оплачен онлайн — площадка выплачивает продавцу', () => {
+    expect(billingBucket('DELIVERED', true)).toBe('payout');
+  });
+
+  it('доставлен, оплачен напрямую продавцу — продавец должен комиссию', () => {
+    expect(billingBucket('DELIVERED', false)).toBe('direct');
+  });
+
+  it('не доставлен — в работе, как бы ни был оплачен', () => {
+    for (const s of ['PENDING', 'CONFIRMED', 'PROCESSING', 'SHIPPED']) {
+      expect(billingBucket(s, true)).toBe('inProgress');
+      expect(billingBucket(s, false)).toBe('inProgress');
+    }
+  });
+
+  it('сальдо: выплата минус комиссия по прямым оплатам', () => {
+    expect(settlement(46800, 300)).toBe(46500);
+    expect(settlement(0, 1200)).toBe(-1200);
   });
 });
