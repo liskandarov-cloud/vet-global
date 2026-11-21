@@ -41,5 +41,8 @@ export function anonymizedProfile(userId: string) {
     bankAccount: null,
     bankMfo: null,
     syncApiKey: null,
+    telegramChatId: null,
+    telegramLinkToken: null,
+    telegramLinkUntil: null,
   };
 }

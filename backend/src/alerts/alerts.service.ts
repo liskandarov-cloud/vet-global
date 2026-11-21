@@ -6,6 +6,7 @@ import { PushService } from '../push/push.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { frontendUrl } from '../common/frontend-url';
 import { Alert, Lang, textIn } from './text';
+import { telegramMessage } from './telegram-message';
 
 @Injectable()
 export class AlertsService {
@@ -22,7 +23,7 @@ export class AlertsService {
     await this.notifyMany([userId], alert);
   }
 
-  async notifyMany(userIds: string[], alert: Alert) {
+  async notifyMany(userIds: string[], alert: Alert, opts: { telegram?: boolean } = {}) {
     const ids = [...new Set(userIds.filter(Boolean))];
     if (!ids.length) return;
     await this.prisma.notification
@@ -40,6 +41,58 @@ export class AlertsService {
     for (const id of ids) {
       void this.push.sendToUser(id, (lang) => ({ title: textIn(alert.title, lang), body: textIn(alert.body, lang), url: alert.url }));
     }
+    if (opts.telegram !== false) void this.telegramUsers(ids, alert).catch(() => undefined);
+  }
+
+  // Тем, кто привязал Telegram в кабинете. Push на iPhone приходит только с
+  // сайта, установленного на экран «Домой», а Telegram есть у всех.
+  private async telegramUsers(ids: string[], alert: Alert) {
+    if (!this.config.get<string>('TELEGRAM_BOT_TOKEN')) return;
+    const linked = await this.prisma.user.findMany({
+      where: { id: { in: ids }, telegramChatId: { not: null } },
+      select: { id: true, telegramChatId: true, telegramLang: true },
+    });
+    for (const u of linked) {
+      const code = await this.telegramSend(u.telegramChatId!, telegramMessage(alert, u.telegramLang === 'uz' ? 'uz' : 'ru', frontendUrl()));
+      // Бот заблокирован или чат удалён — отвязываем, чтобы не стучаться впустую.
+      if (code === 403) {
+        await this.prisma.user.updateMany({ where: { id: u.id }, data: { telegramChatId: null } });
+      }
+    }
+  }
+
+  private async telegramSend(chatId: string, message: object): Promise<number> {
+    const token = this.config.get<string>('TELEGRAM_BOT_TOKEN');
+    if (!token) return 0;
+    try {
+      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ chat_id: chatId, ...message }),
+        signal: AbortSignal.timeout(10_000),
+      });
+      if (!res.ok && res.status !== 403) this.logger.warn(`Telegram: ${res.status} ${(await res.text()).slice(0, 200)}`);
+      return res.status;
+    } catch (e) {
+      this.logger.warn(`Telegram недоступен: ${(e as Error).message}`);
+      return 0;
+    }
+  }
+
+  // Имя бота для ссылки привязки — у самого Telegram, один раз за запуск.
+  private botName?: Promise<string | null>;
+  botUsername(): Promise<string | null> {
+    const token = this.config.get<string>('TELEGRAM_BOT_TOKEN');
+    if (!token) return Promise.resolve(null);
+    this.botName ??= fetch(`https://api.telegram.org/bot${token}/getMe`, { signal: AbortSignal.timeout(10_000) })
+      .then((r) => r.json())
+      .then((d: any) => (d?.ok ? (d.result.username as string) : null))
+      .catch(() => null)
+      .then((name) => {
+        if (!name) this.botName = undefined; // сбой не запоминаем
+        return name;
+      });
+    return this.botName;
   }
 
   // Продавцам заказа (кроме того, кто сам совершил действие).
@@ -60,32 +113,17 @@ export class AlertsService {
       where: { role: UserRole.ADMIN, isBanned: false },
       select: { id: true },
     });
-    await this.notifyMany(admins.map((a) => a.id), alert);
+    // В Telegram команде — одним сообщением в общий чат, а не каждому лично.
+    await this.notifyMany(admins.map((a) => a.id), alert, { telegram: false });
     await this.telegramAdmins(alert);
   }
 
   // Отдельно от бота: бот может быть выключен, а сообщение в чат — это один
   // HTTP-запрос с тем же токеном.
   private async telegramAdmins(alert: Alert) {
-    const token = this.config.get<string>('TELEGRAM_BOT_TOKEN');
     const chatId = this.config.get<string>('TELEGRAM_ADMIN_CHAT_ID');
-    if (!token || !chatId) return;
-    const link = alert.url ? `\n${frontendUrl()}${alert.url}` : '';
-    try {
-      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          chat_id: chatId,
-          text: `${textIn(alert.title, 'ru')}\n${textIn(alert.body, 'ru')}${link}`,
-          disable_web_page_preview: true,
-        }),
-        signal: AbortSignal.timeout(10_000),
-      });
-      if (!res.ok) this.logger.warn(`Telegram: ${res.status} ${(await res.text()).slice(0, 200)}`);
-    } catch (e) {
-      this.logger.warn(`Telegram недоступен: ${(e as Error).message}`);
-    }
+    if (!chatId) return;
+    await this.telegramSend(chatId, telegramMessage(alert, 'ru', frontendUrl()));
   }
 
   async list(user: AuthUser, lang: Lang = 'ru') {

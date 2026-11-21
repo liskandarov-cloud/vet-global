@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Get, Headers, HttpCode, Param, Patch, Post, Query, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { Audit } from '../audit/audit.decorator';
@@ -10,6 +10,7 @@ import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
 import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
+import { wantsUz } from '../common/i18n/uz-messages';
 
 @ApiTags('users')
 @Controller()
@@ -22,6 +23,28 @@ export class UsersController {
   @UseGuards(JwtAuthGuard)
   updateProfile(@CurrentUser() user: AuthUser, @Body() dto: UpdateProfileDto) {
     return this.users.updateProfile(user.id, dto);
+  }
+
+  // Уведомления в Telegram: состояние, ссылка привязки, отвязка.
+  @Get('users/me/telegram')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  telegramStatus(@CurrentUser() user: AuthUser) {
+    return this.users.telegramStatus(user.id);
+  }
+
+  @Post('users/me/telegram')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  telegramLink(@CurrentUser() user: AuthUser, @Headers('accept-language') lang?: string) {
+    return this.users.telegramLink(user.id, wantsUz(lang) ? 'uz' : 'ru');
+  }
+
+  @Delete('users/me/telegram')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard)
+  telegramUnlink(@CurrentUser() user: AuthUser) {
+    return this.users.telegramUnlink(user.id);
   }
 
   @Patch('users/me/password')

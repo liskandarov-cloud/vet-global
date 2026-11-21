@@ -153,6 +153,13 @@ model User {
   vatPayer     Boolean @default(false) // плательщик НДС (ҚҚС 12%) — показывать в счёте
   syncApiKey   String? @unique // ключ интеграции 1С/ERP (по нему сопоставляется поставщик)
 
+  // Уведомления в Telegram: личный чат с ботом, привязанный по одноразовой
+  // ссылке из кабинета (telegramLinkToken живёт до telegramLinkUntil).
+  telegramChatId    String?   @unique
+  telegramLang      String    @default("ru")
+  telegramLinkToken String?   @unique
+  telegramLinkUntil DateTime?
+
   // Смена пароля отзывает выданные раньше токены (jwt.strategy сравнивает iat).
   passwordChangedAt DateTime?
   // Согласие с соглашением и политикой ПДн: когда и с какой редакцией.
