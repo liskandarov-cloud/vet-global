@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LeadSource } from '@prisma/client';
-import { Bot, InlineKeyboard, Keyboard } from 'grammy';
+import { Bot, Context, InlineKeyboard, Keyboard } from 'grammy';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUBLIC_PRODUCT } from '../common/visibility';
 import { frontendUrl } from '../common/frontend-url';
@@ -74,14 +74,43 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       .resized();
   }
 
+  // Привязка чата к аккаунту по одноразовому ключу. Чат, привязанный раньше к
+  // другому аккаунту, переходит к этому: уведомления идут тому, кто вошёл.
+  private async linkAccount(ctx: Context, token: string) {
+    const chatId = String(ctx.chat!.id);
+    const user = await this.prisma.user.findFirst({
+      where: { telegramLinkToken: token, telegramLinkUntil: { gt: new Date() } },
+      select: { id: true, fullName: true, telegramLang: true },
+    });
+    const lang: BotLang = user?.telegramLang === 'uz' ? 'uz' : 'ru';
+    if (!user) return ctx.reply(t('link_expired', this.get(ctx.chat!.id).lang));
+    await this.prisma.$transaction([
+      this.prisma.user.updateMany({ where: { telegramChatId: chatId, id: { not: user.id } }, data: { telegramChatId: null } }),
+      this.prisma.user.update({
+        where: { id: user.id },
+        data: { telegramChatId: chatId, telegramLinkToken: null, telegramLinkUntil: null },
+      }),
+    ]);
+    this.get(ctx.chat!.id).lang = lang;
+    await ctx.reply(t('link_done', lang).replace('{name}', user.fullName), { reply_markup: this.mainMenu(lang) });
+  }
+
   private langKeyboard() {
     return new InlineKeyboard().text('🇷🇺 Русский', 'lang:ru').text('🇺🇿 Oʻzbekcha', 'lang:uz');
   }
 
   private registerHandlers(bot: Bot) {
     bot.command('start', async (ctx) => {
+      // Ссылка из кабинета: t.me/<бот>?start=link_<ключ>.
+      const link = /^link_([a-f0-9]{32})$/.exec(typeof ctx.match === 'string' ? ctx.match : '');
+      if (link && ctx.chat.type === 'private') return this.linkAccount(ctx, link[1]);
       this.get(ctx.chat.id);
       await ctx.reply(t('welcome', 'ru'), { reply_markup: this.langKeyboard() });
+    });
+
+    bot.command('stop', async (ctx) => {
+      await this.prisma.user.updateMany({ where: { telegramChatId: String(ctx.chat.id) }, data: { telegramChatId: null } });
+      await ctx.reply(t('unlinked', this.get(ctx.chat.id).lang));
     });
 
     bot.callbackQuery(/^lang:(ru|uz)$/, async (ctx) => {

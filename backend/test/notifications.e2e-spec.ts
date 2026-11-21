@@ -125,3 +125,20 @@ describe('уведомления по событиям', () => {
     await waitNote(buyer, (n) => n.title === 'Kredit limiti maʼqullandi', 'uz');
   });
 });
+
+describe('привязка Telegram', () => {
+  it('без бота: недоступно, понятная ошибка на обоих языках; секреты не в профиле', async () => {
+    const buyer = await login('buyer@vetglobal.com', 'buyer123');
+    expect((await req('/users/me/telegram', { token: buyer })).body).toEqual({ available: false, linked: false });
+    const ru = await req('/users/me/telegram', { method: 'POST', token: buyer });
+    expect([ru.status, ru.body.message]).toEqual([400, 'Telegram-бот не подключён']);
+    const uz = await req('/users/me/telegram', { method: 'POST', token: buyer, lang: 'uz' });
+    expect(uz.body.message).toBe('Telegram-bot ulanmagan');
+    expect((await req('/users/me/telegram', { method: 'DELETE', token: buyer })).body).toEqual({ ok: true });
+
+    const me = await req('/users/me', { method: 'PATCH', token: buyer, body: {} });
+    expect(me.status).toBe(200);
+    expect(me.body.telegramLinked).toBe(false);
+    for (const k of ['telegramLinkToken', 'telegramLinkUntil', 'telegramChatId', 'passwordHash']) expect(me.body).not.toHaveProperty(k);
+  });
+});

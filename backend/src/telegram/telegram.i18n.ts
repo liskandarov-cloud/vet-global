@@ -17,14 +17,14 @@ export const T: Dict = {
     ru: 'Введите название препарата или действующее вещество:',
     uz: 'Preparat nomi yoki faol moddani kiriting:',
   },
-  no_results: { ru: '😔 Ничего не найдено. Попробуйте другой запрос.', uz: '😔 Hech narsa topilmadi. Boshqa so‘rovni sinab ko‘ring.' },
+  no_results: { ru: '😔 Ничего не найдено. Попробуйте другой запрос.', uz: '😔 Hech narsa topilmadi. Boshqa soʻrovni sinab koʻring.' },
   results_header: { ru: 'Найдено:', uz: 'Topildi:' },
   btn_order: { ru: '🛒 Оставить заявку', uz: '🛒 Ariza qoldirish' },
   ask_name: { ru: 'Как вас зовут? (ФИО)', uz: 'Ismingiz? (F.I.Sh.)' },
   ask_phone: { ru: 'Ваш контактный телефон:', uz: 'Aloqa telefoningiz:' },
   lead_done: {
     ru: '✅ Заявка принята! Наш менеджер свяжется с вами в ближайшее время.',
-    uz: '✅ Ariza qabul qilindi! Menejerimiz tez orada siz bilan bog‘lanadi.',
+    uz: '✅ Ariza qabul qilindi! Menejerimiz tez orada siz bilan bogʻlanadi.',
   },
   price: { ru: 'Цена', uz: 'Narx' },
   open_site: { ru: 'Открыть на сайте', uz: 'Saytda ochish' },
@@ -32,7 +32,7 @@ export const T: Dict = {
   btn_catalog: { ru: '📂 Каталог', uz: '📂 Katalog' },
   btn_promotions: { ru: '🔥 Акции', uz: '🔥 Aksiyalar' },
   choose_category: { ru: 'Выберите категорию:', uz: 'Kategoriyani tanlang:' },
-  category_empty: { ru: 'В этой категории пока нет товаров.', uz: 'Bu kategoriyada hozircha mahsulot yo‘q.' },
+  category_empty: { ru: 'В этой категории пока нет товаров.', uz: 'Bu kategoriyada hozircha mahsulot yoʻq.' },
   btn_back: { ru: '⬅️ Категории', uz: '⬅️ Kategoriyalar' },
   from: { ru: 'от', uz: 'dan' },
   offers_n: { ru: 'предложений', uz: 'taklif' },
@@ -43,9 +43,25 @@ export const T: Dict = {
   l_form: { ru: 'Форма', uz: 'Shakl' },
   l_minorder: { ru: 'Мин. заказ', uz: 'Min. buyurtma' },
   promotions_header: { ru: '🔥 Акции и спецпредложения:', uz: '🔥 Aksiyalar va maxsus takliflar:' },
-  no_promotions: { ru: 'Сейчас акций нет.', uz: 'Hozircha aksiyalar yo‘q.' },
+  no_promotions: { ru: 'Сейчас акций нет.', uz: 'Hozircha aksiyalar yoʻq.' },
   page_of: { ru: 'стр.', uz: 'sahifa' },
-  sum: { ru: 'сум', uz: 'so‘m' },
+  sum: { ru: 'сум', uz: 'soʻm' },
 };
+
+export const LINK: Dict = {
+  link_done: {
+    ru: '✅ Уведомления VetHub подключены к аккаунту {name}. Сюда будут приходить заказы, оплаты и статусы. Отключить — /stop.',
+    uz: '✅ VetHub bildirishnomalari {name} akkauntiga ulandi. Bu yerga buyurtmalar, toʻlovlar va holatlar keladi. Oʻchirish — /stop.',
+  },
+  link_expired: {
+    ru: 'Ссылка устарела. Откройте её заново на сайте: колокольчик → «Подключить Telegram».',
+    uz: 'Havola eskirgan. Uni saytda qayta oching: qoʻngʻiroqcha → «Telegramni ulash».',
+  },
+  unlinked: {
+    ru: 'Уведомления отключены. Подключить снова можно на сайте: колокольчик → «Подключить Telegram».',
+    uz: 'Bildirishnomalar oʻchirildi. Saytda qayta ulash mumkin: qoʻngʻiroqcha → «Telegramni ulash».',
+  },
+};
+Object.assign(T, LINK);
 
 export const t = (key: string, lang: BotLang) => T[key]?.[lang] ?? key;

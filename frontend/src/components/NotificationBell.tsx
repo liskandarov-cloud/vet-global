@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Check, BellRing, BellOff } from 'lucide-react';
+import { Bell, Check, BellRing, BellOff, Send } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
@@ -35,10 +35,31 @@ export function NotificationBell() {
   const [items, setItems] = useState<Note[]>([]);
   const [unread, setUnread] = useState(0);
   const [pushOn, setPushOn] = useState(false);
+  const [tg, setTg] = useState<{ available: boolean; linked: boolean } | null>(null);
   const boxRef = useRef<HTMLDivElement>(null);
 
   const load = () => {
     api.get('/notifications').then((r) => { setItems(r.data.items ?? []); setUnread(r.data.unread ?? 0); }).catch(() => {});
+  };
+  const loadTg = () => { api.get('/users/me/telegram').then((r) => setTg(r.data)).catch(() => {}); };
+
+  // Telegram: ссылка одноразовая, поэтому берётся в момент нажатия. Окно
+  // открывается сразу — после ожидания ответа браузер счёл бы его всплывающим.
+  const linkTelegram = async () => {
+    const w = window.open('', '_blank');
+    try {
+      const { data } = await api.post('/users/me/telegram');
+      if (w) w.location.href = data.url; else window.location.href = data.url;
+      setOpen(false);
+    } catch {
+      w?.close();
+      toast.error(tt('Telegram сейчас недоступен', 'Telegram hozir mavjud emas'));
+    }
+  };
+  const unlinkTelegram = async () => {
+    await api.delete('/users/me/telegram').catch(() => {});
+    setTg((x) => (x ? { ...x, linked: false } : x));
+    toast.success(tt('Telegram отключён', 'Telegram oʻchirildi'));
   };
 
   // Продавцу и администратору push — единственный мгновенный канал: о заказе
@@ -116,7 +137,7 @@ export function NotificationBell() {
 
   return (
     <div ref={boxRef} className="relative">
-      <button onClick={() => { setOpen((o) => !o); if (!open) load(); }} className="btn-ghost relative !px-2" aria-label={tt('Уведомления', 'Bildirishnomalar')}>
+      <button onClick={() => { setOpen((o) => !o); if (!open) { load(); loadTg(); } }} className="btn-ghost relative !px-2" aria-label={tt('Уведомления', 'Bildirishnomalar')}>
         <Bell size={18} />
         {unread > 0 && (
           <span className="absolute -right-0.5 -top-0.5 grid h-4 min-w-[16px] place-items-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
@@ -150,6 +171,20 @@ export function NotificationBell() {
               ))
             )}
           </div>
+
+          {tg?.available && (tg.linked ? (
+            <div className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-sm">
+              <Send size={15} className="text-sky-600" />
+              {tt('Telegram подключён', 'Telegram ulangan')}
+              <button onClick={unlinkTelegram} className="ml-auto text-xs text-ink-subtle hover:underline">{tt('Отключить', 'Oʻchirish')}</button>
+            </div>
+          ) : (
+            <button onClick={linkTelegram} className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-sm hover:bg-slate-50">
+              <Send size={15} className="text-sky-600" />
+              {tt('Подключить Telegram', 'Telegramni ulash')}
+              <span className="ml-auto text-[11px] text-ink-subtle">{tt('заказы и статусы', 'buyurtmalar va holatlar')}</span>
+            </button>
+          ))}
 
           <button onClick={togglePush} className="flex w-full items-center gap-2 border-t border-slate-100 px-4 py-2.5 text-sm hover:bg-slate-50">
             {pushOn ? <BellRing size={15} className="text-teal-700" /> : <BellOff size={15} className="text-ink-subtle" />}

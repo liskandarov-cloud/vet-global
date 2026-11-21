@@ -287,8 +287,36 @@ export class UsersService {
     return { ok: true };
   }
 
+  // ── Telegram ──
+  async telegramStatus(userId: string) {
+    const [u, bot] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: userId }, select: { telegramChatId: true } }),
+      this.alerts.botUsername(),
+    ]);
+    return { available: !!bot, linked: !!u?.telegramChatId };
+  }
+
+  // Одноразовая ссылка на бота: /start с этим ключом привязывает чат к
+  // аккаунту. Язык уведомлений — язык сайта в момент привязки.
+  async telegramLink(userId: string, lang: 'ru' | 'uz') {
+    const bot = await this.alerts.botUsername();
+    if (!bot) throw new BadRequestException('Telegram-бот не подключён');
+    const token = randomBytes(16).toString('hex');
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { telegramLinkToken: token, telegramLinkUntil: new Date(Date.now() + 30 * 60_000), telegramLang: lang },
+    });
+    return { url: `https://t.me/${bot}?start=link_${token}` };
+  }
+
+  async telegramUnlink(userId: string) {
+    await this.prisma.user.update({ where: { id: userId }, data: { telegramChatId: null, telegramLinkToken: null } });
+    return { ok: true };
+  }
+
+  // Ключ привязки — секрет владельца, номер чата — его личные данные.
   private sanitize(u: any) {
-    const { passwordHash, ...rest } = u;
-    return { ...rest, vetPointsBalance: Number(u.vetPointsBalance ?? 0), rating: Number(u.rating ?? 0) };
+    const { passwordHash, telegramLinkToken, telegramLinkUntil, telegramChatId, ...rest } = u;
+    return { ...rest, telegramLinked: !!telegramChatId, vetPointsBalance: Number(u.vetPointsBalance ?? 0), rating: Number(u.rating ?? 0) };
   }
 }
