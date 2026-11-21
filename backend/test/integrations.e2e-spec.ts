@@ -1458,6 +1458,20 @@ describe('VetHub integrations (e2e)', () => {
       expect(second.body.documents[0].didoxId).toBe(first.body.documents[0].didoxId);
       expect(second.body.documents.every((d: any) => d.alreadySent)).toBe(true);
     });
+
+    // Двойное нажатие: отправки одновременно. Проверка «уже отправлен» видит
+    // только завершённую отправку — без захвата строки Didox выпускал два
+    // документа на одну поставку.
+    it('одновременная отправка не создаёт второй документ', async () => {
+      const order = (await req('/orders', {
+        token: buyer,
+        body: { items: [{ productId: sellerProduct.id, quantity: sellerProduct.minOrder }] },
+      })).body;
+      const results = await Promise.all([1, 2, 3].map(() => req(`/didox/send/${order.id}`, { token: admin, body: {} })));
+      expect(results.every((r) => r.status < 300 || r.status === 409)).toBe(true);
+      const ids = new Set(results.filter((r) => r.status < 300).flatMap((r) => r.body.documents.map((d: any) => d.didoxId)));
+      expect(ids.size).toBe(1);
+    });
   });
 
   // Отчёт по выплатам и общая статистика берут комиссию разными путями: первый

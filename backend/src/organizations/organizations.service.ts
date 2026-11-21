@@ -248,14 +248,16 @@ export class OrganizationsService {
     if (order.approvalStatus !== ApprovalStatus.PENDING)
       throw new BadRequestException('Заказ уже обработан');
 
-    await this.prisma.$transaction(async (tx) => {
-      await tx.order.update({
-        where: { id: orderId },
-        data: approve
-          ? { approvalStatus: ApprovalStatus.APPROVED, approvedById: user.id }
-          : { approvalStatus: ApprovalStatus.REJECTED, approvedById: user.id, status: OrderStatus.CANCELLED },
-      });
+    // Условием на статус: проверка выше идёт до записи, и два одновременных
+    // решения (согласовать и отклонить) оба её проходили — заказ оказывался
+    // отменённым и согласованным сразу, покупатель получал оба уведомления.
+    const decided = await this.prisma.order.updateMany({
+      where: { id: orderId, approvalStatus: ApprovalStatus.PENDING },
+      data: approve
+        ? { approvalStatus: ApprovalStatus.APPROVED, approvedById: user.id }
+        : { approvalStatus: ApprovalStatus.REJECTED, approvedById: user.id, status: OrderStatus.CANCELLED },
     });
+    if (!decided.count) throw new BadRequestException('Заказ уже обработан');
 
     // Отклонение — это отмена заказа, поэтому возвращается всё занятое: лимит,
     // баллы и остаток на складе. Раньше здесь освобождался только лимит, и

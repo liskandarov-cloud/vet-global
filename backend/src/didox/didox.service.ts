@@ -1,4 +1,6 @@
-import { BadRequestException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException, ForbiddenException, Injectable, Logger, NotFoundException, OnModuleInit } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -11,6 +13,9 @@ import { buildFactura } from './factura';
 import { splitInvoices } from '../orders/invoice-split';
 import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 import { DIDOX_OFF, didoxMode, type DidoxMode } from './mode';
+
+// Сколько держится захват отправки, если процесс упал посреди неё.
+const SENDING_STALE_MS = 5 * 60_000;
 
 @Injectable()
 export class DidoxService implements OnModuleInit {
@@ -129,19 +134,48 @@ export class DidoxService implements OnModuleInit {
         number,
       );
 
-      const result = await this.live().createInvoice(payload);
-      const invoice = await this.prisma.invoice.upsert({
-        where: { orderId_sellerId: { orderId, sellerId: invoiceSellerId } },
-        update: { didoxId: result.didoxId, didoxStatus: result.status },
-        create: {
+      // Захват строки до обращения к Didox. Проверка «уже отправлен» выше видит
+      // только завершённую отправку: двойное нажатие проходило её дважды, и
+      // Didox выпускал два счёта-фактуры на одну поставку — двойную реализацию,
+      // которую наша база уже не отменит. Зависший захват (сбой посреди
+      // отправки) истекает через SENDING_STALE_MS.
+      const where = { orderId_sellerId: { orderId, sellerId: invoiceSellerId } };
+      await this.prisma.invoice.upsert({
+        where,
+        update: {},
+        // Сумма документа, а не сумма заказа: они различаются на баллы.
+        create: { orderId, sellerId: invoiceSellerId, number, amount: payload.total },
+      });
+      const now = new Date();
+      const claimed = await this.prisma.invoice.updateMany({
+        where: {
           orderId,
           sellerId: invoiceSellerId,
-          number,
-          // Сумма документа, а не сумма заказа: они различаются на баллы.
-          amount: payload.total,
-          didoxId: result.didoxId,
-          didoxStatus: result.status,
+          didoxId: null,
+          OR: [{ sendingAt: null }, { sendingAt: { lt: new Date(now.getTime() - SENDING_STALE_MS) } }],
         },
+        data: { sendingAt: now },
+      });
+      if (!claimed.count) {
+        const current = await this.prisma.invoice.findUnique({ where });
+        if (!current?.didoxId) throw new ConflictException('Счёт-фактура уже отправляется — обновите страницу через минуту');
+        documents.push({ sellerId: part.sellerId, didoxId: current.didoxId, didoxStatus: current.didoxStatus, number: current.number, alreadySent: true });
+        continue;
+      }
+
+      let result: Awaited<ReturnType<DidoxAdapter['createInvoice']>>;
+      try {
+        result = await this.live().createInvoice(payload);
+      } catch (e) {
+        // Строка, созданная только ради захвата, не должна остаться «выставленным
+        // счётом»: её наличие запрещает менять сумму заказа (delivery.service).
+        if (existing) await this.prisma.invoice.update({ where, data: { sendingAt: null } });
+        else await this.prisma.invoice.delete({ where });
+        throw e;
+      }
+      const invoice = await this.prisma.invoice.update({
+        where,
+        data: { didoxId: result.didoxId, didoxStatus: result.status, sendingAt: null },
       });
 
       documents.push({
