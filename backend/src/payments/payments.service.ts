@@ -7,6 +7,8 @@ import { notPayableReason, onlinePaymentMode, payerError, payProviders, statusAf
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { buildCheckoutUrl } from './providers';
 import { frontendUrl } from '../common/frontend-url';
+import { AlertsService } from '../alerts/alerts.service';
+import { orderCancelledAlert, shortId, tt } from '../alerts/text';
 
 @Injectable()
 export class PaymentsService {
@@ -19,6 +21,7 @@ export class PaymentsService {
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
     private readonly release: OrderReleaseService,
+    private readonly alerts: AlertsService,
   ) {
     this.mode = onlinePaymentMode(config.get<string>('PAYMENTS_MODE'), config.get<string>('SEED_DEMO'));
     this.mock = this.mode === 'mock';
@@ -89,7 +92,7 @@ export class PaymentsService {
     const payment = await this.prisma.payment.update({
       where: { id: paymentId },
       data: { status: PaymentStatus.PAID, providerTransId },
-      include: { order: { select: { status: true } } },
+      include: { order: { select: { status: true, buyerId: true } } },
     });
     // Оплата подтверждает только новый заказ. Заказ по отсрочке платится уже
     // отгруженным или доставленным, и прежний безусловный перевод в CONFIRMED
@@ -101,6 +104,24 @@ export class PaymentsService {
     // Лимит резервировался под неоплаченный долг: после оплаты он должен
     // освободиться, иначе отсрочка расходует лимит покупателя навсегда.
     await this.release.onPaid(payment.orderId);
+
+    // Об оплате узнают обе стороны: продавец — что деньги поступили, покупатель —
+    // что платёж дошёл (иначе он видит только смену статуса, и то не всегда).
+    const no = shortId(payment.orderId);
+    if (payment.order.buyerId) {
+      void this.alerts.notify(payment.order.buyerId, {
+        title: tt('Оплата получена', 'Toʻlov qabul qilindi'),
+        body: tt(`Заказ #${no} оплачен.`, `#${no} buyurtma toʻlandi.`),
+        url: `/orders/${payment.orderId}`,
+      });
+    }
+    void this.alerts
+      .notifyOrderSellers(payment.orderId, {
+        title: tt(`Заказ #${no} оплачен`, `#${no} buyurtma toʻlandi`),
+        body: tt('Покупатель оплатил заказ через платформу.', 'Xaridor buyurtmani platforma orqali toʻladi.'),
+        url: '/seller',
+      })
+      .catch(() => undefined);
     this.logger.log(`Payment ${paymentId} PAID (${payment.provider}) → order ${payment.orderId} ${next}`);
     return { id: payment.id, status: payment.status, orderId: payment.orderId };
   }
@@ -111,8 +132,16 @@ export class PaymentsService {
   // мимо возврата ресурсов: деньги покупателю возвращались, а его баллы
   // оставались списанными, товар — снятым со склада.
   async onRefunded(orderId: string): Promise<void> {
-    await this.prisma.order.update({ where: { id: orderId }, data: { status: OrderStatus.CANCELLED } });
+    const order = await this.prisma.order.update({ where: { id: orderId }, data: { status: OrderStatus.CANCELLED } });
     await this.release.onCancelled(orderId);
+    if (order.buyerId) {
+      void this.alerts.notify(order.buyerId, {
+        title: tt(`Заказ #${shortId(orderId)} отменён`, `Buyurtma #${shortId(orderId)} bekor qilindi`),
+        body: tt('Оплата возвращена.', 'Toʻlov qaytarildi.'),
+        url: `/orders/${orderId}`,
+      });
+    }
+    void this.alerts.notifyOrderSellers(orderId, orderCancelledAlert(orderId)).catch(() => undefined);
     this.logger.log(`возврат по заказу ${orderId}: заказ отменён, занятое возвращено`);
   }
 

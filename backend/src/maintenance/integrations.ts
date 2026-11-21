@@ -51,7 +51,7 @@ export function integrationsStatus(get: Get): IntegrationStatus[] {
       title: 'Telegram-бот',
       state: byKeys('TELEGRAM_BOT_TOKEN'),
       missing: lacking('TELEGRAM_BOT_TOKEN'),
-      how: 'Токен от @BotFather. TELEGRAM_ADMIN_CHAT_ID — чат, куда падают заявки из бота.',
+      how: 'Токен от @BotFather. TELEGRAM_ADMIN_CHAT_ID — чат команды: новые заказы, заявки, продавцы на проверке, заявки на кредит.',
     },
     {
       key: 'click',

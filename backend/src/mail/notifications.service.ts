@@ -7,6 +7,8 @@ import { SmsService } from '../sms/sms.service';
 import { summariesBySeller } from './order-summary';
 import { deliveryBySellerForOrder } from '../delivery/order-delivery';
 import { consultBody, itemsTable, layout, leadBody, money, orderLine } from './templates';
+import { AlertsService } from '../alerts/alerts.service';
+import { fmt, tt } from '../alerts/text';
 
 const STATUS_RU: Record<OrderStatus, string> = {
   PENDING: 'Новый',
@@ -26,6 +28,7 @@ export class NotificationsService {
     private readonly mail: MailService,
     private readonly config: ConfigService,
     private readonly sms: SmsService,
+    private readonly alerts: AlertsService,
   ) {}
 
   // Fire-and-forget: notify buyer (if registered), each involved seller, and admin.
@@ -91,7 +94,13 @@ export class NotificationsService {
       });
     }
 
-    // Admin
+    // Команде площадки — на сайте и в Telegram; письмом — если задан ADMIN_EMAIL.
+    const buyerName = order.buyerCompany || order.buyerName || '—';
+    await this.alerts.notifyAdmins({
+      title: tt(`Новый заказ #${shortId}`, `Yangi buyurtma #${shortId}`),
+      body: tt(`${buyerName}: ${fmt(Number(order.total))} сум`, `${buyerName}: ${fmt(Number(order.total))} soʻm`),
+      url: '/admin',
+    });
     const adminEmail = this.config.get<string>('ADMIN_EMAIL');
     if (adminEmail) {
       await this.mail.send({
@@ -108,6 +117,12 @@ export class NotificationsService {
     if (!lead) return;
 
     const body = leadBody(lead);
+
+    const who = `${lead.fullName}, ${lead.phone}${lead.productName ? ` — «${lead.productName}»` : ''}`;
+    await this.alerts.notifyAdmins({ title: tt('Новая заявка', 'Yangi ariza'), body: who, url: '/admin' });
+    if (lead.sellerId) {
+      await this.alerts.notify(lead.sellerId, { title: tt('Заявка на ваш товар', 'Tovaringizga ariza'), body: who, url: '/seller' });
+    }
 
     const adminEmail = this.config.get<string>('ADMIN_EMAIL');
     if (adminEmail) {
@@ -134,6 +149,7 @@ export class NotificationsService {
   async onConsultCreated(consultId: string): Promise<void> {
     const c = await this.prisma.consultRequest.findUnique({ where: { id: consultId } });
     if (!c) return;
+    await this.alerts.notifyAdmins({ title: tt('Новая ветконсультация', 'Yangi vet maslahat'), body: c.topic, url: '/admin' });
     const adminEmail = this.config.get<string>('ADMIN_EMAIL');
     if (!adminEmail) return;
     await this.mail.send({

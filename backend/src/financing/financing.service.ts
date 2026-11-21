@@ -4,6 +4,8 @@ import { CreditStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ApplyCreditDto, DecideCreditDto } from './dto/financing.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
+import { AlertsService } from '../alerts/alerts.service';
+import { fmt, tt } from '../alerts/text';
 
 @Injectable()
 export class FinancingService {
@@ -15,6 +17,7 @@ export class FinancingService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly alerts: AlertsService,
   ) {
     // По умолчанию — ручное решение.
     //
@@ -58,6 +61,15 @@ export class FinancingService {
       const approved = Math.min(dto.requestedLimit, this.maxLimit);
       return this.decide(app.id, { approve: true, approvedLimit: approved, note: 'Авто-скоринг (демо)' });
     }
+    // Решение принимает администратор — без сигнала заявка ждала, пока он
+    // сам заглянет в раздел.
+    void this.alerts
+      .notifyAdmins({
+        title: tt('Заявка на кредитный лимит', 'Kredit limiti uchun ariza'),
+        body: tt(`${user.fullName}: ${fmt(dto.requestedLimit)} сум`, `${user.fullName}: ${fmt(dto.requestedLimit)} soʻm`),
+        url: '/admin',
+      })
+      .catch(() => undefined);
     return app;
   }
 
@@ -131,6 +143,23 @@ export class FinancingService {
       }
       return u;
     });
+    void this.alerts.notify(
+      app.buyerId,
+      approvedLimit != null
+        ? {
+            title: tt('Кредитный лимит одобрен', 'Kredit limiti maʼqullandi'),
+            body: tt(
+              `Лимит ${fmt(approvedLimit)} сум — можно оформлять заказы с отсрочкой оплаты.`,
+              `Limit ${fmt(approvedLimit)} soʻm — toʻlovni kechiktirib buyurtma berish mumkin.`,
+            ),
+            url: '/financing',
+          }
+        : {
+            title: tt('Заявка на кредит отклонена', 'Kredit arizasi rad etildi'),
+            body: tt(`Банк не одобрил заявку.${dto.note ? ` ${dto.note}` : ''}`, `Bank arizani maʼqullamadi.${dto.note ? ` ${dto.note}` : ''}`),
+            url: '/financing',
+          },
+    );
     return serializeApp(updated);
   }
 }

@@ -47,9 +47,10 @@ export class PushService {
   }
 
   async subscribe(
-    sub: { endpoint: string; keys: { p256dh: string; auth: string } },
+    sub: { endpoint: string; keys: { p256dh: string; auth: string }; lang?: string },
     user: AuthUser,
   ) {
+    const lang = sub?.lang === 'uz' ? 'uz' : 'ru';
     if (!sub?.endpoint || !sub.keys) return { ok: false };
     // Сервер сам шлёт POST на этот адрес — только сервисы уведомлений браузеров.
     if (!isPushEndpointAllowed(sub.endpoint)) {
@@ -57,8 +58,8 @@ export class PushService {
     }
     await this.prisma.pushSubscription.upsert({
       where: { endpoint: sub.endpoint },
-      create: { userId: user.id, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
-      update: { userId: user.id, p256dh: sub.keys.p256dh, auth: sub.keys.auth },
+      create: { userId: user.id, endpoint: sub.endpoint, p256dh: sub.keys.p256dh, auth: sub.keys.auth, lang },
+      update: { userId: user.id, p256dh: sub.keys.p256dh, auth: sub.keys.auth, lang },
     });
     return { ok: true };
   }
@@ -68,8 +69,9 @@ export class PushService {
     return { ok: true };
   }
 
-  // Отправка уведомления всем устройствам пользователя (fire-and-forget).
-  async sendToUser(userId: string, payload: PushPayload) {
+  // Отправка уведомления всем устройствам пользователя (fire-and-forget),
+  // каждому — на языке его интерфейса.
+  async sendToUser(userId: string, payload: (lang: 'ru' | 'uz') => PushPayload) {
     if (!this.enabled) return;
     const subs = await this.prisma.pushSubscription.findMany({ where: { userId } });
     await Promise.all(
@@ -77,7 +79,7 @@ export class PushService {
         try {
           await webpush.sendNotification(
             { endpoint: s.endpoint, keys: { p256dh: s.p256dh, auth: s.auth } },
-            JSON.stringify(payload),
+            JSON.stringify(payload(s.lang === 'uz' ? 'uz' : 'ru')),
           );
         } catch (e: any) {
           // Просроченная/отозванная подписка — удаляем.

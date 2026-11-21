@@ -9,6 +9,8 @@ import { escapeHtml } from '../common/html';
 import { TERMS_VERSION } from '../common/terms';
 import { RegisterDto, LoginDto, SELF_SIGNUP_ROLES } from './dto/auth.dto';
 import { hashResetToken, isResetUsable, newResetToken } from './password-reset';
+import { AlertsService } from '../alerts/alerts.service';
+import { tt } from '../alerts/text';
 
 const RESET_INVALID = 'Ссылка недействительна или устарела. Запросите новую.';
 
@@ -18,6 +20,7 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     private readonly mail: MailService,
+    private readonly alerts: AlertsService,
   ) {}
 
   private sign(userId: string, role: string) {
@@ -69,6 +72,15 @@ export class AuthService {
         termsVersion: TERMS_VERSION,
       },
     });
+    if (user.role === UserRole.SELLER) {
+      void this.alerts
+        .notifyAdmins({
+          title: tt('Новый продавец ждёт проверки', 'Yangi sotuvchi tekshiruvni kutmoqda'),
+          body: tt(`${user.company || user.fullName}, ИНН ${user.inn ?? '—'}`, `${user.company || user.fullName}, STIR ${user.inn ?? '—'}`),
+          url: '/admin',
+        })
+        .catch(() => undefined);
+    }
 
     return {
       token: this.sign(user.id, user.role),

@@ -45,6 +45,7 @@ import { deliveryBySellerForOrder, deliveryTotalForOrder, parseQuote } from '../
 import { TariffsService } from '../delivery/tariffs.service';
 import { isExpired, publicOffer, SELLABLE_SELLER } from '../common/visibility';
 import { pickBestOffer } from '../offers/best-offer';
+import { fmt, orderCancelledAlert, shortId, statusText, tt } from '../alerts/text';
 
 @Injectable()
 export class OrdersService {
@@ -475,19 +476,29 @@ export class OrdersService {
     // Notify buyer + sellers + admin (fire-and-forget; email failures must not break checkout).
     void this.notifications.onOrderCreated(order.id).catch(() => undefined);
 
-    // Предзаказ «под заказ»: продавцу нужен явный сигнал подтвердить наличие,
-    // иначе оплата у покупателя останется заблокированной. Шлём каждому продавцу
-    // из состава заказа отдельный алерт со ссылкой в кабинет.
-    if (requiresConfirmation) {
-      const sellerIds = [...new Set(items.map((it) => it.sellerId).filter(Boolean))] as string[];
-      for (const sid of sellerIds) {
-        void this.alerts.notify(sid, {
-          title: 'Новый предзаказ — подтвердите наличие',
-          body: `${buyerName}: заказ содержит позицию «под заказ». Подтвердите наличие, чтобы открылась оплата.`,
-          url: '/seller',
-        });
-      }
-    }
+    // Каждому продавцу из состава заказа — сигнал в кабинет и на телефон.
+    // Раньше его получал только продавец предзаказа, а о простом заказе
+    // продавец узнавал из письма — без почтового провайдера не узнавал вовсе.
+    // Предзаказу нужен свой текст: пока наличие не подтверждено, оплата у
+    // покупателя заблокирована.
+    const sellerIds = [...new Set(items.map((it) => it.sellerId).filter(Boolean))] as string[];
+    void this.alerts.notifyMany(
+      sellerIds,
+      requiresConfirmation
+        ? {
+            title: tt('Новый предзаказ — подтвердите наличие', 'Yangi oldindan buyurtma — mavjudligini tasdiqlang'),
+            body: tt(
+              `${buyerName}: заказ содержит позицию «под заказ». Подтвердите наличие, чтобы открылась оплата.`,
+              `${buyerName}: buyurtmada «buyurtma asosida» pozitsiyasi bor. Toʻlov ochilishi uchun mavjudligini tasdiqlang.`,
+            ),
+            url: '/seller',
+          }
+        : {
+            title: tt(`Новый заказ #${shortId(order.id)}`, `Yangi buyurtma #${shortId(order.id)}`),
+            body: tt(`Покупатель: ${buyerName}. Подтвердите заказ в кабинете продавца.`, `Xaridor: ${buyerName}. Buyurtmani sotuvchi kabinetida tasdiqlang.`),
+            url: '/seller',
+          },
+    );
 
     // Push согласующим, если заказ ушёл на согласование.
     if (orgId && approvalStatus === ApprovalStatus.PENDING) {
@@ -497,8 +508,8 @@ export class OrdersService {
           Promise.all(
             approvers.map((a) =>
               this.alerts.notify(a.userId, {
-                title: 'Заказ на согласование',
-                body: `${buyerName}: заказ на ${Math.round(total).toLocaleString('ru-RU')} сум ждёт одобрения`,
+                title: tt('Заказ на согласование', 'Buyurtma tasdiqlashni kutmoqda'),
+                body: tt(`${buyerName}: заказ на ${fmt(total)} сум ждёт одобрения`, `${buyerName}: ${fmt(total)} soʻmlik buyurtma tasdiqlashni kutmoqda`),
                 url: '/org',
               }),
             ),
@@ -506,7 +517,6 @@ export class OrdersService {
         )
         .catch(() => undefined);
     }
-    // TODO(phase-2): Telegram routing to seller/admin (SRS 4.2).
     return this.serialize(order);
   }
 
@@ -616,7 +626,7 @@ export class OrdersService {
       });
     }
 
-    await this.afterStatusChange(id, status);
+    await this.afterStatusChange(id, status, user.id);
     return this.getOne(id, user);
   }
 
@@ -663,7 +673,7 @@ export class OrdersService {
     const next = aggregateStatus(parts.map((p) => p.status));
     if (next !== order.status) {
       const moved = await this.prisma.order.updateMany({ where: { id: order.id, status: order.status }, data: { status: next } });
-      if (moved.count) await this.afterStatusChange(order.id, next);
+      if (moved.count) await this.afterStatusChange(order.id, next, user.id);
     }
     return this.getOne(order.id, user);
   }
@@ -760,11 +770,18 @@ export class OrdersService {
     });
 
     if (result.buyerId) {
+      const cut = fmt(result.reduction);
       void this.alerts.notify(result.buyerId, {
-        title: `Заказ #${orderId.slice(0, 8)}`,
+        title: tt(`Заказ #${shortId(orderId)}`, `Buyurtma #${shortId(orderId)}`),
         body: result.paid
-          ? `Один из поставщиков отменил свою часть заказа. Сумма уменьшена на ${Math.round(result.reduction).toLocaleString('ru-RU')} сум — эти деньги вам вернут.`
-          : `Один из поставщиков отменил свою часть заказа. Сумма к оплате уменьшена на ${Math.round(result.reduction).toLocaleString('ru-RU')} сум.`,
+          ? tt(
+              `Один из поставщиков отменил свою часть заказа. Сумма уменьшена на ${cut} сум — эти деньги вам вернут.`,
+              `Yetkazib beruvchilardan biri buyurtmadagi oʻz qismini bekor qildi. Summa ${cut} soʻmga kamaydi — bu pul sizga qaytariladi.`,
+            )
+          : tt(
+              `Один из поставщиков отменил свою часть заказа. Сумма к оплате уменьшена на ${cut} сум.`,
+              `Yetkazib beruvchilardan biri buyurtmadagi oʻz qismini bekor qildi. Toʻlov summasi ${cut} soʻmga kamaydi.`,
+            ),
         url: `/orders/${orderId}`,
       });
     }
@@ -772,7 +789,7 @@ export class OrdersService {
 
   // Последствия смены статуса заказа: возврат занятого при отмене, баллы за
   // доставку, уведомления.
-  private async afterStatusChange(id: string, status: OrderStatus) {
+  private async afterStatusChange(id: string, status: OrderStatus, actorId?: string) {
     const order = await this.prisma.order.findUnique({ where: { id } });
     if (!order) return;
 
@@ -810,11 +827,16 @@ export class OrdersService {
 
     void this.notifications.onOrderStatusChanged(id, status).catch(() => undefined);
     if (order.buyerId) {
+      const st = statusText(status);
       void this.alerts.notify(order.buyerId, {
-        title: `Заказ #${id.slice(0, 8)}`,
-        body: `Статус изменён: ${ORDER_STATUS_RU[status] ?? status}`,
+        title: tt(`Заказ #${shortId(id)}`, `Buyurtma #${shortId(id)}`),
+        body: tt(`Статус изменён: ${st.ru}`, `Holat oʻzgardi: ${st.uz}`),
         url: `/orders/${id}`,
       });
+    }
+    // Отмену администратором продавец иначе увидел бы, только открыв заказ.
+    if (status === OrderStatus.CANCELLED) {
+      void this.alerts.notifyOrderSellers(id, orderCancelledAlert(id), actorId).catch(() => undefined);
     }
   }
 
@@ -836,8 +858,8 @@ export class OrdersService {
 
     if (order.buyerId) {
       void this.alerts.notify(order.buyerId, {
-        title: `Заказ #${id.slice(0, 8)}`,
-        body: 'Продавец подтвердил наличие — заказ можно оплатить',
+        title: tt(`Заказ #${shortId(id)}`, `Buyurtma #${shortId(id)}`),
+        body: tt('Продавец подтвердил наличие — заказ можно оплатить', 'Sotuvchi mavjudligini tasdiqladi — buyurtmani toʻlash mumkin'),
         url: `/orders/${id}`,
       });
     }
@@ -991,12 +1013,4 @@ interface SerializableOrder {
   items?: ({ sellerId: string; price: unknown; quantity: unknown })[];
 }
 
-const ORDER_STATUS_RU: Record<string, string> = {
-  PENDING: 'Новый',
-  CONFIRMED: 'Подтверждён',
-  PROCESSING: 'В обработке',
-  SHIPPED: 'Отгружен',
-  DELIVERED: 'Доставлен',
-  CANCELLED: 'Отменён',
-};
 
