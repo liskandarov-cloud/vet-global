@@ -9,9 +9,15 @@
 // нельзя — user-event под фейковыми таймерами не доводит набор текста до конца.
 // Ожидание идёт через waitFor, а не через паузы.
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, cleanup, waitFor } from '@testing-library/react';
+import { render, screen, cleanup, waitFor, configure } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { useAuth, useCart } from '@/lib/store';
+
+// Таймеры настоящие, а набор «Ташкент» по букве каждый раз сбрасывает задержку
+// расчёта (400 мс): ожидания в секунду под нагрузкой не хватало, и тесты этого
+// файла падали нестабильно. Ждём дольше — сами проверки не меняются.
+configure({ asyncUtilTimeout: 5000 });
+vi.setConfig({ testTimeout: 20000 });
 
 const get = vi.fn();
 const post = vi.fn();
