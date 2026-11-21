@@ -26,7 +26,6 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   private bot?: Bot;
   private readonly state = new Map<number, ChatState>();
   private frontendUrl: string;
-  private adminChatId?: string;
 
   constructor(
     private readonly config: ConfigService,
@@ -35,7 +34,6 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly promotions: PromotionsService,
   ) {
     this.frontendUrl = frontendUrl();
-    this.adminChatId = config.get<string>('TELEGRAM_ADMIN_CHAT_ID');
   }
 
   onModuleInit() {
@@ -174,7 +172,6 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
             message: `Заявка из Telegram (@${ctx.from?.username ?? ctx.from?.id})`,
           });
           s.flow = undefined; s.step = undefined;
-          await this.notifyAdminChat(s.data);
           return ctx.reply(t('lead_done', lang), { reply_markup: this.mainMenu(lang) });
         }
       }
@@ -316,15 +313,4 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     return img.startsWith('http') ? img : `${this.frontendUrl}${img}`;
   }
 
-  private async notifyAdminChat(data: ChatState['data']) {
-    if (!this.bot || !this.adminChatId) return;
-    try {
-      await this.bot.api.sendMessage(
-        this.adminChatId,
-        `🆕 Новая заявка (Telegram)\n👤 ${data.fullName}\n📞 ${data.phone}${data.productName ? `\n📦 ${data.productName}` : ''}`,
-      );
-    } catch {
-      /* ignore */
-    }
-  }
 }

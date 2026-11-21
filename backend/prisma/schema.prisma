@@ -331,6 +331,9 @@ model Notification {
   userId    String
   title     String
   body      String
+  // Тот же текст по-узбекски; пусто — у старых записей, им показывается русский.
+  titleUz   String?
+  bodyUz    String?
   url       String?
   read      Boolean  @default(false)
   createdAt DateTime @default(now())
@@ -348,6 +351,8 @@ model PushSubscription {
   endpoint  String   @unique
   p256dh    String
   auth      String
+  // Язык интерфейса на устройстве: push приходит на нём.
+  lang      String   @default("ru")
   createdAt DateTime @default(now())
 
   user User @relation("PushSubs", fields: [userId], references: [id], onDelete: Cascade)

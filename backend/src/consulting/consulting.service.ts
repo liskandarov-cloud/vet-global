@@ -3,6 +3,7 @@ import { AnimalType, ConsultStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { NotificationsService } from '../mail/notifications.service';
+import { tt } from '../alerts/text';
 
 export interface CreateConsultInput {
   fullName: string;
@@ -45,8 +46,8 @@ export class ConsultingService {
     const consult = await this.prisma.consultRequest.update({ where: { id }, data: { answer, answeredBy, status } });
     if (consult.userId) {
       void this.alerts.notify(consult.userId, {
-        title: 'Ответ ветеринара',
-        body: `На ваш вопрос «${consult.topic}» пришёл ответ.`,
+        title: tt('Ответ ветеринара', 'Veterinar javobi'),
+        body: tt(`На ваш вопрос «${consult.topic}» пришёл ответ.`, `«${consult.topic}» savolingizga javob keldi.`),
         url: '/consult',
       });
     }

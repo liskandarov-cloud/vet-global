@@ -4,6 +4,7 @@ import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { REPEAT_AFTER_MS, subscriptionFailureNotice } from './failure-notice';
+import { textIn } from '../alerts/text';
 import { OrdersService } from '../orders/orders.service';
 import { CreateSubscriptionDto, UpdateSubscriptionDto } from './dto/subscription.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
@@ -170,7 +171,7 @@ export class SubscriptionsService {
     const product = await this.prisma.product.findUnique({ where: { id: sub.productId }, select: { name: true } });
     const notice = subscriptionFailureNotice(product?.name, error);
     const recent = await this.prisma.notification.findFirst({
-      where: { userId: sub.buyerId, title: notice.title, body: notice.body, createdAt: { gte: new Date(Date.now() - REPEAT_AFTER_MS) } },
+      where: { userId: sub.buyerId, title: textIn(notice.title, 'ru'), body: textIn(notice.body, 'ru'), createdAt: { gte: new Date(Date.now() - REPEAT_AFTER_MS) } },
       select: { id: true },
     });
     if (!recent) await this.alerts.notify(sub.buyerId, notice);

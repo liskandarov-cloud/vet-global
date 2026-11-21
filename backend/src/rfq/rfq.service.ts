@@ -6,8 +6,11 @@ import { syncOwnerOfferStock } from '../offers/product-aggregates';
 import { CreateRfqDto, QuoteDto } from './dto/rfq.dto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { percentOf } from '../common/pricing';
-import { canSell } from '../common/visibility';
+import { canSell, SELLABLE_SELLER } from '../common/visibility';
 import { approvalFor } from '../orders/approval';
+import { AlertsService } from '../alerts/alerts.service';
+import { NotificationsService } from '../mail/notifications.service';
+import { fmt, shortId, tt } from '../alerts/text';
 
 @Injectable()
 export class RfqService {
@@ -17,6 +20,8 @@ export class RfqService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly config: ConfigService,
+    private readonly alerts: AlertsService,
+    private readonly notifications: NotificationsService,
   ) {
     // Те же ставки, что и у обычного заказа — сделка по тендеру ничем не отличается.
     this.commissionPct = Number(config.get('PLATFORM_COMMISSION_PERCENT') ?? 12);
@@ -24,7 +29,7 @@ export class RfqService {
   }
 
   async create(dto: CreateRfqDto, user: AuthUser) {
-    return this.prisma.rfq.create({
+    const rfq = await this.prisma.rfq.create({
       data: {
         buyerId: user.id,
         title: dto.title,
@@ -41,6 +46,25 @@ export class RfqService {
       },
       include: { items: true },
     });
+    // Запрос виден всем продавцам, но без сигнала его замечали, только зайдя
+    // в раздел, — а у запроса есть срок.
+    void this.prisma.user
+      .findMany({ where: { role: UserRole.SELLER, ...SELLABLE_SELLER }, select: { id: true } })
+      .then((sellers) =>
+        this.alerts.notifyMany(
+          sellers.map((s) => s.id),
+          {
+            title: tt('Новый запрос цен', 'Yangi narx soʻrovi'),
+            body: tt(
+              `«${rfq.title}» — позиций: ${rfq.items.length}. Отправьте своё предложение.`,
+              `«${rfq.title}» — pozitsiyalar: ${rfq.items.length}. Taklifingizni yuboring.`,
+            ),
+            url: `/rfq/${rfq.id}`,
+          },
+        ),
+      )
+      .catch(() => undefined);
+    return rfq;
   }
 
   // Все запросы платформы (админ): кто создал + число позиций и котировок.
@@ -183,7 +207,7 @@ export class RfqService {
       throw new BadRequestException('Укажите цену: общей суммой или по позициям');
     }
 
-    return this.prisma.$transaction(async (tx) => {
+    const saved = await this.prisma.$transaction(async (tx) => {
       const q = await tx.rfqQuote.upsert({
         where: { rfqId_sellerId: { rfqId, sellerId: user.id } },
         create: { rfqId, sellerId: user.id, totalPrice: total, leadTimeDays: dto.leadTimeDays ?? null, note: dto.note ?? null },
@@ -199,6 +223,12 @@ export class RfqService {
       }
       return q;
     });
+    void this.alerts.notify(rfq.buyerId, {
+      title: tt('Новое предложение по запросу', 'Soʻrovingizga yangi taklif'),
+      body: tt(`«${rfq.title}»: поставщик предлагает ${fmt(total)} сум.`, `«${rfq.title}»: yetkazib beruvchi ${fmt(total)} soʻm taklif qilmoqda.`),
+      url: `/rfq/${rfq.id}`,
+    });
+    return saved;
   }
 
   // Покупатель выбирает победителя тендера.
@@ -243,6 +273,26 @@ export class RfqService {
       await tx.rfqQuote.update({ where: { id: quoteId }, data: { isAwarded: true } });
       return this.createOrderFromQuote(tx, rfq, quote);
     });
+
+    // Победитель получает заказ как обычный (письма продавцу и админу), а
+    // остальные — ответ, вместо вечного ожидания.
+    void this.notifications.onOrderCreated(order.id).catch(() => undefined);
+    void this.alerts.notify(quote.sellerId, {
+      title: tt('Ваше предложение выбрано', 'Taklifingiz tanlandi'),
+      body: tt(
+        `По запросу «${rfq.title}» создан заказ #${shortId(order.id)}. Подтвердите его в кабинете продавца.`,
+        `«${rfq.title}» soʻrovi boʻyicha #${shortId(order.id)} buyurtma yaratildi. Uni sotuvchi kabinetida tasdiqlang.`,
+      ),
+      url: '/seller',
+    });
+    void this.alerts.notifyMany(
+      rfq.quotes.filter((q) => q.id !== quoteId).map((q) => q.sellerId),
+      {
+        title: tt('Выбран другой поставщик', 'Boshqa yetkazib beruvchi tanlandi'),
+        body: tt(`По запросу «${rfq.title}» покупатель выбрал другое предложение.`, `«${rfq.title}» soʻrovi boʻyicha xaridor boshqa taklifni tanladi.`),
+        url: `/rfq/${rfqId}`,
+      },
+    );
 
     const result = await this.getOne(rfqId, user);
     return { ...result, orderId: order.id };

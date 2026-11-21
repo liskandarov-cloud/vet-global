@@ -11,6 +11,7 @@ import { AuthUser } from '../common/decorators/current-user.decorator';
 import { AlertsService } from '../alerts/alerts.service';
 import { OrderReleaseService } from '../orders/order-release.service';
 import { inviteRoleError, memberChangeError, removeMemberError } from './permissions';
+import { orderCancelledAlert, tt } from '../alerts/text';
 
 @Injectable()
 export class OrganizationsService {
@@ -113,8 +114,11 @@ export class OrganizationsService {
     });
     const org = await this.prisma.organization.findUnique({ where: { id: me.orgId }, select: { name: true } });
     void this.alerts.notify(target.id, {
-      title: 'Приглашение в организацию',
-      body: `${user.fullName} приглашает вас в организацию «${org?.name ?? ''}». Примите или отклоните приглашение на странице «Организация».`,
+      title: tt('Приглашение в организацию', 'Tashkilotga taklif'),
+      body: tt(
+        `${user.fullName} приглашает вас в организацию «${org?.name ?? ''}». Примите или отклоните приглашение на странице «Организация».`,
+        `${user.fullName} sizni «${org?.name ?? ''}» tashkilotiga taklif qilmoqda. Taklifni «Tashkilot» sahifasida qabul qiling yoki rad eting.`,
+      ),
       url: '/org',
     });
     return this.myOrg(user);
@@ -264,11 +268,14 @@ export class OrganizationsService {
     // своей копией расчёта: баллы покупателя сгорали, товар оставался списанным.
     if (!approve) {
       await this.release.onCancelled(orderId);
+      void this.alerts.notifyOrderSellers(orderId, orderCancelledAlert(orderId)).catch(() => undefined);
     }
     if (order.buyerId) {
       void this.alerts.notify(order.buyerId, {
-        title: approve ? 'Заказ согласован' : 'Заказ отклонён',
-        body: approve ? 'Ваш заказ одобрен — можно оплачивать.' : 'Заказ отклонён согласующим.',
+        title: approve ? tt('Заказ согласован', 'Buyurtma tasdiqlandi') : tt('Заказ отклонён', 'Buyurtma rad etildi'),
+        body: approve
+          ? tt('Ваш заказ одобрен — можно оплачивать.', 'Buyurtmangiz maʼqullandi — toʻlash mumkin.')
+          : tt('Заказ отклонён согласующим.', 'Buyurtmani tasdiqlovchi rad etdi.'),
         url: `/orders/${order.id}`,
       });
     }

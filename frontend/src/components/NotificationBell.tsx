@@ -28,7 +28,7 @@ function timeAgo(iso: string, tt: (ru: string, uz: string) => string) {
 }
 
 export function NotificationBell() {
-  const { tt } = useI18n();
+  const { tt, lang } = useI18n();
   const user = useAuth((s) => s.user);
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -41,15 +41,24 @@ export function NotificationBell() {
     api.get('/notifications').then((r) => { setItems(r.data.items ?? []); setUnread(r.data.unread ?? 0); }).catch(() => {});
   };
 
+  // Текст уведомлений сервер отдаёт на языке интерфейса — при смене языка
+  // список перечитывается, а подписка запоминает язык push на этом устройстве.
   useEffect(() => {
     if (!user) return;
     load();
     const t = setInterval(load, 60000);
     if ('serviceWorker' in navigator && 'PushManager' in window) {
-      navigator.serviceWorker.ready.then((reg) => reg.pushManager.getSubscription()).then((s) => setPushOn(!!s)).catch(() => {});
+      navigator.serviceWorker.ready
+        .then((reg) => reg.pushManager.getSubscription())
+        .then((s) => {
+          setPushOn(!!s);
+          if (s) api.post('/push/subscribe', { ...s.toJSON(), lang }).catch(() => {});
+          else offerPush();
+        })
+        .catch(() => {});
     }
     return () => clearInterval(t);
-  }, [user]);
+  }, [user, lang]);
 
   useEffect(() => {
     const onClick = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false); };
@@ -65,6 +74,22 @@ export function NotificationBell() {
     if (n.url) router.push(n.url);
   };
   const readAll = () => { api.post('/notifications/read-all').catch(() => {}); setUnread(0); setItems((xs) => xs.map((x) => ({ ...x, read: true }))); };
+
+  // Продавцу и администратору push — единственный мгновенный канал: о заказе
+  // без него узнают, только открыв сайт. Предлагаем один раз, по кнопке —
+  // браузер разрешает запрос только по действию пользователя.
+  const offerPush = () => {
+    if (user?.role !== 'SELLER' && user?.role !== 'ADMIN') return;
+    if (typeof Notification === 'undefined' || Notification.permission !== 'default') return;
+    try {
+      if (localStorage.getItem('vg_push_offered')) return;
+      localStorage.setItem('vg_push_offered', '1');
+    } catch { return; }
+    toast(tt('Включите уведомления, чтобы не пропускать заказы', 'Buyurtmalarni oʻtkazib yubormaslik uchun bildirishnomalarni yoqing'), {
+      duration: 20000,
+      action: { label: tt('Включить', 'Yoqish'), onClick: () => void togglePush() },
+    });
+  };
 
   const togglePush = async () => {
     if (!('serviceWorker' in navigator) || !('PushManager' in window)) { toast.error(tt('Браузер не поддерживает push', 'Brauzer push’ni qoʻllab-quvvatlamaydi')); return; }
@@ -82,7 +107,7 @@ export function NotificationBell() {
         const { data } = await api.get('/push/vapid-public-key');
         if (!data?.publicKey) { toast.error(tt('Push недоступен', 'Push mavjud emas')); return; }
         const sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlB64ToUint8(data.publicKey) as BufferSource });
-        await api.post('/push/subscribe', sub.toJSON());
+        await api.post('/push/subscribe', { ...sub.toJSON(), lang });
         setPushOn(true);
         toast.success(tt('Push включён', 'Push yoqildi'));
       }

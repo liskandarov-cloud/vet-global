@@ -3,6 +3,7 @@ import { Cron, CronExpression } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { AlertsService } from '../alerts/alerts.service';
 import { PUBLIC_PRODUCT } from '../common/visibility';
+import { tt } from '../alerts/text';
 
 // «Сообщить о поступлении».
 //
@@ -32,8 +33,8 @@ export class StockAlertsService {
     await Promise.all(
       subs.map((s) =>
         this.alerts.notify(s.userId, {
-          title: 'Товар снова в наличии',
-          body: `«${productName}» снова доступен для заказа`,
+          title: tt('Товар снова в наличии', 'Tovar yana mavjud'),
+          body: tt(`«${productName}» снова доступен для заказа`, `«${productName}» yana buyurtma uchun mavjud`),
           url: `/products/${productId}`,
         }),
       ),

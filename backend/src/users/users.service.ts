@@ -10,12 +10,15 @@ import { randomBytes } from 'crypto';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PUBLIC_PRODUCT, SELLABLE_SELLER } from '../common/visibility';
 import { recalcSellerProducts } from '../offers/product-aggregates';
+import { AlertsService } from '../alerts/alerts.service';
+import { tt } from '../alerts/text';
 
 @Injectable()
 export class UsersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly storage: StorageService,
+    private readonly alerts: AlertsService,
   ) {}
 
   // ── Profile ──
@@ -28,6 +31,15 @@ export class UsersService {
       where: { id: userId },
       data: reverify ? { ...dto, isVerified: false } : dto,
     });
+    if (reverify) {
+      void this.alerts
+        .notifyAdmins({
+          title: tt('Продавец изменил реквизиты', 'Sotuvchi rekvizitlarini oʻzgartirdi'),
+          body: tt(`${user.company || user.fullName}: нужна повторная проверка.`, `${user.company || user.fullName}: qayta tekshirish kerak.`),
+          url: '/admin',
+        })
+        .catch(() => undefined);
+    }
     return this.sanitize(user);
   }
 
@@ -236,6 +248,22 @@ export class UsersService {
     // раньше существовала, но не ставилась нигде, и продавец не видел, приняты ли они.
     await this.prisma.sellerDocument.updateMany({ where: { sellerId: userId }, data: { isApproved: isVerified } });
     await recalcSellerProducts(this.prisma, userId);
+    if (user.role === UserRole.SELLER) {
+      void this.alerts.notify(
+        userId,
+        isVerified
+          ? {
+              title: tt('Аккаунт продавца подтверждён', 'Sotuvchi akkaunti tasdiqlandi'),
+              body: tt('Ваши товары видны покупателям — можно принимать заказы.', 'Tovarlaringiz xaridorlarga koʻrinadi — buyurtmalarni qabul qilish mumkin.'),
+              url: '/seller',
+            }
+          : {
+              title: tt('Подтверждение продавца снято', 'Sotuvchi tasdigʻi bekor qilindi'),
+              body: tt('Товары скрыты из каталога до повторной проверки.', 'Tovarlar qayta tekshiruvgacha katalogdan yashirildi.'),
+              url: '/seller',
+            },
+      );
+    }
     return this.sanitize(user);
   }
 
