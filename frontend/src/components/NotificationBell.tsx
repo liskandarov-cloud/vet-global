@@ -41,40 +41,6 @@ export function NotificationBell() {
     api.get('/notifications').then((r) => { setItems(r.data.items ?? []); setUnread(r.data.unread ?? 0); }).catch(() => {});
   };
 
-  // Текст уведомлений сервер отдаёт на языке интерфейса — при смене языка
-  // список перечитывается, а подписка запоминает язык push на этом устройстве.
-  useEffect(() => {
-    if (!user) return;
-    load();
-    const t = setInterval(load, 60000);
-    if ('serviceWorker' in navigator && 'PushManager' in window) {
-      navigator.serviceWorker.ready
-        .then((reg) => reg.pushManager.getSubscription())
-        .then((s) => {
-          setPushOn(!!s);
-          if (s) api.post('/push/subscribe', { ...s.toJSON(), lang }).catch(() => {});
-          else offerPush();
-        })
-        .catch(() => {});
-    }
-    return () => clearInterval(t);
-  }, [user, lang]);
-
-  useEffect(() => {
-    const onClick = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener('mousedown', onClick);
-    return () => document.removeEventListener('mousedown', onClick);
-  }, []);
-
-  if (!user) return null;
-
-  const openNote = async (n: Note) => {
-    if (!n.read) { api.post(`/notifications/${n.id}/read`).catch(() => {}); setUnread((u) => Math.max(0, u - 1)); setItems((xs) => xs.map((x) => x.id === n.id ? { ...x, read: true } : x)); }
-    setOpen(false);
-    if (n.url) router.push(n.url);
-  };
-  const readAll = () => { api.post('/notifications/read-all').catch(() => {}); setUnread(0); setItems((xs) => xs.map((x) => ({ ...x, read: true }))); };
-
   // Продавцу и администратору push — единственный мгновенный канал: о заказе
   // без него узнают, только открыв сайт. Предлагаем один раз, по кнопке —
   // браузер разрешает запрос только по действию пользователя.
@@ -113,6 +79,40 @@ export function NotificationBell() {
       }
     } catch { toast.error(tt('Не удалось', 'Amalga oshmadi')); }
   };
+
+  // Текст уведомлений сервер отдаёт на языке интерфейса — при смене языка
+  // список перечитывается, а подписка запоминает язык push на этом устройстве.
+  useEffect(() => {
+    if (!user) return;
+    load();
+    const t = setInterval(load, 60000);
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.ready
+        .then((reg) => reg.pushManager.getSubscription())
+        .then((s) => {
+          setPushOn(!!s);
+          if (s) api.post('/push/subscribe', { ...s.toJSON(), lang }).catch(() => {});
+          else offerPush();
+        })
+        .catch(() => {});
+    }
+    return () => clearInterval(t);
+  }, [user, lang]);
+
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => { if (boxRef.current && !boxRef.current.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('mousedown', onClick);
+    return () => document.removeEventListener('mousedown', onClick);
+  }, []);
+
+  if (!user) return null;
+
+  const openNote = async (n: Note) => {
+    if (!n.read) { api.post(`/notifications/${n.id}/read`).catch(() => {}); setUnread((u) => Math.max(0, u - 1)); setItems((xs) => xs.map((x) => x.id === n.id ? { ...x, read: true } : x)); }
+    setOpen(false);
+    if (n.url) router.push(n.url);
+  };
+  const readAll = () => { api.post('/notifications/read-all').catch(() => {}); setUnread(0); setItems((xs) => xs.map((x) => ({ ...x, read: true }))); };
 
   return (
     <div ref={boxRef} className="relative">
