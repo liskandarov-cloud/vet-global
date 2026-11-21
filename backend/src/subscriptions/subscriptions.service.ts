@@ -9,6 +9,8 @@ import { CreateSubscriptionDto, UpdateSubscriptionDto } from './dto/subscription
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { PUBLIC_PRODUCT } from '../common/visibility';
 
+// Сколько держится запуск подписки, пока оформляется заказ.
+const LEASE_MS = 10 * 60_000;
 const DAY = 86_400_000;
 
 @Injectable()
@@ -121,15 +123,36 @@ export class SubscriptionsService {
     const buyer = await this.prisma.user.findUnique({ where: { id: sub.buyerId } });
     if (!buyer) return null;
 
-    const order = await this.orders.create(
-      {
-        items: [{ productId: sub.productId, offerId: sub.offerId ?? undefined, quantity: sub.quantity }],
-        buyerName: buyer.fullName,
-        buyerPhone: buyer.phone,
-        buyerCompany: buyer.company ?? undefined,
-      },
-      { id: buyer.id, email: buyer.email, role: buyer.role as UserRole } as AuthUser,
-    );
+    // Аренда запуска: заказ оформляет только тот, кто сдвинул срок. Двойное
+    // нажатие «заказать сейчас» или совпадение с ночным запуском создавали два
+    // заказа. Если оформить не удалось, аренда истечёт через 10 минут, и
+    // следующий запуск повторит попытку.
+    const leaseUntil = new Date(Date.now() + LEASE_MS);
+    const leased = await this.prisma.subscription.updateMany({
+      where: { id: sub.id, nextRunAt: sub.nextRunAt },
+      data: { nextRunAt: leaseUntil },
+    });
+    if (!leased.count) return null;
+    let order: Awaited<ReturnType<OrdersService['create']>>;
+    try {
+      order = await this.orders.create(
+        {
+          items: [{ productId: sub.productId, offerId: sub.offerId ?? undefined, quantity: sub.quantity }],
+          buyerName: buyer.fullName,
+          buyerPhone: buyer.phone,
+          buyerCompany: buyer.company ?? undefined,
+        },
+        { id: buyer.id, email: buyer.email, role: buyer.role as UserRole } as AuthUser,
+      );
+    } catch (e) {
+      // Срок — прежний: иначе неудачное «заказать сейчас» оставило бы запуск
+      // через 10 минут вместо даты по графику, и ночь создала бы лишний заказ.
+      await this.prisma.subscription.updateMany({
+        where: { id: sub.id, nextRunAt: leaseUntil },
+        data: { nextRunAt: sub.nextRunAt },
+      });
+      throw e;
+    }
 
     await this.prisma.subscription.update({
       where: { id: sub.id },

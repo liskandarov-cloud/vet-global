@@ -210,6 +210,18 @@ describe('Организация: лимиты закупщиков и согл�
     expect((await decide(o.id, manager.token, true)).status).toBe(400);
   });
 
+  // Одновременные решения оба проходили проверку статуса: заказ оказывался
+  // отменённым и согласованным сразу, покупатель получал оба уведомления.
+  it('одновременные «согласовать» и «отклонить» — принимается одно решение', async () => {
+    const o = await order(purchaser.token, 8);
+    expect(o.approvalStatus).toBe('PENDING');
+    const results = await Promise.all([decide(o.id, manager.token, true), decide(o.id, owner.token, false)]);
+    expect(results.filter((r) => r.status < 300)).toHaveLength(1);
+    const after = await getOrder(o.id);
+    if (after.approvalStatus === 'APPROVED') expect(after.status).not.toBe('CANCELLED');
+    else expect(after).toMatchObject({ approvalStatus: 'REJECTED', status: 'CANCELLED' });
+  });
+
   it('владелец и управляющий покупают на любую сумму без согласования', async () => {
     for (const who of [owner, manager]) {
       const o = await order(who.token, 50);

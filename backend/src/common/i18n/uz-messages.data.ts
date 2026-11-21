@@ -169,6 +169,8 @@ export const UZ_MESSAGES: Record<string, string> = {
     'Yetkazib berish narxini oʻzgartirib boʻlmaydi: buyurtma allaqachon toʻlangan. Toʻlov summasi oʻzgarmay qolar, hujjatlar esa toʻlov bilan mos kelmay qolardi.',
   'Стоимость доставки нельзя изменить: по заказу выставлен счёт. Сумма к оплате осталась бы прежней, а документы разошлись бы с платежом.':
     'Yetkazib berish narxini oʻzgartirib boʻlmaydi: buyurtma boʻyicha hisob-faktura chiqarilgan. Toʻlov summasi oʻzgarmay qolar, hujjatlar esa toʻlov bilan mos kelmay qolardi.',
+  'Счёт-фактура уже отправляется — обновите страницу через минуту':
+    'Hisob-faktura allaqachon yuborilmoqda — bir daqiqadan soʻng sahifani yangilang',
   'Счёт-фактура по вашей части уже отправлена в ЭДО — сначала отзовите её':
     'Sizning qismingiz boʻyicha hisob-faktura EHFga allaqachon yuborilgan — avval uni qaytarib oling',
   'Тариф не найден':

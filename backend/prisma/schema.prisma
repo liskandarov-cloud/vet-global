@@ -723,6 +723,9 @@ model Invoice {
   // Didox ЭДО (SRS 3.1): id документа в Didox и его статус (DRAFT/SENT/SIGNED/REJECTED)
   didoxId     String?
   didoxStatus String?
+  // Отправка в Didox идёт: строку захватывает один запрос, двойное нажатие
+  // иначе выпускало два счёта-фактуры на одну поставку (didox.service.ts).
+  sendingAt   DateTime?
   // E-imzo (ЭЦП): PKCS#7-подпись документа и время подписания
   signature String?
   signedAt  DateTime?

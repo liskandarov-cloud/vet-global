@@ -106,6 +106,13 @@ export class FinancingService {
       : null;
 
     const updated = await this.prisma.$transaction(async (tx) => {
+      // Условием на статус: одновременные «одобрить» и «отклонить» оба проходили
+      // проверку выше — заявка оставалась отклонённой, а лимит уже выдан.
+      const claimed = await tx.creditApplication.updateMany({
+        where: { id, status: CreditStatus.PENDING },
+        data: { status: dto.approve ? CreditStatus.APPROVED : CreditStatus.REJECTED },
+      });
+      if (!claimed.count) throw new BadRequestException('Заявка уже обработана');
       const u = await tx.creditApplication.update({
         where: { id },
         data: {
