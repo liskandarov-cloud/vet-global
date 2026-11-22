@@ -32,6 +32,7 @@ describe('оплата перечислением', () => {
   let seller: string;
   let buyer: string;
   let productId: string;
+  let sellerId: string;
   const used = async () => Number((await req('/financing/me', { token: buyer })).body.creditUsed);
 
   beforeAll(async () => {
@@ -41,6 +42,7 @@ describe('оплата перечислением', () => {
       body: { email: `transfer-${stamp}@vg.test`, password: 'secret123', fullName: 'E2E', phone: '+998900000000', role: 'SELLER', company: `Transfer ${stamp}`, acceptTerms: true },
     });
     seller = r.body.token;
+    sellerId = r.body.user.id;
     await req(`/admin/users/${r.body.user.id}/verify`, { method: 'PATCH', token: admin, body: { isVerified: true } });
     const categoryId = (await req('/categories')).body[0].id;
     productId = (await req('/products', { method: 'POST', token: seller, body: { name: `Transfer probe ${stamp}`, description: 'e2e', price: 1000, categoryId } })).body.id;
@@ -69,5 +71,16 @@ describe('оплата перечислением', () => {
 
     const seen = await req(`/orders/${order.body.id}`, { token: buyer });
     expect(seen.body.transferPayments[0].amount).toBeCloseTo(Number(order.body.total), 2);
+  });
+
+  it('акт сверки: стороны и файл Excel; без контрагента — понятная ошибка', async () => {
+    const parties = await req('/orders/reconciliation/parties', { token: buyer });
+    expect(parties.body.some((p: { id: string }) => p.id === sellerId)).toBe(true);
+    const res = await fetch(`${BASE}/orders/reconciliation?with=${sellerId}`, { headers: { Authorization: `Bearer ${buyer}` } });
+    expect(res.status).toBe(200);
+    expect(res.headers.get('content-type')).toContain('spreadsheetml');
+    expect((await res.arrayBuffer()).byteLength).toBeGreaterThan(1000);
+    const bad = await req('/orders/reconciliation', { token: buyer });
+    expect([bad.status, bad.body.message]).toEqual([400, 'Укажите контрагента и период']);
   });
 });

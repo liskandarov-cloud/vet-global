@@ -15,6 +15,7 @@ import { ProfilePanel } from '@/components/ProfilePanel';
 import { Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
 import { PROVIDER_LABEL, usePayProviders } from '@/lib/pay-providers';
+import { ReconciliationButton } from '@/components/ReconciliationButton';
 import { useI18n } from '@/lib/i18n';
 
 interface Order {
@@ -157,7 +158,10 @@ function BuyerContent() {
 
       <div className="mt-8 flex items-center justify-between">
         <h2 className="font-heading text-xl font-bold">{tt('Мои заказы', 'Mening buyurtmalarim')}</h2>
-        <button className="btn-secondary" onClick={exportExcel}><Download size={16} /> Excel</button>
+        <div className="flex flex-wrap gap-2">
+          <ReconciliationButton />
+          <button className="btn-secondary" onClick={exportExcel}><Download size={16} /> Excel</button>
+        </div>
       </div>
 
       {/* Фильтр заказов со счётчиками */}

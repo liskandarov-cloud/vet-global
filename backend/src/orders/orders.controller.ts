@@ -73,6 +73,34 @@ export class OrdersController {
     res.send(buffer);
   }
 
+  // Акт сверки с контрагентом: список сторон и сам акт (Excel) за период.
+  @Get('reconciliation/parties')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUYER, UserRole.SELLER)
+  reconciliationParties(@CurrentUser() user: AuthUser) {
+    return this.orders.reconciliationParties(user);
+  }
+
+  @Get('reconciliation')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.BUYER, UserRole.SELLER)
+  async reconciliation(
+    @CurrentUser() user: AuthUser,
+    @Query('with') other: string,
+    @Query('from') from: string | undefined,
+    @Query('to') to: string | undefined,
+    @Res() res: Response,
+  ) {
+    const { buffer, filename } = await this.orders.reconciliation(user, other, from, to);
+    res.set({
+      'Content-Type': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'Content-Disposition': `attachment; filename="${filename}"`,
+    });
+    res.send(buffer);
+  }
+
   @Get(':id')
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard)

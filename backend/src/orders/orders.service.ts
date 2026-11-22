@@ -46,6 +46,8 @@ import { TariffsService } from '../delivery/tariffs.service';
 import { isExpired, publicOffer, SELLABLE_SELLER } from '../common/visibility';
 import { pickBestOffer } from '../offers/best-offer';
 import { fmt, orderCancelledAlert, shortId, statusText, tt } from '../alerts/text';
+import { reconcile, ReconEntry } from './reconciliation';
+import { ExcelService } from '../documents/excel.service';
 
 @Injectable()
 export class OrdersService {
@@ -62,6 +64,7 @@ export class OrdersService {
     private readonly alerts: AlertsService,
     private readonly tariffs: TariffsService,
     private readonly release: OrderReleaseService,
+    private readonly excel: ExcelService,
   ) {
     this.commissionPct = Number(config.get('PLATFORM_COMMISSION_PERCENT') ?? 12);
     this.earnPct = Number(config.get('VETPOINTS_EARN_PERCENT') ?? 1);
@@ -888,6 +891,101 @@ export class OrdersService {
       ),
       Number(order.vetPointsUsed),
     );
+  }
+
+  // С кем у пользователя есть заказы — для выбора стороны в акте сверки.
+  async reconciliationParties(user: AuthUser) {
+    if (user.role === UserRole.SELLER) {
+      const orders = await this.prisma.order.findMany({
+        where: { items: { some: { sellerId: user.id } }, buyerId: { not: null } },
+        select: { buyerId: true, buyerCompany: true, buyerName: true },
+        distinct: ['buyerId'],
+      });
+      return orders.map((o) => ({ id: o.buyerId!, name: o.buyerCompany || o.buyerName }));
+    }
+    const items = await this.prisma.orderItem.findMany({
+      where: { order: { buyerId: user.id } },
+      select: { sellerId: true },
+      distinct: ['sellerId'],
+    });
+    const sellers = await this.prisma.user.findMany({
+      where: { id: { in: items.map((i) => i.sellerId) } },
+      select: { id: true, company: true, fullName: true },
+    });
+    return sellers.map((s) => ({ id: s.id, name: s.company || s.fullName }));
+  }
+
+  // Акт сверки покупателя и продавца за период (Excel). Дебет — заказы на сумму
+  // счёта продавца, кредит — оплаты онлайн и перечислением. Отменённые заказы
+  // не входят: по ним нет ни долга, ни (после возврата) оплаты.
+  async reconciliation(user: AuthUser, otherId: string, fromStr?: string, toStr?: string) {
+    const seller = user.role === UserRole.SELLER;
+    const sellerId = seller ? user.id : otherId;
+    const buyerId = seller ? otherId : user.id;
+    const now = new Date();
+    const from = fromStr ? new Date(`${fromStr}T00:00:00.000Z`) : new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
+    const to = toStr ? new Date(`${toStr}T23:59:59.999Z`) : now;
+    if (!otherId || Number.isNaN(from.getTime()) || Number.isNaN(to.getTime()) || from > to) {
+      throw new BadRequestException('Укажите контрагента и период');
+    }
+
+    const orders = await this.prisma.order.findMany({
+      where: { buyerId, status: { not: OrderStatus.CANCELLED }, items: { some: { sellerId } }, createdAt: { lte: to } },
+      include: { items: true, shipments: true, payments: true, transferPayments: true },
+      orderBy: { createdAt: 'asc' },
+    });
+    const entries: ReconEntry[] = [];
+    for (const o of orders) {
+      const due = this.invoiceSplit(o).find((inv) => inv.sellerId === sellerId)?.total ?? 0;
+      const no = shortId(o.id);
+      entries.push({ date: o.createdAt, doc: `Заказ №${no}`, debit: due });
+      for (const p of o.payments.filter((p) => p.status === PaymentStatus.PAID)) {
+        entries.push({ date: p.updatedAt, doc: `Оплата ${p.provider} по заказу №${no}`, credit: due });
+      }
+      for (const t of o.transferPayments.filter((t) => t.sellerId === sellerId)) {
+        entries.push({ date: t.paidAt, doc: `Оплата перечислением по заказу №${no}`, credit: Number(t.amount) });
+      }
+    }
+    const r = reconcile(entries, from, to);
+
+    const [s, b] = await Promise.all([
+      this.prisma.user.findUnique({ where: { id: sellerId }, select: { company: true, fullName: true, inn: true } }),
+      this.prisma.user.findUnique({ where: { id: buyerId }, select: { company: true, fullName: true, inn: true } }),
+    ]);
+    const name = (u: { company: string | null; fullName: string; inn: string | null } | null) =>
+      u ? `${u.company || u.fullName}${u.inn ? `, ИНН ${u.inn}` : ''}` : '—';
+    const day = (d: Date) => d.toLocaleDateString('ru-RU', { timeZone: 'Asia/Tashkent' });
+    const side = (v: number) => (v >= 0 ? { debit: v, credit: '' } : { debit: '', credit: -v });
+    const rows = [
+      { doc: `Продавец: ${name(s)}` },
+      { doc: `Покупатель: ${name(b)}` },
+      { doc: `Период: ${day(from)} — ${day(to)}` },
+      {},
+      { doc: 'Сальдо на начало периода', ...side(r.opening) },
+      ...r.rows.map((e) => ({ date: day(e.date), doc: e.doc, debit: e.debit ?? '', credit: e.credit ?? '' })),
+      { doc: 'Обороты за период', debit: r.debit, credit: r.credit },
+      { doc: 'Сальдо на конец периода', ...side(r.closing) },
+      {},
+      {
+        doc:
+          r.closing > 0
+            ? `Задолженность покупателя перед продавцом: ${fmt(r.closing)} сум`
+            : r.closing < 0
+              ? `Переплата покупателя: ${fmt(-r.closing)} сум`
+              : 'Задолженности нет',
+      },
+    ];
+    const buffer = await this.excel.sheet(
+      'Акт сверки',
+      [
+        { header: 'Дата', key: 'date', width: 12 },
+        { header: 'Документ', key: 'doc', width: 52 },
+        { header: 'Дебет, сум', key: 'debit', width: 16 },
+        { header: 'Кредит, сум', key: 'credit', width: 16 },
+      ],
+      rows,
+    );
+    return { buffer, filename: `akt-sverki-${from.toISOString().slice(0, 10)}-${to.toISOString().slice(0, 10)}.xlsx` };
   }
 
   // Продавец отмечает, что оплата по его части пришла перечислением на его

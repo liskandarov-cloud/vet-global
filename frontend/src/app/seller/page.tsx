@@ -18,6 +18,7 @@ import { Category, Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
 
 import { signWithEimzo } from '@/lib/eimzo';
+import { ReconciliationButton } from '@/components/ReconciliationButton';
 import { useI18n } from '@/lib/i18n';
 import { ownInvoice, ownShipment } from '@/lib/seller-order';
 
@@ -378,6 +379,7 @@ function SellerContent() {
 
       {tab === 'orders' && (
         <div className="mt-6">
+          <div className="mb-3 flex justify-end"><ReconciliationButton /></div>
           {/* Фильтр по стадии: чтобы отделять новые/активные заказы от уже
               отгруженных и закрытых — иначе список смешивает всё вперемешку. */}
           <div className="mb-3 flex flex-wrap gap-1.5">
