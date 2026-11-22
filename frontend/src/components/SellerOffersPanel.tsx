@@ -7,6 +7,7 @@ import { api } from '@/lib/api';
 import { formatMoney } from '@/lib/utils';
 import { useI18n } from '@/lib/i18n';
 import { expiryInfo } from '@/lib/expiry';
+import { normalizePriceBreaks } from '@/lib/pricing';
 
 interface MyOffer {
   id: string;
@@ -28,6 +29,7 @@ interface MyOffer {
   priceUnitQty?: number;
   packSize?: number;
   packUnit?: string | null;
+  priceBreaks?: { minQty: number; price: number }[] | null;
   product?: { id: string; name: string; images?: string[] };
 }
 
@@ -48,6 +50,7 @@ const EMPTY = {
   priceUnitQty: 1,
   packSize: 1,
   packUnit: '',
+  priceBreaks: [] as { minQty: number | string; price: number | string }[],
 };
 
 export function SellerOffersPanel() {
@@ -77,6 +80,7 @@ export function SellerOffersPanel() {
       priceUnitQty: o.priceUnitQty ?? 1,
       packSize: o.packSize ?? 1,
       packUnit: o.packUnit ?? '',
+      priceBreaks: o.priceBreaks ?? [],
     });
     setProductName(o.product?.name ?? '');
   };
@@ -91,6 +95,11 @@ export function SellerOffersPanel() {
   const save = async () => {
     if (!editing.productId) { toast.error(tt('Выберите товар', 'Mahsulotni tanlang')); return; }
     if (editing.price <= 0) { toast.error(tt('Укажите цену', 'Narxni kiriting')); return; }
+    // Ступень — цена за единицу заказа, поэтому сравнивается с ценой упаковки.
+    const packPrice = (Number(editing.price) * (Number(editing.packSize) || 1)) / (Number(editing.priceUnitQty) || 1);
+    const tiers = normalizePriceBreaks(editing.priceBreaks ?? [], packPrice);
+    if (tiers.error === 'qty') { toast.error(tt('Оптовая ступень — от 2 шт, количества не должны повторяться', 'Ulgurji pogʻona — 2 donadan, miqdorlar takrorlanmasligi kerak')); return; }
+    if (tiers.error === 'price') { toast.error(tt('Чем больше количество, тем ниже цена — и ниже базовой', 'Miqdor qancha koʻp boʻlsa, narx shuncha past — va asosiy narxdan past')); return; }
     const payload = {
       productId: editing.productId,
       price: Number(editing.price),
@@ -107,6 +116,7 @@ export function SellerOffersPanel() {
       priceUnitQty: Number(editing.priceUnitQty) || 1,
       packSize: Number(editing.packSize) || 1,
       packUnit: editing.packUnit || undefined,
+      priceBreaks: tiers.breaks,
     };
     try {
       if (editing.id) await api.put(`/offers/${editing.id}`, payload);
@@ -270,6 +280,27 @@ function OfferEditor({ editing, setEditing, productName, setProductName, onClose
           <Field label={tt('Партия №', 'Partiya №')}><input className="input" value={editing.batchNumber} onChange={(e) => set('batchNumber', e.target.value)} /></Field>
           <Field label={tt('Госреестр №', 'Davlat reestri №')}><input className="input" value={editing.regNumber} onChange={(e) => set('regNumber', e.target.value)} /></Field>
         </div>
+        {/* Оптовые ступени: цена за единицу заказа от указанного количества. */}
+        <div className="mt-3 rounded-lg border border-teal-200 bg-teal-50/50 p-3">
+          <div className="mb-2 text-xs font-semibold text-teal-800">{tt('Оптовые цены — дешевле при большом заказе', 'Ulgurji narxlar — katta buyurtmada arzonroq')}</div>
+          {(editing.priceBreaks ?? []).map((b: any, i: number) => (
+            <div key={i} className="mb-2 flex items-center gap-2 text-sm">
+              <span className="text-ink-muted">{tt('от', 'dan')}</span>
+              <input className="input !w-20" type="number" min={2} value={b.minQty}
+                onChange={(e) => set('priceBreaks', editing.priceBreaks.map((x: any, j: number) => (j === i ? { ...x, minQty: e.target.value } : x)))} />
+              <span className="text-ink-muted">{tt('шт —', 'dona —')}</span>
+              <input className="input flex-1" type="number" min={1} placeholder={tt('цена за шт', 'dona narxi')} value={b.price}
+                onChange={(e) => set('priceBreaks', editing.priceBreaks.map((x: any, j: number) => (j === i ? { ...x, price: e.target.value } : x)))} />
+              <button aria-label={tt('Удалить ступень', 'Pogʻonani oʻchirish')} onClick={() => set('priceBreaks', editing.priceBreaks.filter((_: any, j: number) => j !== i))}><X size={16} /></button>
+            </div>
+          ))}
+          {(editing.priceBreaks ?? []).length < 4 && (
+            <button className="text-xs font-medium text-teal-700 hover:underline" onClick={() => set('priceBreaks', [...(editing.priceBreaks ?? []), { minQty: '', price: '' }])}>
+              + {tt('добавить ступень', 'pogʻona qoʻshish')}
+            </button>
+          )}
+        </div>
+
         <label className="mt-3 flex items-center gap-2 text-sm">
           <input type="checkbox" className="h-4 w-4 accent-teal-600" checked={editing.isRx} onChange={(e) => set('isRx', e.target.checked)} />
           {tt('Рецептурный отпуск (Rx)', 'Retsept boʻyicha (Rx)')}
