@@ -39,6 +39,10 @@ export const UZ_MESSAGES: Record<string, string> = {
     'Buyurtma {1} holatida — bu yakuniy holat, uni {2} ga oʻzgartirib boʻlmaydi',
   'Заказ не найден':
     'Buyurtma topilmadi',
+  'Оплата уже отмечена':
+    'Toʻlov allaqachon belgilangan',
+  'Неверная дата оплаты':
+    'Toʻlov sanasi notoʻgʻri',
   'Telegram-бот не подключён':
     'Telegram-bot ulanmagan',
   'Заказ не требует подтверждения наличия':

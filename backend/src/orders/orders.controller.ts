@@ -97,6 +97,15 @@ export class OrdersController {
     return this.orders.confirmAvailability(id, user);
   }
 
+  // Продавец: оплата по его счёту пришла перечислением.
+  @Post(':id/transfer-paid')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER)
+  markTransferPaid(@Param('id') id: string, @CurrentUser() user: AuthUser, @Body('paidAt') paidAt?: string) {
+    return this.orders.markTransferPaid(id, user, paidAt);
+  }
+
   // Удаление заказа (только админ) — чистка тестовых/ошибочных заказов.
   @Audit('order.delete', 'Order')
   @Delete(':id')

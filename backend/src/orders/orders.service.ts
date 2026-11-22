@@ -533,7 +533,7 @@ export class OrdersService {
     const orders = await this.prisma.order.findMany({
       where,
       orderBy: { createdAt: 'desc' },
-      include: { items: true, invoices: true, shipments: true, payments: true, parts: true },
+      include: { items: true, invoices: true, shipments: true, payments: true, parts: true, transferPayments: true },
       take: 200,
     });
     return orders.map((o) => this.forViewer(o, user));
@@ -542,7 +542,7 @@ export class OrdersService {
   async getOne(id: string, user: AuthUser) {
     const order = await this.prisma.order.findUnique({
       where: { id },
-      include: { items: true, invoices: true, shipments: true, payments: true, parts: true },
+      include: { items: true, invoices: true, shipments: true, payments: true, parts: true, transferPayments: true },
     });
     if (!order) throw new NotFoundException('Order not found');
     // Владелец и управляющий организации открывают её заказы: согласовывать
@@ -873,6 +873,62 @@ export class OrdersService {
   // позиции. Продавец получает свой счёт без параметров, покупателю и
   // администратору нужно указать, чей именно, — кроме случая единственного
   // продавца, где выбора нет.
+  // Счета заказа по продавцам: сумма каждого — то, что покупатель переводит.
+  private invoiceSplit(order: {
+    items: { sellerId: string; productName: string; quantity: number; price: unknown }[];
+    shipments: { sellerId: string | null; cost: unknown }[];
+    deliveryQuote: Prisma.JsonValue;
+    vetPointsUsed: unknown;
+  }) {
+    return splitInvoices(
+      order.items.map((it) => ({ sellerId: it.sellerId, productName: it.productName, quantity: it.quantity, price: Number(it.price) })),
+      deliveryBySellerForOrder(
+        order.deliveryQuote,
+        order.shipments.map((sh) => ({ sellerId: sh.sellerId, cost: Number(sh.cost) })),
+      ),
+      Number(order.vetPointsUsed),
+    );
+  }
+
+  // Продавец отмечает, что оплата по его части пришла перечислением на его
+  // счёт. В B2B так платят чаще, чем картой, а платформа этого не знала: заказ
+  // выглядел неоплаченным, лимит отсрочки покупателя не освобождался.
+  // Сумма — по его счёту. Когда отмечены все части, лимит освобождается.
+  async markTransferPaid(id: string, user: AuthUser, paidAt?: string) {
+    const order = await this.prisma.order.findUnique({
+      where: { id },
+      include: { items: true, shipments: true, payments: true, transferPayments: true },
+    });
+    if (!order) throw new NotFoundException('Заказ не найден');
+    const sellers = [...new Set(order.items.map((it) => it.sellerId))];
+    if (!sellers.includes(user.id)) throw new ForbiddenException('Not authorized for this order');
+    if (order.status === OrderStatus.CANCELLED) throw new BadRequestException('Заказ отменён — оплата невозможна');
+    if (order.payments.some((p) => p.status === PaymentStatus.PAID)) throw new BadRequestException('Заказ уже оплачен');
+    const amount = this.invoiceSplit(order).find((inv) => inv.sellerId === user.id)?.total ?? 0;
+    const date = paidAt ? new Date(paidAt) : new Date();
+    if (Number.isNaN(date.getTime()) || date.getTime() > Date.now() + 86_400_000) throw new BadRequestException('Неверная дата оплаты');
+
+    const created = await this.prisma.transferPayment.createMany({
+      data: [{ orderId: id, sellerId: user.id, amount, paidAt: date }],
+      skipDuplicates: true,
+    });
+    if (!created.count) throw new BadRequestException('Оплата уже отмечена');
+
+    const paidSellers = new Set([...order.transferPayments.map((t) => t.sellerId), user.id]);
+    if (sellers.every((s) => paidSellers.has(s))) await this.release.onPaid(id);
+
+    if (order.buyerId) {
+      const seller = await this.prisma.user.findUnique({ where: { id: user.id }, select: { company: true, fullName: true } });
+      const who = seller?.company || seller?.fullName || '';
+      void this.alerts.notify(order.buyerId, {
+        title: tt(`Заказ #${shortId(id)}: оплата получена`, `#${shortId(id)} buyurtma: toʻlov qabul qilindi`),
+        body: tt(`${who} подтвердил поступление ${fmt(amount)} сум перечислением.`, `${who} oʻtkazma orqali ${fmt(amount)} soʻm kelib tushganini tasdiqladi.`),
+        url: `/orders/${id}`,
+      });
+    }
+    return this.getOne(id, user);
+  }
+
   async invoicePdf(
     id: string,
     user: AuthUser,
@@ -885,19 +941,7 @@ export class OrdersService {
     if (!order) throw new NotFoundException('Order not found');
     this.assertAccess(order, user);
 
-    const split = splitInvoices(
-      order.items.map((it) => ({
-        sellerId: it.sellerId,
-        productName: it.productName,
-        quantity: it.quantity,
-        price: Number(it.price),
-      })),
-      deliveryBySellerForOrder(
-        order.deliveryQuote,
-        order.shipments.map((sh) => ({ sellerId: sh.sellerId, cost: Number(sh.cost) })),
-      ),
-      Number(order.vetPointsUsed),
-    );
+    const split = this.invoiceSplit(order);
     if (!split.length) throw new BadRequestException('В заказе нет позиций');
 
     // Продавец всегда получает свой счёт: чужой ему не выдаётся даже по прямому
@@ -998,6 +1042,7 @@ export class OrdersService {
       vetPointsUsed: Number(o.vetPointsUsed),
       vetPointsEarned: Number(o.vetPointsEarned),
       items: o.items?.map((it) => ({ ...it, price: Number(it.price) })),
+      transferPayments: o.transferPayments?.map((t) => ({ ...t, amount: Number(t.amount) })),
     };
   }
 }
@@ -1011,6 +1056,7 @@ interface SerializableOrder {
   vetPointsUsed: unknown;
   vetPointsEarned: unknown;
   items?: ({ sellerId: string; price: unknown; quantity: unknown })[];
+  transferPayments?: { sellerId: string; amount: unknown }[];
 }
 
 

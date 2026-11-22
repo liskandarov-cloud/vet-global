@@ -130,6 +130,16 @@ function SellerContent() {
     } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
   };
 
+  // Оплата по счёту пришла на расчётный счёт: отмечает сам продавец.
+  const markTransfer = async (id: string) => {
+    if (!confirm(tt('Подтвердить, что оплата по вашему счёту поступила на расчётный счёт?', 'Hisobingiz boʻyicha toʻlov hisob raqamingizga kelib tushganini tasdiqlaysizmi?'))) return;
+    try {
+      await api.post(`/orders/${id}/transfer-paid`, {});
+      toast.success(tt('Оплата отмечена — покупатель получил уведомление', 'Toʻlov belgilandi — xaridorga xabar yuborildi'));
+      load();
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
+  };
+
   // Ответ содержит список документов: их по одному на продавца, и продавцу
   // возвращается ровно его собственный.
   const sendDidox = async (id: string) => {
@@ -438,6 +448,11 @@ function SellerContent() {
                     )}
                     {/* Свой счёт PDF: сервер отдаёт продавцу только его часть заказа. */}
                     <button className="btn-ghost ml-1 !px-2 !py-1 text-xs" onClick={() => downloadInvoice(o.id)}>{tt('Счёт PDF', 'Hisob PDF')}</button>
+                    {o.transferPayments?.length ? (
+                      <span className="ml-1 rounded-md bg-teal-100 px-2 py-0.5 text-xs text-teal-700">{tt('Оплачено перечислением', 'Oʻtkazma orqali toʻlangan')}</span>
+                    ) : o.status !== 'CANCELLED' && !o.payments?.some((p: any) => p.status === 'PAID') ? (
+                      <button className="btn-ghost ml-1 !px-2 !py-1 text-xs" onClick={() => markTransfer(o.id)}>{tt('Оплата получена', 'Toʻlov olindi')}</button>
+                    ) : null}
                   </td>
                   <td>
                     {ownShipment<any>(o, user?.id) ? (

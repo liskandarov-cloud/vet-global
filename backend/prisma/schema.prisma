@@ -204,6 +204,7 @@ model User {
 
   @@index([role])
   @@index([role, isVerified])
+  transferPayments TransferPayment[] @relation("TransferPayments")
 }
 
 // Multiple legal entities a buyer can order on behalf of (SRS 4.4 / Checkout 4.2).
@@ -663,6 +664,7 @@ model Order {
   shipments    Shipment[]
   parts        OrderPart[]
   payments     Payment[]
+  transferPayments TransferPayment[]
 
   @@index([buyerId])
   @@index([status])
@@ -1032,4 +1034,21 @@ model AdminAuditLog {
 
   @@index([createdAt])
   @@index([targetType, targetId])
+}
+
+// Оплата перечислением на расчётный счёт продавца. Отмечает продавец — по
+// своей части заказа, на сумму своего счёта. Онлайн-оплаты — в Payment.
+model TransferPayment {
+  id        String   @id @default(uuid())
+  orderId   String
+  sellerId  String
+  amount    Decimal  @db.Decimal(12, 2)
+  paidAt    DateTime
+  createdAt DateTime @default(now())
+
+  order  Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  seller User  @relation("TransferPayments", fields: [sellerId], references: [id], onDelete: Cascade)
+
+  @@unique([orderId, sellerId])
+  @@index([sellerId, paidAt])
 }
