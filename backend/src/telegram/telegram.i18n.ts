@@ -12,6 +12,18 @@ export const T: Dict = {
   btn_lead: { ru: '📝 Оставить заявку', uz: '📝 Ariza qoldirish' },
   btn_lang: { ru: '🌐 Язык', uz: '🌐 Til' },
   btn_orders: { ru: '📦 Мои заказы', uz: '📦 Buyurtmalarim' },
+  btn_cart: { ru: '🛒 Корзина', uz: '🛒 Savat' },
+  btn_to_cart: { ru: '🛒 В корзину', uz: '🛒 Savatga' },
+  btn_checkout: { ru: '🧾 Оформить', uz: '🧾 Rasmiylashtirish' },
+  btn_cart_clear: { ru: '🗑 Очистить', uz: '🗑 Tozalash' },
+  ask_qty: { ru: 'Сколько штук? Минимум — {min}. Напишите число.', uz: 'Necha dona? Kamida — {min}. Raqam yozing.' },
+  bad_qty: { ru: 'Нужно целое число не меньше {min}.', uz: 'Kamida {min} boʻlgan butun son kerak.' },
+  cart_added: { ru: '✅ Добавлено. В корзине позиций: {n}.', uz: '✅ Qoʻshildi. Savatdagi pozitsiyalar: {n}.' },
+  cart_empty: { ru: 'Корзина пуста. Добавьте товары из каталога или поиска.', uz: 'Savat boʻsh. Katalog yoki qidiruvdan mahsulot qoʻshing.' },
+  cart_header: {
+    ru: '🛒 Корзина. «Оформить» откроет сайт с этими товарами — там адрес, доставка и оплата.',
+    uz: '🛒 Savat. «Rasmiylashtirish» saytni shu mahsulotlar bilan ochadi — u yerda manzil, yetkazib berish va toʻlov.',
+  },
   orders_header: {
     ru: '📦 Последние заказы — нажмите, чтобы открыть. Повторить заказ можно кнопкой на его странице.',
     uz: '📦 Soʻnggi buyurtmalar — ochish uchun bosing. Buyurtmani uning sahifasidagi tugma bilan takrorlash mumkin.',
