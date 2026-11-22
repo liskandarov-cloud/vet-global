@@ -14,6 +14,9 @@ import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsBoolean, IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 import { UserRole } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { AlertsService } from '../alerts/alerts.service';
+import { tt } from '../alerts/text';
+import { canSell } from '../common/visibility';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -50,7 +53,10 @@ class UpdatePromotionDto {
 @ApiTags('promotions')
 @Controller('promotions')
 export class PromotionsController {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly alerts: AlertsService,
+  ) {}
 
   // Публичный список акций — для страницы «Акции» и главной.
   //
@@ -86,8 +92,8 @@ export class PromotionsController {
   @ApiBearerAuth()
   @UseGuards(JwtAuthGuard, RolesGuard)
   @Roles(UserRole.SELLER)
-  create(@Body() dto: PromotionDto, @CurrentUser() user: AuthUser) {
-    return this.prisma.promotion.create({
+  async create(@Body() dto: PromotionDto, @CurrentUser() user: AuthUser) {
+    const promo = await this.prisma.promotion.create({
       data: {
         sellerId: user.id,
         title: dto.title,
@@ -98,7 +104,35 @@ export class PromotionsController {
         endsAt: dto.endsAt ? new Date(dto.endsAt) : null,
         isActive: dto.isActive ?? true,
       },
+      include: {
+        product: { select: { name: true, nameUz: true, images: true } },
+        seller: { select: { company: true, fullName: true, isVerified: true, isBanned: true } },
+      },
     });
+    // В канал — только то, что покупатель увидит на сайте.
+    if (promo.isActive && promo.discountPercent > 0 && canSell(promo.seller)) {
+      const d = promo.discountPercent;
+      const until = promo.endsAt ? promo.endsAt.toLocaleDateString('ru-RU') : null;
+      const who = promo.seller.company || promo.seller.fullName;
+      void this.alerts
+        .postToChannel({
+          title: tt(`🔥 Акция: ${promo.title}`, `🔥 Aksiya: ${promo.title}`),
+          body: promo.product
+            ? tt(
+                `«${promo.product.name}» — скидка ${d}%${until ? ` до ${until}` : ''}`,
+                `«${promo.product.nameUz || promo.product.name}» — ${d}% chegirma${until ? `, ${until} gacha` : ''}`,
+              )
+            : tt(
+                `Скидка ${d}% на весь ассортимент ${who}${until ? ` до ${until}` : ''}`,
+                `${who}: barcha mahsulotlarga ${d}% chegirma${until ? `, ${until} gacha` : ''}`,
+              ),
+          url: promo.productId ? `/products/${promo.productId}` : '/promotions',
+          image: promo.product?.images?.[0],
+        })
+        .catch(() => undefined);
+    }
+    const { product: _p, seller: _s, ...plain } = promo;
+    return plain;
   }
 
   @Patch(':id')

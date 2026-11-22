@@ -15,3 +15,16 @@ export function telegramMessage(alert: Alert, lang: Lang, siteUrl: string) {
       : {}),
   };
 }
+
+// Пост в публичный канал площадки: сначала по-узбекски, затем по-русски —
+// аудитория смешанная, а пост один.
+export function channelPost(alert: Alert, siteUrl: string) {
+  const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const part = (lang: Lang) => `<b>${esc(textIn(alert.title, lang))}</b>\n${esc(textIn(alert.body, lang))}`;
+  const url = alert.url ? `${siteUrl}${alert.url}` : null;
+  return {
+    text: `${part('uz')}\n\n${part('ru')}`,
+    parse_mode: 'HTML' as const,
+    ...(url?.startsWith('https://') ? { reply_markup: { inline_keyboard: [[{ text: 'Ochish · Открыть', url }]] } } : {}),
+  };
+}

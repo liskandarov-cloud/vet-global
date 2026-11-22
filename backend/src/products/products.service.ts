@@ -7,6 +7,8 @@ import { CreateProductDto, ProductQueryDto, UpdateProductDto } from './dto/produ
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { serializeOffer } from '../common/pricing';
 import { canSell, publicOffer, PUBLIC_PRODUCT } from '../common/visibility';
+import { AlertsService } from '../alerts/alerts.service';
+import { fmt, tt } from '../alerts/text';
 import { PromotionsService } from '../promotions/promotions.service';
 import { StockAlertsService } from './stock-alerts.service';
 import { StorageService } from '../storage/storage.service';
@@ -20,6 +22,7 @@ export class ProductsService {
     private readonly promotions: PromotionsService,
     private readonly stockAlerts: StockAlertsService,
     private readonly storage: StorageService,
+    private readonly alerts: AlertsService,
   ) {}
 
   // Ссылку на сертификат покупатель открывает из карточки товара: новый
@@ -180,7 +183,23 @@ export class ProductsService {
     if (typeof dto.stockQty === 'number') data.inStock = dto.stockQty > 0;
     const product = await this.prisma.product.create({ data });
     await this.upsertBrand(product.manufacturer);
+    void this.announceNew(product).catch(() => undefined);
     return this.serialize(product);
+  }
+
+  // Новый товар — в канал площадки, если покупатель его увидит: товар активен,
+  // продавец проверен. Импорт сюда не попадает — он заливает каталог пачкой.
+  private async announceNew(p: { id: string; name: string; nameUz: string | null; price: unknown; images: string[]; isActive: boolean; sellerId: string }) {
+    if (!p.isActive) return;
+    const seller = await this.prisma.user.findUnique({ where: { id: p.sellerId }, select: { isVerified: true, isBanned: true } });
+    if (!canSell(seller)) return;
+    const price = fmt(Number(p.price));
+    await this.alerts.postToChannel({
+      title: tt(`🆕 Новинка: ${p.name}`, `🆕 Yangi mahsulot: ${p.nameUz || p.name}`),
+      body: tt(`от ${price} сум`, `${price} soʻmdan`),
+      url: `/products/${p.id}`,
+      image: p.images?.[0],
+    });
   }
 
   // Бренд-производитель заводится автоматически из поля manufacturer товара,
