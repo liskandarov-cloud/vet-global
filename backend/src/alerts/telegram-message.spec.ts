@@ -1,4 +1,4 @@
-import { telegramMessage } from './telegram-message';
+import { channelPost, telegramMessage } from './telegram-message';
 import { tt } from './text';
 
 describe('сообщение в Telegram', () => {
@@ -17,5 +17,13 @@ describe('сообщение в Telegram', () => {
     const m = telegramMessage(alert, 'ru', 'http://localhost:3000');
     expect(m.text).toBe('<b>Заказ #ab12</b>\nСумма &lt; 5 &amp; &gt;');
     expect(m).not.toHaveProperty('reply_markup');
+  });
+});
+
+describe('пост в канал', () => {
+  it('узбекский, затем русский, кнопка на страницу', () => {
+    const p = channelPost({ title: tt('Акция', 'Aksiya'), body: tt('Скидка 10%', '10% chegirma'), url: '/promotions' }, 'https://vethub.uz');
+    expect(p.text).toBe('<b>Aksiya</b>\n10% chegirma\n\n<b>Акция</b>\nСкидка 10%');
+    expect(p.reply_markup).toEqual({ inline_keyboard: [[{ text: 'Ochish · Открыть', url: 'https://vethub.uz/promotions' }]] });
   });
 });

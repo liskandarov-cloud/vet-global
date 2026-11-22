@@ -6,7 +6,7 @@ import { PushService } from '../push/push.service';
 import { AuthUser } from '../common/decorators/current-user.decorator';
 import { frontendUrl } from '../common/frontend-url';
 import { Alert, Lang, textIn } from './text';
-import { telegramMessage } from './telegram-message';
+import { channelPost, telegramMessage } from './telegram-message';
 
 @Injectable()
 export class AlertsService {
@@ -61,14 +61,28 @@ export class AlertsService {
     }
   }
 
-  private async telegramSend(chatId: string, message: object): Promise<number> {
+  // Публичный канал площадки (TELEGRAM_CHANNEL): новые товары и акции.
+  // Фото — по ссылке; если Telegram его не взял, пост уходит текстом.
+  async postToChannel(post: Alert & { image?: string }) {
+    const channel = this.config.get<string>('TELEGRAM_CHANNEL');
+    if (!channel) return;
+    const { text, ...rest } = channelPost(post, frontendUrl());
+    if (post.image?.startsWith('https://') && (await this.telegramCall('sendPhoto', { chat_id: channel, photo: post.image, caption: text, ...rest })) === 200) return;
+    await this.telegramCall('sendMessage', { chat_id: channel, text, disable_web_page_preview: true, ...rest });
+  }
+
+  private telegramSend(chatId: string, message: object): Promise<number> {
+    return this.telegramCall('sendMessage', { chat_id: chatId, ...message });
+  }
+
+  private async telegramCall(method: string, body: object): Promise<number> {
     const token = this.config.get<string>('TELEGRAM_BOT_TOKEN');
     if (!token) return 0;
     try {
-      const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+      const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ chat_id: chatId, ...message }),
+        body: JSON.stringify(body),
         signal: AbortSignal.timeout(10_000),
       });
       if (!res.ok && res.status !== 403) this.logger.warn(`Telegram: ${res.status} ${(await res.text()).slice(0, 200)}`);

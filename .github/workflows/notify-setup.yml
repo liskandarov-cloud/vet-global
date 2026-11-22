@@ -4,6 +4,8 @@
 #   TELEGRAM_BOT_TOKEN — токен бота от @BotFather. До запуска добавьте бота в
 #     группу команды и напишите там /start: id группы workflow найдёт сам.
 #     Если групп несколько — задайте нужную секретом TELEGRAM_ADMIN_CHAT_ID.
+#   TELEGRAM_CHANNEL — публичный канал для автопостинга (@имя), бот в нём —
+#     администратор с правом публикации.
 #   RESEND_API_KEY — ключ Resend (бесплатно 3000 писем в месяц); домен
 #     vethub.uz должен быть подтверждён в Resend.
 #   RENDER_API_KEY — уже задан.
@@ -34,6 +36,7 @@ jobs:
       TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
       TG_CHAT: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
       RESEND_KEY: ${{ secrets.RESEND_API_KEY }}
+      TG_CHANNEL: ${{ secrets.TELEGRAM_CHANNEL }}
       SERVICE: srv-dbe9iflg1s2s73es8lh0
       API: https://api.render.com/v1
     steps:
@@ -43,7 +46,7 @@ jobs:
           test -n "$RENDER_API_KEY" || { echo "::error::секрет RENDER_API_KEY не задан"; exit 1; }
           curl -fsS "$API/services/$SERVICE/env-vars?limit=100" -H "Authorization: Bearer $RENDER_API_KEY" > "$RUNNER_TEMP/env.json"
           # Только имена: значения остаются в Render.
-          for k in TELEGRAM_BOT_TOKEN TELEGRAM_ADMIN_CHAT_ID ERROR_WEBHOOK_URL ERROR_WEBHOOK_CHAT_ID \
+          for k in TELEGRAM_BOT_TOKEN TELEGRAM_ADMIN_CHAT_ID TELEGRAM_CHANNEL ERROR_WEBHOOK_URL ERROR_WEBHOOK_CHAT_ID \
                    RESEND_API_KEY MAIL_FROM ADMIN_EMAIL VAPID_PUBLIC_KEY VAPID_PRIVATE_KEY ESKIZ_EMAIL; do
             if jq -e --arg k "$k" 'any(.[]; .envVar.key == $k and (.envVar.value // "") != "")' "$RUNNER_TEMP/env.json" >/dev/null
             then echo "задано:    $k"; else echo "не задано: $k"; fi
@@ -98,6 +101,25 @@ jobs:
           put TELEGRAM_ADMIN_CHAT_ID "$CHAT"
           put ERROR_WEBHOOK_URL "$TG/sendMessage"
           put ERROR_WEBHOOK_CHAT_ID "$CHAT"
+          echo "CHANGED=1" >> "$GITHUB_ENV"
+
+      - name: Telegram-канал — автопостинг
+        run: |
+          set -euo pipefail
+          if [ -z "$TG_CHANNEL" ]; then echo "секрет TELEGRAM_CHANNEL не задан — автопостинг пропущен"; exit 0; fi
+          [ -n "$TG_TOKEN" ] || { echo "::error::для канала нужен TELEGRAM_BOT_TOKEN"; exit 1; }
+          source "$RUNNER_TEMP/put.sh"
+          TG="https://api.telegram.org/bot$TG_TOKEN"
+          echo "::add-mask::$TG"
+          BOT_ID=${TG_TOKEN%%:*}
+          m=$(curl -sS -G "$TG/getChatMember" --data-urlencode "chat_id=$TG_CHANNEL" --data-urlencode "user_id=$BOT_ID")
+          st=$(echo "$m" | jq -r '.result.status // empty')
+          can=$(echo "$m" | jq -r '.result.can_post_messages // false')
+          if [ "$st" != administrator ] || [ "$can" != true ]; then
+            echo "::error::бот не администратор канала $TG_CHANNEL с правом публикации ($(echo "$m" | jq -r '.description // .result.status'))"; exit 1
+          fi
+          echo "канал $TG_CHANNEL: бот — администратор с правом публикации"
+          put TELEGRAM_CHANNEL "$TG_CHANNEL"
           echo "CHANGED=1" >> "$GITHUB_ENV"
 
       - name: Почта — Resend
