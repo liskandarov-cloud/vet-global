@@ -18,6 +18,7 @@ export interface SellerViewOrder {
   shipments?: (BySeller & { cost?: unknown })[];
   invoices?: BySeller[];
   payments?: { id: string; provider: unknown; status: unknown; createdAt: unknown }[];
+  transferPayments?: BySeller[];
   commission?: unknown;
   status?: unknown;
 }
@@ -42,6 +43,7 @@ export function sellerView<T extends SellerViewOrder>(order: T, sellerId: string
     items: items.filter((it) => it.sellerId === sellerId),
     invoices: (order.invoices ?? []).filter((inv) => inv.sellerId === sellerId),
     shipments,
+    transferPayments: (order.transferPayments ?? []).filter((t) => t.sellerId === sellerId),
     payments: (order.payments ?? []).map((p) => ({ id: p.id, provider: p.provider, status: p.status, createdAt: p.createdAt })),
     subtotal: own,
     deliveryCost,

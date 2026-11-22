@@ -263,6 +263,15 @@ function OrderContent() {
             </div>
           )}
 
+          {order.transferPayments?.map((t: any) => (
+            <div key={t.id} className="card flex items-center justify-between p-4 text-sm">
+              <span className="flex items-center gap-2 text-ink-muted"><CreditCard size={15} /> {tt('Перечисление на счёт продавца', 'Sotuvchi hisobiga oʻtkazma')}</span>
+              <span className="rounded-md bg-teal-100 px-2 py-0.5 text-xs text-teal-700">
+                {tt('Получено', 'Qabul qilindi')} {new Date(t.paidAt).toLocaleDateString('ru-RU')} · {formatMoney(t.amount)}
+              </span>
+            </div>
+          ))}
+
           {order.paymentTerm && order.paymentTerm !== 'PREPAY' && (
             <div className="card p-4 text-sm">
               <div className="mb-1 flex items-center gap-2 font-medium"><CalendarClock size={15} className="text-teal-700" /> {termLabel[order.paymentTerm] ?? TERM_RU[order.paymentTerm]}</div>
