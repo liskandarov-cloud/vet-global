@@ -48,3 +48,19 @@ export function effectiveUnitPrice(
 function round2(n: number): number {
   return Math.round(n * 100) / 100;
 }
+
+// Оптовые ступени из формы продавца: пустые строки отбрасываются, остальные —
+// по возрастанию количества. Каждая ступень — от 2 шт, количества не
+// повторяются, и чем больше количество, тем ниже цена (и ниже базовой).
+export function normalizePriceBreaks(
+  rows: { minQty: unknown; price: unknown }[],
+  basePrice: number,
+): { breaks: { minQty: number; price: number }[]; error?: 'qty' | 'price' } {
+  const breaks = rows
+    .map((r) => ({ minQty: Math.floor(Number(r.minQty) || 0), price: Number(r.price) || 0 }))
+    .filter((r) => r.minQty > 0 || r.price > 0)
+    .sort((a, b) => a.minQty - b.minQty);
+  if (breaks.some((b, i) => b.minQty < 2 || (i > 0 && b.minQty === breaks[i - 1].minQty))) return { breaks, error: 'qty' };
+  if (breaks.some((b, i) => b.price <= 0 || b.price >= (i ? breaks[i - 1].price : basePrice))) return { breaks, error: 'price' };
+  return { breaks };
+}

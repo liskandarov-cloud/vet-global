@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { applyPromotion, effectiveUnitPrice, unitPriceForQty } from './pricing';
+import { applyPromotion, effectiveUnitPrice, normalizePriceBreaks, unitPriceForQty } from './pricing';
 import type { Offer } from './types';
 
 const offer = (over: Partial<Offer> = {}): Offer =>
@@ -57,5 +57,20 @@ describe('договорная цена — потолок, а не замена
 
   it('договорная цена акцией дополнительно не уценивается', () => {
     expect(effectiveUnitPrice(offer({ promoPercent: 10 }), 1, 85000)).toBe(85000);
+  });
+});
+
+describe('оптовые ступени из формы продавца', () => {
+  it('пустые строки отбрасываются, ступени — по возрастанию количества', () => {
+    expect(normalizePriceBreaks([{ minQty: '50', price: '8000' }, { minQty: '', price: '' }, { minQty: '10', price: '9000' }], 10000)).toEqual({
+      breaks: [{ minQty: 10, price: 9000 }, { minQty: 50, price: 8000 }],
+    });
+  });
+
+  it('ошибки: ступень от 1 шт или повтор количества; цена не ниже базовой или предыдущей', () => {
+    expect(normalizePriceBreaks([{ minQty: 1, price: 9000 }], 10000).error).toBe('qty');
+    expect(normalizePriceBreaks([{ minQty: 10, price: 9000 }, { minQty: 10, price: 8000 }], 10000).error).toBe('qty');
+    expect(normalizePriceBreaks([{ minQty: 10, price: 10000 }], 10000).error).toBe('price');
+    expect(normalizePriceBreaks([{ minQty: 10, price: 9000 }, { minQty: 50, price: 9500 }], 10000).error).toBe('price');
   });
 });
