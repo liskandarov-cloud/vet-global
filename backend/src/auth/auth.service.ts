@@ -1,4 +1,5 @@
 import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
+import { randomBytes, randomInt } from 'crypto';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
@@ -102,6 +103,31 @@ export class AuthService {
     };
   }
 
+  // Вход через Telegram для аккаунтов с привязанным ботом. Сайт показывает
+  // код, бот спрашивает «это вы?» с тем же кодом: присланную кем-то чужую
+  // ссылку входа бот молча не подтвердит.
+  async telegramLoginStart() {
+    const bot = await this.alerts.botUsername();
+    if (!bot) throw new BadRequestException('Telegram-бот не подключён');
+    const id = randomBytes(16).toString('hex');
+    const code = String(randomInt(1000, 10000));
+    await this.prisma.telegramLogin.create({ data: { id, code, expiresAt: new Date(Date.now() + 5 * 60_000) } });
+    return { token: id, code, url: `https://t.me/${bot}?start=tglogin_${id}` };
+  }
+
+  // Сайт спрашивает, подтвердил ли бот. Токен сессии выдаётся один раз.
+  async telegramLoginPoll(token: string) {
+    const expired = () => new BadRequestException('Ссылка устарела — начните вход заново');
+    const rec = /^[a-f0-9]{32}$/.test(String(token)) ? await this.prisma.telegramLogin.findUnique({ where: { id: token } }) : null;
+    if (!rec || rec.usedAt || rec.expiresAt < new Date()) throw expired();
+    if (!rec.confirmedAt || !rec.userId) return { status: 'pending' };
+    const used = await this.prisma.telegramLogin.updateMany({ where: { id: token, usedAt: null }, data: { usedAt: new Date() } });
+    if (!used.count) throw expired();
+    const user = await this.prisma.user.findUnique({ where: { id: rec.userId } });
+    if (!user || user.isBanned) throw new UnauthorizedException('Account is banned');
+    return { token: this.sign(user.id, user.role), user: this.publicUser(user) };
+  }
+
   // Ответ одинаковый, есть такой адрес или нет: иначе форма сброса стала бы
   // способом проверить, кто зарегистрирован на площадке. Письмо отправляется
   // без ожидания по той же причине — время ответа не должно выдавать адрес.
@@ -122,6 +148,18 @@ export class AuthService {
         subject: 'VetHub — восстановление пароля',
         html: resetEmailHtml(user.fullName, link),
       });
+      // И в Telegram, если он привязан: без почтового провайдера письмо не
+      // уходит, и восстановить доступ иначе было нельзя.
+      void this.alerts
+        .telegramOnly(user.id, {
+          title: tt('Восстановление пароля VetHub', 'VetHub parolini tiklash'),
+          body: tt(
+            'Нажмите «Открыть», чтобы задать новый пароль. Ссылка действует 1 час. Если вы не запрашивали сброс — ничего не делайте.',
+            'Yangi parol oʻrnatish uchun «Ochish» tugmasini bosing. Havola 1 soat amal qiladi. Agar tiklashni soʻramagan boʻlsangiz — hech narsa qilmang.',
+          ),
+          url: link,
+        })
+        .catch(() => undefined);
     }
     return { ok: true };
   }

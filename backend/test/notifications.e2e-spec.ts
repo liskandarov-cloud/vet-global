@@ -141,4 +141,15 @@ describe('привязка Telegram', () => {
     expect(me.body.telegramLinked).toBe(false);
     for (const k of ['telegramLinkToken', 'telegramLinkUntil', 'telegramChatId', 'passwordHash']) expect(me.body).not.toHaveProperty(k);
   });
+
+  it('вход через Telegram: без бота — понятная ошибка, чужой или пустой ключ — «устарела»', async () => {
+    const start = await req('/auth/telegram', { method: 'POST' });
+    expect([start.status, start.body.message]).toEqual([400, 'Telegram-бот не подключён']);
+    for (const token of ['0'.repeat(32), 'x', undefined]) {
+      const poll = await req('/auth/telegram/poll', { method: 'POST', body: { token } });
+      expect([poll.status, poll.body.message]).toEqual([400, 'Ссылка устарела — начните вход заново']);
+    }
+    const uz = await req('/auth/telegram/poll', { method: 'POST', body: { token: 'x' }, lang: 'uz' });
+    expect(uz.body.message).toBe('Havola eskirgan — kirishni qaytadan boshlang');
+  });
 });

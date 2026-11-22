@@ -41,6 +41,8 @@ export const UZ_MESSAGES: Record<string, string> = {
     'Buyurtma topilmadi',
   'Укажите контрагента и период':
     'Kontragent va davrni koʻrsating',
+  'Ссылка устарела — начните вход заново':
+    'Havola eskirgan — kirishni qaytadan boshlang',
   'Оплата уже отмечена':
     'Toʻlov allaqachon belgilangan',
   'Неверная дата оплаты':
