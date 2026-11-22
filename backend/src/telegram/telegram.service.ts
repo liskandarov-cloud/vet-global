@@ -1,7 +1,7 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { LeadSource } from '@prisma/client';
-import { Bot, Context, InlineKeyboard, Keyboard } from 'grammy';
+import { Bot, Context, InlineKeyboard, InputFile, Keyboard } from 'grammy';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUBLIC_PRODUCT } from '../common/visibility';
 import { frontendUrl } from '../common/frontend-url';
@@ -277,9 +277,12 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       .text(t('btn_back', lang), `cat:${p.category.slug}:0`);
 
     const img = this.imgUrl(p.images?.[0]);
+    const photo = (src: string | InputFile) => ctx.replyWithPhoto(src, { caption, parse_mode: 'HTML', reply_markup: kb });
     try {
-      if (img) await ctx.replyWithPhoto(img, { caption, parse_mode: 'HTML', reply_markup: kb });
-      else await ctx.reply(caption, { parse_mode: 'HTML', reply_markup: kb });
+      if (!img) throw new Error('без фото');
+      // По ссылке Telegram берёт не каждый формат (WebP — нет), а загруженный
+      // файл примет: тогда скачиваем фото сами.
+      await photo(img).catch(() => photo(new InputFile(new URL(img))));
     } catch {
       await ctx.reply(caption, { parse_mode: 'HTML', reply_markup: kb });
     }

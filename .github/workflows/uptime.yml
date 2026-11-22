@@ -122,8 +122,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
         run: |
           set -euo pipefail
+          # Telegram команды (секреты от «Notifications setup»); без них — молча.
+          tg() { [ -n "${TG_TOKEN:-}" ] && [ -n "${TG_CHAT:-}" ] || return 0
+            jq -n --arg c "$TG_CHAT" --arg t "$1" '{chat_id: $c, text: $t, disable_web_page_preview: true}' \
+              | curl -s -m 20 -o /dev/null -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
+                  -H 'Content-Type: application/json' --data @- || true; }
           # Один открытый issue на инцидент: при каждой неудачной проверке
           # добавляем комментарий, а не заводим новый — иначе при длительном
           # падении репозиторий завалило бы десятками одинаковых тикетов.
@@ -145,6 +152,8 @@ jobs:
             # быть видно в логе, иначе сломанное оповещение снова промолчит.
             gh label create outage --color B60205 --description "Недоступность прода" || echo "метка outage уже есть"
             gh issue create --title "Прод недоступен или отстаёт от main" --label outage --body "$BODY"
+            # В Telegram — только начало инцидента, а не каждые полчаса.
+            tg "$(printf '🔴 VetHub: прод недоступен или отстаёт от main\n\n%s' "$BODY")"
           fi
 
       - name: Закрыть issue, если всё поднялось
@@ -152,13 +161,21 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
         run: |
           set -euo pipefail
+          # Telegram команды (секреты от «Notifications setup»); без них — молча.
+          tg() { [ -n "${TG_TOKEN:-}" ] && [ -n "${TG_CHAT:-}" ] || return 0
+            jq -n --arg c "$TG_CHAT" --arg t "$1" '{chat_id: $c, text: $t, disable_web_page_preview: true}' \
+              | curl -s -m 20 -o /dev/null -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
+                  -H 'Content-Type: application/json' --data @- || true; }
           EXISTING=$(gh issue list --label outage --state open --limit 1 --json number -q '.[0].number' || true)
           if [ -n "${EXISTING:-}" ]; then
             gh issue comment "$EXISTING" --body "Все проверки снова проходят — закрываю."
             gh issue close "$EXISTING"
             echo "закрыт #$EXISTING"
+            tg "✅ VetHub: прод снова в порядке, инцидент #$EXISTING закрыт"
           fi
 
       - name: Уронить прогон при недоступности
