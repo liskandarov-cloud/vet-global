@@ -177,6 +177,21 @@ jobs:
             echo "::warning::база $MB МБ из 500 — пора выносить файлы в бесплатное хранилище Supabase Storage (S3_ENDPOINT)"
           fi
 
+      - name: Сбой — в Telegram команды
+        if: failure()
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          WHAT: ночной бэкап не прошёл (дамп, пробное восстановление или место в базе)
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Telegram команды (секреты от «Notifications setup»); без них — молча.
+          tg() { [ -n "${TG_TOKEN:-}" ] && [ -n "${TG_CHAT:-}" ] || return 0
+            jq -n --arg c "$TG_CHAT" --arg t "$1" '{chat_id: $c, text: $t, disable_web_page_preview: true}' \
+              | curl -s -m 20 -o /dev/null -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
+                  -H 'Content-Type: application/json' --data @- || true; }
+          tg "$(printf '🔴 VetHub: %s\n%s' "$WHAT" "$RUN_URL")"
+
   # Схема базы прода совпадает со схемой кода.
   #
   # Так было не всегда: прод поднялся из бэкапа старой схемы, запуск принял её
@@ -211,3 +226,18 @@ jobs:
             exit 1
           fi
           echo "::error::сравнение схем не удалось (код $code)"; exit 1
+
+      - name: Сбой — в Telegram команды
+        if: failure()
+        env:
+          TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TG_CHAT: ${{ secrets.TELEGRAM_ADMIN_CHAT_ID }}
+          WHAT: схема базы прода расходится с кодом
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          # Telegram команды (секреты от «Notifications setup»); без них — молча.
+          tg() { [ -n "${TG_TOKEN:-}" ] && [ -n "${TG_CHAT:-}" ] || return 0
+            jq -n --arg c "$TG_CHAT" --arg t "$1" '{chat_id: $c, text: $t, disable_web_page_preview: true}' \
+              | curl -s -m 20 -o /dev/null -X POST "https://api.telegram.org/bot$TG_TOKEN/sendMessage" \
+                  -H 'Content-Type: application/json' --data @- || true; }
+          tg "$(printf '🔴 VetHub: %s\n%s' "$WHAT" "$RUN_URL")"
