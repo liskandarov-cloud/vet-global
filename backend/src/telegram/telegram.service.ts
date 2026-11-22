@@ -9,6 +9,8 @@ import { PromotionsService } from '../promotions/promotions.service';
 import { applyPromotion } from '../common/pricing';
 import { LeadsService } from '../leads/leads.service';
 import { BotLang, t } from './telegram.i18n';
+import { searchVariants } from '../products/search-variants';
+import { statusText } from '../alerts/text';
 import { EMAIL, PHONE_DISPLAY, SITE } from '../common/contacts';
 
 interface ChatState {
@@ -66,10 +68,12 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       .text(t('btn_catalog', lang))
       .text(t('btn_search', lang))
       .row()
+      .text(t('btn_orders', lang))
       .text(t('btn_promotions', lang))
-      .text(t('btn_lead', lang))
       .row()
+      .text(t('btn_lead', lang))
       .text(t('btn_contacts', lang))
+      .row()
       .text(t('btn_lang', lang))
       .resized();
   }
@@ -165,6 +169,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
 
       if (this.isBtn(text, 'btn_catalog')) { s.flow = undefined; return this.showCategories(ctx, lang); }
       if (this.isBtn(text, 'btn_promotions')) { s.flow = undefined; return this.showPromotions(ctx, lang); }
+      if (this.isBtn(text, 'btn_orders')) { s.flow = undefined; return this.showMyOrders(ctx, lang); }
       if (this.isBtn(text, 'btn_search')) {
         s.flow = 'search'; s.step = 'query'; s.data = {};
         return ctx.reply(t('ask_query', lang));
@@ -238,7 +243,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     const kb = new InlineKeyboard();
     for (const p of products) {
       const price = this.minPrice(p);
-      const label = `${this.trunc(p.name, 30)} · ${this.money(price)}`;
+      const label = `${this.trunc(this.pname(p, lang), 30)} · ${this.money(price)}`;
       kb.text(label, `prod:${p.id}`).row();
     }
     // Навигация.
@@ -263,7 +268,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         ? `💰 ${t('from', lang)} ${this.money(price)} · ${offers} ${t('offers_n', lang)}`
         : `💰 ${this.money(price)}`;
     const caption =
-      `<b>${this.esc(p.name)}</b>\n` +
+      `<b>${this.esc(this.pname(p, lang))}</b>\n` +
       (p.manufacturer ? `🏭 ${t('l_manufacturer', lang)}: ${this.esc(p.manufacturer)}\n` : '') +
       (p.activeSubstance ? `💊 ${t('l_substance', lang)}: ${this.esc(p.activeSubstance)}\n` : '') +
       (p.form ? `📋 ${t('l_form', lang)}: ${this.esc(p.form)}\n` : '') +
@@ -293,8 +298,8 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     if (products.length === 0) return ctx.reply(t('no_promotions', lang), { reply_markup: this.mainMenu(lang) });
     await ctx.reply(t('promotions_header', lang));
     for (const p of products) {
-      const kb = new InlineKeyboard().text(`${this.trunc(p.name, 30)} · ${this.money(this.minPrice(p))}`, `prod:${p.id}`);
-      await ctx.reply(`🔥 <b>${this.esc(p.name)}</b>`, { parse_mode: 'HTML', reply_markup: kb });
+      const kb = new InlineKeyboard().text(`${this.trunc(this.pname(p, lang), 30)} · ${this.money(this.minPrice(p))}`, `prod:${p.id}`);
+      await ctx.reply(`🔥 <b>${this.esc(this.pname(p, lang))}</b>`, { parse_mode: 'HTML', reply_markup: kb });
     }
   }
 
@@ -302,11 +307,11 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     const products = await this.prisma.product.findMany({
       where: {
         ...PUBLIC_PRODUCT,
-        OR: [
-          { name: { contains: query, mode: 'insensitive' } },
-          { activeSubstance: { contains: query, mode: 'insensitive' } },
-          { manufacturer: { contains: query, mode: 'insensitive' } },
-        ],
+        // Как на сайте: запрос латиницей находит кириллицу и наоборот —
+        // товары записаны кириллицей, а по-узбекски чаще пишут латиницей.
+        OR: searchVariants(query).flatMap((v) =>
+          (['name', 'nameUz', 'activeSubstance', 'manufacturer'] as const).map((f) => ({ [f]: { contains: v, mode: 'insensitive' as const } })),
+        ),
       },
       take: 8,
     });
@@ -315,12 +320,42 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     await ctx.reply(`🔍 ${t('results_header', lang)} ${products.length}`);
     const kb = new InlineKeyboard();
     for (const p of products) {
-      kb.text(`${this.trunc(p.name, 30)} · ${this.money(this.minPrice(p))}`, `prod:${p.id}`).row();
+      kb.text(`${this.trunc(this.pname(p, lang), 30)} · ${this.money(this.minPrice(p))}`, `prod:${p.id}`).row();
     }
     await ctx.reply('👇', { reply_markup: kb });
   }
 
+  // Заказы привязанного аккаунта. Покупателю — свои заказы с суммой; продавцу —
+  // заказы с его позициями без общей суммы (в ней могут быть чужие позиции).
+  private async showMyOrders(ctx: any, lang: BotLang) {
+    const user = await this.prisma.user.findUnique({
+      where: { telegramChatId: String(ctx.chat.id) },
+      select: { id: true, role: true },
+    });
+    if (!user) {
+      return ctx.reply(t('orders_link_first', lang), { reply_markup: new InlineKeyboard().url(t('open_site', lang), this.frontendUrl) });
+    }
+    const seller = user.role === 'SELLER';
+    const orders = await this.prisma.order.findMany({
+      where: seller ? { items: { some: { sellerId: user.id } } } : { buyerId: user.id },
+      orderBy: { createdAt: 'desc' },
+      take: 5,
+      select: { id: true, status: true, total: true },
+    });
+    if (!orders.length) return ctx.reply(t('orders_none', lang), { reply_markup: this.mainMenu(lang) });
+    const kb = new InlineKeyboard();
+    for (const o of orders) {
+      const label = `#${o.id.slice(0, 8)} · ${statusText(o.status)[lang]}${seller ? '' : ` · ${this.money(Number(o.total))}`}`;
+      kb.url(label, `${this.frontendUrl}${seller ? '/seller' : `/orders/${o.id}`}`).row();
+    }
+    await ctx.reply(t('orders_header', lang), { reply_markup: kb });
+  }
+
   // ── helpers ──
+  private pname(p: { name: string; nameUz?: string | null }, lang: BotLang) {
+    return lang === 'uz' && p.nameUz ? p.nameUz : p.name;
+  }
+
   // Цена в боте — та же, что в каталоге: со снятым процентом акции. Пока
   // скидка применялась только на сайте, бот показывал цену выше той, что
   // спишется при заказе.
