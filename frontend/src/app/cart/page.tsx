@@ -16,6 +16,26 @@ export default function CartPage() {
   const { t, tt } = useI18n();
   const router = useRouter();
   const { items, setQty, remove, clear, subtotal } = useCart();
+
+  // Корзина, собранная в Telegram-боте: /cart?add=<товар>:<кол-во>,…
+  // Цены берутся у сервера сейчас, а не из ссылки.
+  useEffect(() => {
+    const add = new URLSearchParams(window.location.search).get('add');
+    if (!add) return;
+    window.history.replaceState(null, '', '/cart');
+    const lines = add.split(',').map((x) => x.split(':')).filter(([id, q]) => /^[0-9a-f-]{36}$/.test(id) && Number(q) > 0).slice(0, 30);
+    Promise.all(lines.map(([id, q]) => api.get(`/products/${id}`).then((r) => ({ p: r.data, q: Number(q) })).catch(() => null))).then((rs) => {
+      let n = 0;
+      for (const r of rs) {
+        if (!r) continue;
+        const min = Number(r.p.minOrder) || 1;
+        useCart.getState().add({ productId: r.p.id, name: r.p.name, price: Number(r.p.price), minOrder: min, image: r.p.images?.[0] }, Math.max(Math.floor(r.q), min));
+        n++;
+      }
+      if (n) toast.success(tt('Товары из Telegram добавлены в корзину', 'Telegramdagi mahsulotlar savatga qoʻshildi'));
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const { user, refresh } = useAuth();
 
   const [usePoints, setUsePoints] = useState(false);

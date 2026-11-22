@@ -15,9 +15,13 @@ import { EMAIL, PHONE_DISPLAY, SITE } from '../common/contacts';
 
 interface ChatState {
   lang: BotLang;
-  flow?: 'search' | 'lead';
-  step?: 'query' | 'name' | 'phone';
-  data: { fullName?: string; phone?: string; productId?: string; productName?: string };
+  flow?: 'search' | 'lead' | 'cart';
+  step?: 'query' | 'name' | 'phone' | 'qty';
+  data: { fullName?: string; phone?: string; productId?: string; productName?: string; min?: number };
+  // Корзина живёт в памяти бота: оформление — на сайте, куда она передаётся
+  // ссылкой. shortcut: сбрасывается при перезапуске сервера; хранить в базе,
+  // если корзины в боте станут долгими.
+  cart?: { id: string; name: string; qty: number }[];
 }
 
 const PAGE = 5;
@@ -74,6 +78,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       .text(t('btn_lead', lang))
       .text(t('btn_contacts', lang))
       .row()
+      .text(t('btn_cart', lang))
       .text(t('btn_lang', lang))
       .resized();
   }
@@ -151,6 +156,29 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     });
 
     // Заявка по товару.
+    bot.callbackQuery(/^tocart:(.+)$/, async (ctx) => {
+      const s = this.get(ctx.chat!.id);
+      const p = await this.prisma.product.findFirst({ where: { id: ctx.match![1], ...PUBLIC_PRODUCT }, select: { id: true, name: true, nameUz: true, minOrder: true } });
+      await ctx.answerCallbackQuery();
+      if (!p) return ctx.reply(t('no_results', s.lang));
+      s.flow = 'cart';
+      s.step = 'qty';
+      s.data = { productId: p.id, productName: this.pname(p, s.lang), min: p.minOrder || 1 };
+      await ctx.reply(t('ask_qty', s.lang).replace('{min}', String(p.minOrder || 1)));
+    });
+
+    bot.callbackQuery('cart', async (ctx) => {
+      await ctx.answerCallbackQuery();
+      await this.showCart(ctx, this.get(ctx.chat!.id));
+    });
+
+    bot.callbackQuery('cart_clear', async (ctx) => {
+      const s = this.get(ctx.chat!.id);
+      s.cart = [];
+      await ctx.answerCallbackQuery();
+      await ctx.reply(t('cart_empty', s.lang), { reply_markup: this.mainMenu(s.lang) });
+    });
+
     bot.callbackQuery(/^order:(.+)$/, async (ctx) => {
       const s = this.get(ctx.chat!.id);
       const productId = ctx.match![1];
@@ -170,6 +198,20 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       if (this.isBtn(text, 'btn_catalog')) { s.flow = undefined; return this.showCategories(ctx, lang); }
       if (this.isBtn(text, 'btn_promotions')) { s.flow = undefined; return this.showPromotions(ctx, lang); }
       if (this.isBtn(text, 'btn_orders')) { s.flow = undefined; return this.showMyOrders(ctx, lang); }
+      if (this.isBtn(text, 'btn_cart')) { s.flow = undefined; return this.showCart(ctx, s); }
+      if (s.flow === 'cart' && s.step === 'qty') {
+        const min = s.data.min ?? 1;
+        const qty = Number(text);
+        if (!Number.isInteger(qty) || qty < min || qty > 100_000) return ctx.reply(t('bad_qty', lang).replace('{min}', String(min)));
+        s.cart ??= [];
+        const line = s.cart.find((l) => l.id === s.data.productId);
+        if (line) line.qty = qty;
+        else s.cart.push({ id: s.data.productId!, name: s.data.productName ?? '', qty });
+        s.flow = undefined;
+        return ctx.reply(t('cart_added', lang).replace('{n}', String(s.cart.length)), {
+          reply_markup: new InlineKeyboard().text(t('btn_cart', lang), 'cart').text(t('btn_catalog', lang), 'cats'),
+        });
+      }
       if (this.isBtn(text, 'btn_search')) {
         s.flow = 'search'; s.step = 'query'; s.data = {};
         return ctx.reply(t('ask_query', lang));
@@ -276,7 +318,9 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       priceLine;
 
     const kb = new InlineKeyboard()
+      .text(t('btn_to_cart', lang), `tocart:${p.id}`)
       .text(t('btn_order', lang), `order:${p.id}`)
+      .row()
       .url(t('open_site', lang), `${this.frontendUrl}/products/${p.id}`)
       .row()
       .text(t('btn_back', lang), `cat:${p.category.slug}:0`);
@@ -352,6 +396,20 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       kb.url(label, `${this.frontendUrl}${seller ? '/seller' : `/orders/${o.id}`}`).row();
     }
     await ctx.reply(t('orders_header', lang), { reply_markup: kb });
+  }
+
+  // Корзина: «Оформить» открывает сайт внутри Telegram с этими товарами
+  // (/cart?add=…); адрес, доставка и оплата — уже готовые сайта.
+  private async showCart(ctx: any, s: ChatState) {
+    const lang = s.lang;
+    if (!s.cart?.length) return ctx.reply(t('cart_empty', lang), { reply_markup: this.mainMenu(lang) });
+    const lines = s.cart.map((l, i) => `${i + 1}. ${this.esc(l.name)} — ${l.qty}`).join('\n');
+    const add = s.cart.map((l) => `${l.id}:${l.qty}`).join(',');
+    const kb = new InlineKeyboard()
+      .webApp(t('btn_checkout', lang), `${this.frontendUrl}/cart?add=${add}`)
+      .row()
+      .text(t('btn_cart_clear', lang), 'cart_clear');
+    await ctx.reply(`${t('cart_header', lang)}\n\n${lines}`, { parse_mode: 'HTML', reply_markup: kb });
   }
 
   // ── helpers ──
