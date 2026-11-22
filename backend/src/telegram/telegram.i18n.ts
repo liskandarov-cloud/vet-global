@@ -11,6 +11,16 @@ export const T: Dict = {
   btn_search: { ru: '🔍 Поиск товара', uz: '🔍 Mahsulot qidirish' },
   btn_lead: { ru: '📝 Оставить заявку', uz: '📝 Ariza qoldirish' },
   btn_lang: { ru: '🌐 Язык', uz: '🌐 Til' },
+  btn_orders: { ru: '📦 Мои заказы', uz: '📦 Buyurtmalarim' },
+  orders_header: {
+    ru: '📦 Последние заказы — нажмите, чтобы открыть. Повторить заказ можно кнопкой на его странице.',
+    uz: '📦 Soʻnggi buyurtmalar — ochish uchun bosing. Buyurtmani uning sahifasidagi tugma bilan takrorlash mumkin.',
+  },
+  orders_none: { ru: 'Заказов пока нет.', uz: 'Hozircha buyurtmalar yoʻq.' },
+  orders_link_first: {
+    ru: 'Чтобы видеть заказы здесь, подключите аккаунт: на сайте колокольчик → «Подключить Telegram».',
+    uz: 'Buyurtmalarni shu yerda koʻrish uchun akkauntni ulang: saytda qoʻngʻiroqcha → «Telegramni ulash».',
+  },
   btn_contacts: { ru: '📞 Контакты', uz: '📞 Aloqa' },
   contacts: { ru: 'Связаться с VetHub:', uz: 'VetHub bilan bogʻlanish:' },
   ask_query: {
