@@ -1052,3 +1052,17 @@ model TransferPayment {
   @@unique([orderId, sellerId])
   @@index([sellerId, paidAt])
 }
+
+// Вход через Telegram: сайт получает ключ и код, бот привязанного аккаунта
+// спрашивает «это вы?» с тем же кодом. Ключ живёт 5 минут и срабатывает раз.
+model TelegramLogin {
+  id          String    @id
+  code        String
+  userId      String?
+  confirmedAt DateTime?
+  usedAt      DateTime?
+  expiresAt   DateTime
+  createdAt   DateTime  @default(now())
+
+  @@index([expiresAt])
+}

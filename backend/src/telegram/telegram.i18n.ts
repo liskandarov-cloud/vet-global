@@ -12,6 +12,25 @@ export const T: Dict = {
   btn_lead: { ru: '📝 Оставить заявку', uz: '📝 Ariza qoldirish' },
   btn_lang: { ru: '🌐 Язык', uz: '🌐 Til' },
   btn_orders: { ru: '📦 Мои заказы', uz: '📦 Buyurtmalarim' },
+  login_link_first: {
+    ru: 'Вход через Telegram работает для аккаунтов с подключённым Telegram. Войдите на сайте по паролю и подключите его: колокольчик → «Подключить Telegram».',
+    uz: 'Telegram orqali kirish Telegram ulangan akkauntlar uchun ishlaydi. Saytga parol bilan kiring va uni ulang: qoʻngʻiroqcha → «Telegramni ulash».',
+  },
+  login_expired: {
+    ru: 'Ссылка для входа устарела. Нажмите «Войти через Telegram» на сайте ещё раз.',
+    uz: 'Kirish havolasi eskirgan. Saytda «Telegram orqali kirish» tugmasini yana bosing.',
+  },
+  login_confirm: {
+    ru: '🔐 Вход на сайт VetHub.\nКод на экране сайта: <b>{code}</b>\n\nЭто вы входите? Если вы не нажимали «Войти через Telegram» сами — нажмите «Это не я».',
+    uz: '🔐 VetHub saytiga kirish.\nSayt ekranidagi kod: <b>{code}</b>\n\nBu sizmisiz? Agar «Telegram orqali kirish» tugmasini oʻzingiz bosmagan boʻlsangiz — «Bu men emas» ni bosing.',
+  },
+  login_yes: { ru: '✅ Да, войти', uz: '✅ Ha, kirish' },
+  login_no: { ru: '✖️ Это не я', uz: '✖️ Bu men emas' },
+  login_done: { ru: '✅ Вход подтверждён — вернитесь на сайт.', uz: '✅ Kirish tasdiqlandi — saytga qayting.' },
+  login_cancelled: {
+    ru: 'Вход отменён. Если это были не вы — смените пароль на сайте.',
+    uz: 'Kirish bekor qilindi. Agar bu siz boʻlmasangiz — saytda parolni almashtiring.',
+  },
   btn_cart: { ru: '🛒 Корзина', uz: '🛒 Savat' },
   btn_to_cart: { ru: '🛒 В корзину', uz: '🛒 Savatga' },
   btn_checkout: { ru: '🧾 Оформить', uz: '🧾 Rasmiylashtirish' },

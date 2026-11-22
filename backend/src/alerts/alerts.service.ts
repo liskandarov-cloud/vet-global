@@ -61,6 +61,15 @@ export class AlertsService {
     }
   }
 
+  // Только в личный Telegram, без центра уведомлений и push: для секретов
+  // (ссылка сброса пароля — в базе лежит лишь её хеш, копия в уведомлениях
+  // сделала бы его бессмысленным).
+  async telegramOnly(userId: string, alert: Alert): Promise<boolean> {
+    const u = await this.prisma.user.findUnique({ where: { id: userId }, select: { telegramChatId: true, telegramLang: true } });
+    if (!u?.telegramChatId) return false;
+    return (await this.telegramSend(u.telegramChatId, telegramMessage(alert, u.telegramLang === 'uz' ? 'uz' : 'ru', ''))) === 200;
+  }
+
   // Публичный канал площадки (TELEGRAM_CHANNEL): новые товары и акции.
   // Фото — по ссылке; если Telegram его не взял, пост уходит текстом.
   async postToChannel(post: Alert & { image?: string }) {

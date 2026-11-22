@@ -29,6 +29,21 @@ export class AuthController {
     return this.auth.login(dto);
   }
 
+  // Вход через Telegram: ключ и код для бота; затем сайт опрашивает,
+  // подтвердил ли вход бот (раз в 2 секунды, до 5 минут).
+  @Post('telegram')
+  @Throttle({ default: { ttl: 300_000, limit: 20 } })
+  telegramStart() {
+    return this.auth.telegramLoginStart();
+  }
+
+  @Post('telegram/poll')
+  @HttpCode(200)
+  @Throttle({ default: { ttl: 60_000, limit: 60 } })
+  telegramPoll(@Body('token') token: string) {
+    return this.auth.telegramLoginPoll(token);
+  }
+
   // Запрос ссылки — 5 за 15 минут с адреса: письма не должны становиться
   // способом заспамить чужой ящик.
   @Post('forgot-password')

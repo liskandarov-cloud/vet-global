@@ -43,8 +43,8 @@ export default function ForgotPasswordPage() {
           {sent ? (
             <p className="text-sm leading-relaxed text-ink" role="status">
               {tt(
-                'Если этот адрес зарегистрирован, мы отправили на него ссылку для смены пароля. Она действует 1 час. Проверьте также папку «Спам».',
-                'Agar bu manzil roʻyxatdan oʻtgan boʻlsa, unga parolni almashtirish havolasini yubordik. Havola 1 soat amal qiladi. «Spam» jildini ham tekshiring.',
+                'Если этот адрес зарегистрирован, мы отправили ссылку для смены пароля на почту, а если подключён Telegram — и в @vethubuz_bot. Ссылка действует 1 час. Проверьте также папку «Спам».',
+                'Agar bu manzil roʻyxatdan oʻtgan boʻlsa, parolni almashtirish havolasini pochtaga, Telegram ulangan boʻlsa — @vethubuz_bot ga ham yubordik. Havola 1 soat amal qiladi. «Spam» jildini ham tekshiring.',
               )}
             </p>
           ) : (

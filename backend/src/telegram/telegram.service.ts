@@ -104,6 +104,23 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     await ctx.reply(t('link_done', lang).replace('{name}', user.fullName), { reply_markup: this.mainMenu(lang) });
   }
 
+  private linkedUser(chatId: number) {
+    return this.prisma.user.findUnique({ where: { telegramChatId: String(chatId) }, select: { id: true, telegramLang: true } });
+  }
+
+  // Вход на сайт: бот показывает код с экрана сайта и спрашивает «это вы?».
+  private async askLogin(ctx: Context, token: string) {
+    const user = await this.linkedUser(ctx.chat!.id);
+    const lang: BotLang = user?.telegramLang === 'uz' ? 'uz' : this.get(ctx.chat!.id).lang;
+    if (!user) return ctx.reply(t('login_link_first', lang));
+    const rec = await this.prisma.telegramLogin.findFirst({ where: { id: token, confirmedAt: null, expiresAt: { gt: new Date() } } });
+    if (!rec) return ctx.reply(t('login_expired', lang));
+    await ctx.reply(t('login_confirm', lang).replace('{code}', rec.code), {
+      parse_mode: 'HTML',
+      reply_markup: new InlineKeyboard().text(t('login_yes', lang), `tgl:ok:${token}`).text(t('login_no', lang), `tgl:no:${token}`),
+    });
+  }
+
   private langKeyboard() {
     return new InlineKeyboard().text('🇷🇺 Русский', 'lang:ru').text('🇺🇿 Oʻzbekcha', 'lang:uz');
   }
@@ -113,8 +130,27 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       // Ссылка из кабинета: t.me/<бот>?start=link_<ключ>.
       const link = /^link_([a-f0-9]{32})$/.exec(typeof ctx.match === 'string' ? ctx.match : '');
       if (link && ctx.chat.type === 'private') return this.linkAccount(ctx, link[1]);
+      const login = /^tglogin_([a-f0-9]{32})$/.exec(typeof ctx.match === 'string' ? ctx.match : '');
+      if (login && ctx.chat.type === 'private') return this.askLogin(ctx, login[1]);
       this.get(ctx.chat.id);
       await ctx.reply(t('welcome', 'ru'), { reply_markup: this.langKeyboard() });
+    });
+
+    bot.callbackQuery(/^tgl:(ok|no):([a-f0-9]{32})$/, async (ctx) => {
+      const [, act, token] = ctx.match!;
+      await ctx.answerCallbackQuery();
+      const user = await this.linkedUser(ctx.chat!.id);
+      const lang: BotLang = user?.telegramLang === 'uz' ? 'uz' : 'ru';
+      if (!user) return ctx.reply(t('login_link_first', lang));
+      if (act === 'no') {
+        await this.prisma.telegramLogin.deleteMany({ where: { id: token, confirmedAt: null } });
+        return ctx.reply(t('login_cancelled', lang));
+      }
+      const ok = await this.prisma.telegramLogin.updateMany({
+        where: { id: token, confirmedAt: null, expiresAt: { gt: new Date() } },
+        data: { userId: user.id, confirmedAt: new Date() },
+      });
+      await ctx.reply(t(ok.count ? 'login_done' : 'login_expired', lang));
     });
 
     bot.command('stop', async (ctx) => {
