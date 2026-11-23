@@ -2,3 +2,4 @@
 export const PHONE_DISPLAY = '+998 90 022 78 88';
 export const EMAIL = 'info@vethub.uz';
 export const SITE = 'https://vethub.uz';
+export const TG_CHANNEL = '@vethub_uz';

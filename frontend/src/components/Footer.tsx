@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { useI18n } from '@/lib/i18n';
-import { EMAIL, PHONE, PHONE_DISPLAY } from '@/lib/contacts';
+import { EMAIL, PHONE, PHONE_DISPLAY, TG_BOT, TG_CHANNEL } from '@/lib/contacts';
 
 export function Footer() {
   const { tt } = useI18n();
@@ -38,6 +38,8 @@ export function Footer() {
           <ul className="space-y-2 text-sm text-ink-muted">
             <li><a href={`tel:${PHONE}`} className="hover:text-teal-700">{PHONE_DISPLAY}</a></li>
             <li><a href={`mailto:${EMAIL}`} className="hover:text-teal-700">{EMAIL}</a></li>
+            <li><a href={`https://t.me/${TG_BOT}`} target="_blank" rel="noopener noreferrer" className="hover:text-teal-700">Telegram: @{TG_BOT}</a></li>
+            <li><a href={`https://t.me/${TG_CHANNEL}`} target="_blank" rel="noopener noreferrer" className="hover:text-teal-700">{tt('Канал', 'Kanal')}: @{TG_CHANNEL}</a></li>
             <li>{tt('Ташкент, Узбекистан', 'Toshkent, Oʻzbekiston')}</li>
           </ul>
         </div>

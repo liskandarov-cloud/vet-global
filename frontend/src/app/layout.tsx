@@ -4,7 +4,7 @@ import { Providers } from '@/components/Providers';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
 import { PWARegister } from '@/components/PWARegister';
-import { EMAIL, PHONE } from '@/lib/contacts';
+import { EMAIL, PHONE, TG_BOT, TG_CHANNEL } from '@/lib/contacts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://vethub.uz';
 const TITLE = 'VetHub — B2B-платформа ветеринарных решений';
@@ -44,6 +44,7 @@ const ORG_LD = JSON.stringify({
   telephone: PHONE,
   address: { '@type': 'PostalAddress', addressLocality: 'Ташкент', addressCountry: 'UZ' },
   contactPoint: [{ '@type': 'ContactPoint', telephone: PHONE, email: EMAIL, contactType: 'customer service', availableLanguage: ['ru', 'uz'] }],
+  sameAs: [`https://t.me/${TG_CHANNEL}`, `https://t.me/${TG_BOT}`],
 });
 
 export const viewport: Viewport = {
