@@ -11,7 +11,7 @@ import { LeadsService } from '../leads/leads.service';
 import { BotLang, t } from './telegram.i18n';
 import { searchVariants } from '../products/search-variants';
 import { statusText } from '../alerts/text';
-import { EMAIL, PHONE_DISPLAY, SITE } from '../common/contacts';
+import { EMAIL, PHONE_DISPLAY, SITE, TG_CHANNEL } from '../common/contacts';
 
 interface ChatState {
   lang: BotLang;
@@ -258,7 +258,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       }
       if (this.isBtn(text, 'btn_contacts')) {
         s.flow = undefined;
-        return ctx.reply(`${t('contacts', lang)}\n📞 ${PHONE_DISPLAY}\n✉️ ${EMAIL}\n🌐 ${SITE}`);
+        return ctx.reply(`${t('contacts', lang)}\n📞 ${PHONE_DISPLAY}\n✉️ ${EMAIL}\n🌐 ${SITE}\n📢 ${TG_CHANNEL}`);
       }
       if (this.isBtn(text, 'btn_lang')) {
         return ctx.reply(t('welcome', lang), { reply_markup: this.langKeyboard() });
