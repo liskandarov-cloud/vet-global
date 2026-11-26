@@ -43,6 +43,8 @@ export const UZ_MESSAGES: Record<string, string> = {
     'Kontragent va davrni koʻrsating',
   'Ссылка устарела — начните вход заново':
     'Havola eskirgan — kirishni qaytadan boshlang',
+  'Цена «${p.name}» — по запросу: отправьте запрос поставщику на странице товара':
+    '«{1}» narxi — soʻrov boʻyicha: mahsulot sahifasida yetkazib beruvchiga soʻrov yuboring',
   'Оплата уже отмечена':
     'Toʻlov allaqachon belgilangan',
   'Неверная дата оплаты':

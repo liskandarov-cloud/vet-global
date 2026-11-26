@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { ShieldCheck, FileText, Star, ShoppingCart, Heart, Scale } from 'lucide-react';
+import { ShieldCheck, FileText, Star, ShoppingCart, Heart, Scale, MessageSquare } from 'lucide-react';
 import { toast } from 'sonner';
 import { Product } from '@/lib/types';
 import { useCart, useFavorites, useAuth } from '@/lib/store';
@@ -24,6 +24,8 @@ export function ProductCard({ product }: { product: Product }) {
   // показывала минимум товара, а заказ требовал минимум предложения: покупатель
   // добавлял одну упаковку и получал отказ уже в корзине.
   const minOrder = product.offerMinOrder ?? product.minOrder;
+  // Цена 0 — «по запросу»: в корзину нельзя, только запрос поставщику.
+  const onRequest = !(applyPromotion(product.minPrice ?? product.price, product.promoPercent) > 0);
   const image = product.images?.[0] ?? PLACEHOLDER;
 
   const onFav = (e: React.MouseEvent) => {
@@ -96,7 +98,9 @@ export function ProductCard({ product }: { product: Product }) {
 
         <div className="mt-3 flex flex-col items-stretch gap-2 sm:flex-row sm:items-center sm:justify-between">
           <div className="min-w-0">
-            {product.offersCount && product.offersCount > 0 && product.minPrice != null ? (
+            {onRequest ? (
+              <div className="whitespace-nowrap font-heading text-base font-bold text-ink">{tt('Цена по запросу', 'Narx soʻrov boʻyicha')}</div>
+            ) : product.offersCount && product.offersCount > 0 && product.minPrice != null ? (
               <>
                 <div className="text-[11px] leading-none text-ink-subtle">{tt('от', 'dan')}</div>
                 <div className="whitespace-nowrap font-heading text-lg font-bold text-ink">{formatMoney(applyPromotion(product.minPrice, product.promoPercent))}</div>
@@ -118,7 +122,11 @@ export function ProductCard({ product }: { product: Product }) {
               <div className="text-xs text-ink-subtle">{t('product.minOrder')}: {minOrder}</div>
             )}
           </div>
-          {product.offersCount && product.offersCount > 1 ? (
+          {onRequest ? (
+            <Link href={`/products/${product.id}#request`} className="btn-primary w-full shrink-0 sm:w-auto !px-3 !py-2" aria-label={tt('Запросить у поставщика', 'Yetkazib beruvchidan soʻrash')}>
+              <MessageSquare size={16} />
+            </Link>
+          ) : product.offersCount && product.offersCount > 1 ? (
             <Link href={`/products/${product.id}`} className="btn-primary w-full shrink-0 sm:w-auto !px-3 !py-2" aria-label={tt('Сравнить цены', 'Narxlarni solishtirish')}>
               <Scale size={16} />
             </Link>

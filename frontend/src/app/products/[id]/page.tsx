@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
+import { SupplierRequest } from '@/components/SupplierRequest';
 import { useI18n } from '@/lib/i18n';
 import { useCart, useAuth } from '@/lib/store';
 import { Product, Offer } from '@/lib/types';
@@ -141,6 +142,8 @@ export default function ProductPage() {
   // Без оффера (легаси) акция применяется к цене товара: иначе скидка зависела
   // бы от того, завёл ли продавец оффер.
   const unitPrice = effPrice(selectedOffer, qty) ?? applyPromotion(product.price, product.promoPercent);
+  // Цена 0 — «по запросу»: вместо корзины — запрос поставщику.
+  const onRequest = !(unitPrice > 0);
   const promoPercent = selectedOffer?.promoPercent ?? product.promoPercent ?? 0;
   // Цена до скидки — для зачёркивания. Договорная цена акцией не уценивается,
   // поэтому при ней зачёркивать нечего.
@@ -285,7 +288,7 @@ export default function ProductPage() {
               </div>
             )}
             <div className="flex items-center gap-2">
-              <div className="font-heading text-4xl font-extrabold text-gradient">{formatMoney(unitPrice)}</div>
+              <div className="font-heading text-4xl font-extrabold text-gradient">{onRequest ? <span className="text-2xl">{tt('Цена по запросу', 'Narx soʻrov boʻyicha')}</span> : formatMoney(unitPrice)}</div>
               {selectedOffer?.packUnit && <span className="text-sm text-ink-subtle">/ {selectedOffer.packUnit}</span>}
               {hasContract && (
                 <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">{tt('по договору', 'shartnoma boʻyicha')}</span>
@@ -335,6 +338,9 @@ export default function ProductPage() {
               </div>
             )}
 
+            {onRequest ? (
+              <SupplierRequest productId={product.id} productName={product.name} qty={qty} />
+            ) : (
             <div className="mt-4 flex items-center gap-3">
               <div className="flex items-center rounded-lg border border-slate-200">
                 <button className="p-2.5" onClick={() => setQty((q) => Math.max(effMinOrder, q - 1))}><Minus size={16} /></button>
@@ -345,6 +351,7 @@ export default function ProductPage() {
                 <ShoppingCart size={18} /> {effInStock ? t('product.addToCart') : tt('Оформить предзаказ', 'Buyurtma berish')}
               </button>
             </div>
+            )}
 
             {/* Автопополнение */}
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-teal-100 pt-3 text-sm">
