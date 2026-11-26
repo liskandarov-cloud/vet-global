@@ -81,6 +81,7 @@ export function SellerOffersPanel() {
       packSize: o.packSize ?? 1,
       packUnit: o.packUnit ?? '',
       priceBreaks: o.priceBreaks ?? [],
+      onRequest: Number(o.price) === 0,
     });
     setProductName(o.product?.name ?? '');
   };
@@ -94,7 +95,7 @@ export function SellerOffersPanel() {
 
   const save = async () => {
     if (!editing.productId) { toast.error(tt('Выберите товар', 'Mahsulotni tanlang')); return; }
-    if (editing.price <= 0) { toast.error(tt('Укажите цену', 'Narxni kiriting')); return; }
+    if (!editing.onRequest && editing.price <= 0) { toast.error(tt('Укажите цену или отметьте «Цена по запросу»', 'Narxni kiriting yoki «Narx soʻrov boʻyicha» ni belgilang')); return; }
     // Ступень — цена за единицу заказа, поэтому сравнивается с ценой упаковки.
     const packPrice = (Number(editing.price) * (Number(editing.packSize) || 1)) / (Number(editing.priceUnitQty) || 1);
     const tiers = normalizePriceBreaks(editing.priceBreaks ?? [], packPrice);
@@ -102,7 +103,7 @@ export function SellerOffersPanel() {
     if (tiers.error === 'price') { toast.error(tt('Чем больше количество, тем ниже цена — и ниже базовой', 'Miqdor qancha koʻp boʻlsa, narx shuncha past — va asosiy narxdan past')); return; }
     const payload = {
       productId: editing.productId,
-      price: Number(editing.price),
+      price: editing.onRequest ? 0 : Number(editing.price),
       inStock: editing.inStock,
       stockQty: Number(editing.stockQty) || 0,
       minOrder: Number(editing.minOrder) || 1,
@@ -271,7 +272,13 @@ function OfferEditor({ editing, setEditing, productName, setProductName, onClose
         </div>
 
         <div className="grid grid-cols-2 gap-3">
-          <Field label={tt('Цена, сум', 'Narx, soʻm')}><input className="input" type="number" value={editing.price} onChange={(e) => set('price', e.target.value)} /></Field>
+          <Field label={tt('Цена, сум', 'Narx, soʻm')}>
+            <input className="input" type="number" value={editing.onRequest ? '' : editing.price} disabled={editing.onRequest} placeholder={editing.onRequest ? tt('по запросу', 'soʻrov boʻyicha') : ''} onChange={(e) => set('price', e.target.value)} />
+            <label className="mt-1 flex items-center gap-1.5 text-xs text-ink-muted">
+              <input type="checkbox" className="h-3.5 w-3.5 accent-teal-600" checked={!!editing.onRequest} onChange={(e) => set('onRequest', e.target.checked)} />
+              {tt('Цена по запросу', 'Narx soʻrov boʻyicha')}
+            </label>
+          </Field>
           <Field label={tt('Остаток, шт', 'Qoldiq, dona')}><input className="input" type="number" value={editing.stockQty} onChange={(e) => set('stockQty', e.target.value)} /></Field>
           <Field label={tt('Мин. заказ', 'Min. buyurtma')}><input className="input" type="number" value={editing.minOrder} onChange={(e) => set('minOrder', e.target.value)} /></Field>
           <Field label={tt('Срок поставки, дн', 'Yetkazib berish muddati, kun')}><input className="input" type="number" value={editing.leadTimeDays} onChange={(e) => set('leadTimeDays', e.target.value)} /></Field>
