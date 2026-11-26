@@ -1066,3 +1066,12 @@ model TelegramLogin {
 
   @@index([expiresAt])
 }
+
+// Состояние чата с ботом, которое должно переживать перезапуск сервера:
+// язык и корзина. Шаги диалогов (поиск, заявка) остаются в памяти.
+model TelegramChatState {
+  chatId    String   @id
+  lang      String   @default("ru")
+  cart      Json?
+  updatedAt DateTime @updatedAt
+}

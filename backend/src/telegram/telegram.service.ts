@@ -20,9 +20,8 @@ interface ChatState {
   flow?: 'search' | 'lead' | 'cart';
   step?: 'query' | 'name' | 'phone' | 'qty';
   data: { fullName?: string; phone?: string; productId?: string; productName?: string; min?: number };
-  // Корзина живёт в памяти бота: оформление — на сайте, куда она передаётся
-  // ссылкой. shortcut: сбрасывается при перезапуске сервера; хранить в базе,
-  // если корзины в боте станут долгими.
+  // Корзина: оформление — на сайте, куда она передаётся ссылкой. Хранится в
+  // базе (TelegramChatState), переживает перезапуск сервера.
   cart?: { id: string; name: string; qty: number }[];
 }
 
@@ -132,6 +131,31 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   }
 
   private registerHandlers(bot: Bot) {
+    // Язык и корзина — в базе: в памяти они пропадали при каждой выкатке, и
+    // покупатель терял собранную корзину. Состояние чата поднимается из базы
+    // перед обработкой и сохраняется, если язык или корзина изменились.
+    bot.use(async (ctx, next) => {
+      const chatId = ctx.chat?.id;
+      if (chatId === undefined) return next();
+      if (!this.state.has(chatId)) {
+        const saved = await this.prisma.telegramChatState.findUnique({ where: { chatId: String(chatId) } }).catch(() => null);
+        this.state.set(chatId, {
+          lang: saved?.lang === 'uz' ? 'uz' : 'ru',
+          data: {},
+          cart: Array.isArray(saved?.cart) ? (saved!.cart as ChatState['cart']) : undefined,
+        });
+      }
+      const s = this.state.get(chatId)!;
+      const before = JSON.stringify([s.lang, s.cart ?? []]);
+      await next();
+      if (JSON.stringify([s.lang, s.cart ?? []]) !== before) {
+        const data = { lang: s.lang, cart: (s.cart ?? []) as object[] };
+        await this.prisma.telegramChatState
+          .upsert({ where: { chatId: String(chatId) }, create: { chatId: String(chatId), ...data }, update: data })
+          .catch((e) => this.logger.warn(`состояние чата не сохранено: ${(e as Error).message}`));
+      }
+    });
+
     bot.command('start', async (ctx) => {
       // Ссылка из кабинета: t.me/<бот>?start=link_<ключ>.
       const link = /^link_([a-f0-9]{32})$/.exec(typeof ctx.match === 'string' ? ctx.match : '');
