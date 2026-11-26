@@ -1,0 +1,58 @@
+# Подтверждение продавца от имени администратора — без входа в админку.
+#
+# Делает то же, что кнопка ✓ во вкладке «Пользователи»: продавец становится
+# проверенным, его товары появляются в каталоге и в боте. Учётная запись
+# администратора берётся из окружения Render (ADMIN_EMAIL / ADMIN_PASSWORD)
+# внутри прогона и нигде не печатается. Если пароль администратора сменили
+# в кабинете — вход не пройдёт, и прогон скажет об этом.
+
+name: Admin verify seller
+
+on:
+  workflow_dispatch:
+    inputs:
+      email:
+        description: 'Почта продавца (логин на VetHub)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      SELLER_EMAIL: ${{ inputs.email }}
+      SERVICE: srv-dbe9iflg1s2s73es8lh0
+      API: https://api.vethub.uz/api
+    steps:
+      - name: Подтвердить продавца
+        run: |
+          set -euo pipefail
+          echo "$SELLER_EMAIL" | grep -Eq '^[^@ ]+@[^@ ]+\.[a-z]{2,}$' || { echo "::error::это не почта"; exit 1; }
+          test -n "$RENDER_API_KEY" || { echo "::error::секрет RENDER_API_KEY не задан"; exit 1; }
+          curl -fsS "https://api.render.com/v1/services/$SERVICE/env-vars?limit=100" -H "Authorization: Bearer $RENDER_API_KEY" > "$RUNNER_TEMP/env.json"
+          pick() { jq -r --arg k "$1" '[.[] | select(.envVar.key == $k) | .envVar.value][0] // empty' "$RUNNER_TEMP/env.json"; }
+          ADMIN_EMAIL=$(pick ADMIN_EMAIL); ADMIN_PASSWORD=$(pick ADMIN_PASSWORD)
+          rm -f "$RUNNER_TEMP/env.json"
+          echo "::add-mask::$ADMIN_PASSWORD"
+          [ -n "$ADMIN_EMAIL" ] && [ -n "$ADMIN_PASSWORD" ] || { echo "::error::в Render нет ADMIN_EMAIL или ADMIN_PASSWORD"; exit 1; }
+
+          login=$(jq -n --arg e "$ADMIN_EMAIL" --arg p "$ADMIN_PASSWORD" '{email: $e, password: $p}' \
+            | curl -sS -X POST "$API/auth/login" -H 'Content-Type: application/json' --data @-)
+          TOKEN=$(echo "$login" | jq -r '.token // empty')
+          [ -n "$TOKEN" ] || { echo "::error::вход администратора не прошёл — пароль в Render не совпадает с текущим"; exit 1; }
+          echo "::add-mask::$TOKEN"
+
+          ID=""
+          for skip in 0 50 100 150 200; do
+            ID=$(curl -fsS "$API/admin/users?role=SELLER&skip=$skip" -H "Authorization: Bearer $TOKEN" \
+              | jq -r --arg e "$SELLER_EMAIL" '[(.users // .)[] | select((.email | ascii_downcase) == ($e | ascii_downcase)) | .id][0] // empty')
+            [ -n "$ID" ] && break
+          done
+          [ -n "$ID" ] || { echo "::error::продавец $SELLER_EMAIL не найден"; exit 1; }
+
+          curl -fsS -X PATCH "$API/admin/users/$ID/verify" -H "Authorization: Bearer $TOKEN" \
+            -H 'Content-Type: application/json' -d '{"isVerified": true}' | jq '{company, email, isVerified}'
