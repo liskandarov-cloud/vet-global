@@ -9,6 +9,7 @@ export interface JsonLdProduct {
   price?: number;
   minPrice?: number | null;
   inStock?: boolean;
+  lang?: string;
 }
 
 function absolute(url?: string): string | undefined {
@@ -22,7 +23,7 @@ function absolute(url?: string): string | undefined {
 // разметке называть нельзя, а «0 сум» ввёл бы в заблуждение.
 export function productJsonLd(p: JsonLdProduct) {
   const price = p.minPrice ?? p.price ?? 0;
-  const url = `${SITE_URL}/products/${p.id}`;
+  const url = `${SITE_URL}${p.lang === 'uz' ? '/uz' : ''}/products/${p.id}`;
   return {
     '@context': 'https://schema.org',
     '@type': 'Product',

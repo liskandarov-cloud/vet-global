@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
   if (process.env.NEXT_PUBLIC_DEMO === 'true') return { rules: { userAgent: '*', disallow: '/' } };
   return {
     // Кабинеты закрыты входом, но в выдаче им всё равно делать нечего.
-    rules: { userAgent: '*', allow: '/', disallow: ['/admin', '/seller', '/dashboard', '/org', '/cart'] },
+    rules: { userAgent: '*', allow: '/', disallow: ['/admin', '/seller', '/dashboard', '/org', '/cart', '/uz/admin', '/uz/seller', '/uz/dashboard', '/uz/org', '/uz/cart'] },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };
 }

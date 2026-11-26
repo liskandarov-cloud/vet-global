@@ -1,9 +1,10 @@
 'use client';
 
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import { createContext, useContext, useEffect, ReactNode } from 'react';
 import { setMoneyLang } from './utils';
+import { localizedPath, type Lang } from './lang-path';
 
-export type Lang = 'ru' | 'uz';
+export type { Lang } from './lang-path';
 
 const DICT: Record<string, { ru: string; uz: string }> = {
   'nav.catalog': { ru: 'Каталог', uz: 'Katalog' },
@@ -70,17 +71,32 @@ interface I18nCtx {
 
 const Ctx = createContext<I18nCtx>({ lang: 'ru', setLang: () => {}, t: (k) => k, tt: (ru) => ru });
 
-export function I18nProvider({ children }: { children: ReactNode }) {
-  const [lang, setLangState] = useState<Lang>('ru');
+// Язык задаёт адрес страницы (/uz/… — узбекский), сервер рендерит сразу на
+// нём. Выбор запоминается в cookie — по нему сервер ведёт ссылки без префикса
+// на узбекскую версию — и в localStorage, откуда язык берёт заголовок к API.
+function remember(l: Lang) {
+  localStorage.setItem('vg_lang', l);
+  document.cookie = `vg_lang=${l}; path=/; max-age=31536000; samesite=lax`;
+}
+
+export function I18nProvider({ children, initialLang = 'ru' }: { children: ReactNode; initialLang?: Lang }) {
+  const lang = initialLang;
 
   useEffect(() => {
-    const saved = (typeof window !== 'undefined' && localStorage.getItem('vg_lang')) as Lang | null;
-    if (saved === 'ru' || saved === 'uz') setLangState(saved);
-  }, []);
+    // Выбравшие узбекский до перехода на адреса /uz: один раз — на их версию.
+    const fresh = !document.cookie.includes('vg_lang=');
+    if (fresh && localStorage.getItem('vg_lang') === 'uz' && lang === 'ru') {
+      remember('uz');
+      window.location.replace(localizedPath(window.location.pathname, 'uz') + window.location.search);
+      return;
+    }
+    remember(lang);
+  }, [lang]);
 
   const setLang = (l: Lang) => {
-    setLangState(l);
-    if (typeof window !== 'undefined') localStorage.setItem('vg_lang', l);
+    if (l === lang) return;
+    remember(l);
+    window.location.assign(localizedPath(window.location.pathname, l) + window.location.search);
   };
 
   // До отрисовки детей: цены в них берут язык валюты отсюда.

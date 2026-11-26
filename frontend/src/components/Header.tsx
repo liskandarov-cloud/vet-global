@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { stripLang } from '@/lib/lang-path';
 import { ShoppingCart, ShieldCheck, LogOut, LayoutDashboard, Sprout, Menu, X, ChevronDown } from 'lucide-react';
 import { useAuth, useCart, useFavorites } from '@/lib/store';
 import { useI18n, Lang } from '@/lib/i18n';
@@ -17,7 +18,8 @@ export function Header() {
   const clearFav = useFavorites((s) => s.clear);
   const count = useCart((s) => s.count());
   const router = useRouter();
-  const pathname = usePathname();
+  // Без языкового префикса: пункт меню «/catalog» активен и на /uz/catalog.
+  const pathname = stripLang(usePathname());
   const [open, setOpen] = useState(false);
 
   const dashboardHref =

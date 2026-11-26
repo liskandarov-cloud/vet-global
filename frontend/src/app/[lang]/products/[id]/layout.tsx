@@ -10,7 +10,9 @@ import { productJsonLd } from '@/lib/product-jsonld';
 interface Product {
   id: string;
   name: string;
+  nameUz?: string | null;
   description?: string;
+  descriptionUz?: string | null;
   manufacturer?: string;
   images?: string[];
   price?: number;
@@ -28,28 +30,33 @@ function absolute(url?: string): string | undefined {
 
 export async function generateMetadata(
   props: {
-    params: Promise<{ id: string }>;
+    params: Promise<{ id: string; lang: string }>;
   }
 ): Promise<Metadata> {
   const params = await props.params;
-  const product = await serverFetch<Product>(`/products/${params.id}`);
+  const uz = params.lang === 'uz';
+  const raw = await serverFetch<Product>(`/products/${params.id}`);
+  const product = raw && localize(raw, uz);
   // API недоступен (холодный старт Render) — отдаём базовые метаданные,
   // страница при этом работает как обычно.
   if (!product?.name) return {};
 
   const price = product.minPrice ?? product.price;
-  const priceText = price ? `от ${Math.round(price).toLocaleString('ru-RU')} сум · ` : '';
+  const fmt = price ? Math.round(price).toLocaleString('ru-RU') : '';
+  const priceText = price ? (uz ? `${fmt} soʻmdan · ` : `от ${fmt} сум · `) : '';
   const description =
     `${priceText}${product.manufacturer ? `${product.manufacturer}. ` : ''}` +
-    (product.description?.slice(0, 160) ?? 'Оптовые поставки ветеринарных препаратов на VetHub.');
+    (product.description?.slice(0, 160) ??
+      (uz ? 'VetHub — veterinariya preparatlarini ulgurji yetkazib berish.' : 'Оптовые поставки ветеринарных препаратов на VetHub.'));
 
   const image = absolute(product.images?.[0]) ?? `${SITE_URL}/icon-512.png`;
-  const url = `${SITE_URL}/products/${product.id}`;
+  const ru = `${SITE_URL}/products/${product.id}`;
+  const url = uz ? `${SITE_URL}/uz/products/${product.id}` : ru;
 
   return {
     title: product.name,
     description,
-    alternates: { canonical: url },
+    alternates: { canonical: url, languages: { ru, uz: `${SITE_URL}/uz/products/${product.id}`, 'x-default': ru } },
     openGraph: {
       type: 'website',
       title: `${product.name} — VetHub`,
@@ -66,9 +73,15 @@ export async function generateMetadata(
   };
 }
 
-export default async function ProductLayout(props: { children: React.ReactNode; params: Promise<{ id: string }> }) {
-  const { id } = await props.params;
-  const product = await serverFetch<Product>(`/products/${id}`);
+// Название и описание — на языке страницы (узбекские, если продавец их задал).
+function localize(p: Product, uz: boolean): Product {
+  return uz ? { ...p, name: p.nameUz || p.name, description: p.descriptionUz || p.description } : p;
+}
+
+export default async function ProductLayout(props: { children: React.ReactNode; params: Promise<{ id: string; lang: string }> }) {
+  const { id, lang } = await props.params;
+  const raw = await serverFetch<Product>(`/products/${id}`);
+  const product = raw && { ...localize(raw, lang === 'uz'), lang };
   return (
     <>
       {product?.name && (
