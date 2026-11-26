@@ -42,5 +42,17 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: 'weekly' as const,
   }));
 
-  return [...staticRoutes, ...productUrls, ...sellerUrls, ...brandUrls, ...posts];
+  // Каждая страница — в двух языковых версиях со ссылками друг на друга
+  // (hreflang): узбекская версия живёт по адресу /uz/….
+  const both = (e: MetadataRoute.Sitemap[number]) => {
+    const path = e.url.slice(SITE_URL.length);
+    const ru = `${SITE_URL}${path}`;
+    const uz = `${SITE_URL}/uz${path}`;
+    const languages = { ru, uz };
+    return [
+      { ...e, url: ru, alternates: { languages } },
+      { ...e, url: uz, alternates: { languages } },
+    ];
+  };
+  return [...staticRoutes, ...productUrls, ...sellerUrls, ...brandUrls, ...posts].flatMap(both);
 }

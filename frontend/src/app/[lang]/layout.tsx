@@ -1,5 +1,7 @@
 import type { Metadata, Viewport } from 'next';
-import './globals.css';
+import '../globals.css';
+import { notFound } from 'next/navigation';
+import { LANGS, type Lang } from '@/lib/lang-path';
 import { Providers } from '@/components/Providers';
 import { Header } from '@/components/Header';
 import { Footer } from '@/components/Footer';
@@ -7,11 +9,30 @@ import { PWARegister } from '@/components/PWARegister';
 import { EMAIL, PHONE, TG_BOT, TG_CHANNEL } from '@/lib/contacts';
 
 const SITE_URL = process.env.SITE_URL ?? 'https://vethub.uz';
-const TITLE = 'VetHub — B2B-платформа ветеринарных решений';
-const DESCRIPTION =
-  'Оптовые закупки ветеринарных препаратов, вакцин, кормов и добавок напрямую от проверенных поставщиков. Прозрачно, удобно, безопасно.';
+const TEXT = {
+  ru: {
+    title: 'VetHub — B2B-платформа ветеринарных решений',
+    description: 'Оптовые закупки ветеринарных препаратов, вакцин, кормов и добавок напрямую от проверенных поставщиков. Прозрачно, удобно, безопасно.',
+    locale: 'ru_RU',
+  },
+  uz: {
+    title: 'VetHub — veterinariya yechimlari B2B platformasi',
+    description: 'Veterinariya preparatlari, vaksinalar, ozuqa va qoʻshimchalarni tekshirilgan yetkazib beruvchilardan ulgurji xarid qilish. Shaffof, qulay, xavfsiz.',
+    locale: 'uz_UZ',
+  },
+};
 
-export const metadata: Metadata = {
+// Язык задаёт адрес: /… — русская версия, /uz/… — узбекская. Раньше язык
+// хранился в браузере, и поисковики видели только русскую версию.
+export function generateStaticParams() {
+  return LANGS.map((lang) => ({ lang }));
+}
+export const dynamicParams = false;
+
+export async function generateMetadata(props: { params: Promise<{ lang: string }> }): Promise<Metadata> {
+  const { lang } = await props.params;
+  const { title: TITLE, description: DESCRIPTION, locale } = TEXT[lang === 'uz' ? 'uz' : 'ru'];
+  return {
   // metadataBase разворачивает относительные пути картинок в абсолютные —
   // без него превью ссылки остаётся без изображения.
   metadataBase: new URL(SITE_URL),
@@ -24,14 +45,15 @@ export const metadata: Metadata = {
   openGraph: {
     type: 'website',
     siteName: 'VetHub',
-    locale: 'ru_RU',
-    url: SITE_URL,
+    locale,
+    url: lang === 'uz' ? `${SITE_URL}/uz` : SITE_URL,
     title: TITLE,
     description: DESCRIPTION,
     images: [{ url: '/icon-512.png', width: 512, height: 512, alt: 'VetHub' }],
   },
   twitter: { card: 'summary_large_image', title: TITLE, description: DESCRIPTION },
-};
+  };
+}
 
 const ORG_LD = JSON.stringify({
   '@context': 'https://schema.org',
@@ -51,13 +73,16 @@ export const viewport: Viewport = {
   themeColor: '#0d9488',
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout(props: { children: React.ReactNode; params: Promise<{ lang: string }> }) {
+  const { lang } = await props.params;
+  if (!(LANGS as readonly string[]).includes(lang)) notFound();
+  const children = props.children;
   return (
-    <html lang="ru">
+    <html lang={lang}>
       <body className="min-h-screen bg-background font-body text-ink antialiased">
         {/* Карточка организации для поисковиков: телефон и почта в выдаче. */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ORG_LD }} />
-        <Providers>
+        <Providers lang={lang as Lang}>
           <PWARegister />
           <div className="flex min-h-screen flex-col">
             {process.env.NEXT_PUBLIC_DEMO === 'true' && (
