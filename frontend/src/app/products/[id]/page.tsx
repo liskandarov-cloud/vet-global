@@ -353,7 +353,8 @@ export default function ProductPage() {
             </div>
             )}
 
-            {/* Автопополнение */}
+            {/* Автопополнение — кроме «цены по запросу»: заказ по подписке на неё не оформится. */}
+            {!onRequest && (
             <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-teal-100 pt-3 text-sm">
               <Repeat size={15} className="text-teal-700" />
               <span className="text-ink-muted">{tt('Автопополнение каждые', 'Avto toʻldirish har')}</span>
@@ -362,6 +363,7 @@ export default function ProductPage() {
               </select>
               <button className="btn-ghost !px-2 !py-1 text-sm text-teal-700" onClick={subscribe}>{tt('Подписаться', 'Obuna boʻlish')}</button>
             </div>
+            )}
           </div>
         </div>
       </div>
