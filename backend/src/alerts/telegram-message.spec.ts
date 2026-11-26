@@ -27,3 +27,16 @@ describe('пост в канал', () => {
     expect(p.reply_markup).toEqual({ inline_keyboard: [[{ text: 'Ochish · Открыть', url: 'https://vethub.uz/promotions' }]] });
   });
 });
+
+describe('кнопки действий', () => {
+  it('отдельным рядом под кнопкой «Открыть»', () => {
+    const m = telegramMessage(
+      { title: 'Новый продавец', body: 'ООО Тест', url: '/admin', actions: [{ text: '✅ Подтвердить', data: 'verify:1' }] },
+      'ru',
+      'https://vethub.uz',
+    );
+    expect(m.reply_markup).toEqual({
+      inline_keyboard: [[{ text: 'Открыть', url: 'https://vethub.uz/admin' }], [{ text: '✅ Подтвердить', callback_data: 'verify:1' }]],
+    });
+  });
+});

@@ -79,6 +79,7 @@ export class AuthService {
           title: tt('Новый продавец ждёт проверки', 'Yangi sotuvchi tekshiruvni kutmoqda'),
           body: tt(`${user.company || user.fullName}, ИНН ${user.inn ?? '—'}`, `${user.company || user.fullName}, STIR ${user.inn ?? '—'}`),
           url: '/admin',
+          actions: [{ text: '✅ Подтвердить продавца', data: `verify:${user.id}` }],
         })
         .catch(() => undefined);
     }

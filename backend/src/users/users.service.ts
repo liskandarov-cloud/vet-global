@@ -37,6 +37,7 @@ export class UsersService {
           title: tt('Продавец изменил реквизиты', 'Sotuvchi rekvizitlarini oʻzgartirdi'),
           body: tt(`${user.company || user.fullName}: нужна повторная проверка.`, `${user.company || user.fullName}: qayta tekshirish kerak.`),
           url: '/admin',
+          actions: [{ text: '✅ Подтвердить продавца', data: `verify:${user.id}` }],
         })
         .catch(() => undefined);
     }

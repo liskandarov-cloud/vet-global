@@ -47,5 +47,13 @@ describe('цена по запросу', () => {
     const lead = await req('/leads', { method: 'POST', body: { fullName: 'E2E', phone: '+998901112233', productId, quantity: 5 } });
     expect(lead.status).toBe(201);
     expect(lead.body.sellerId).toBe(r.body.user.id);
+
+    // Продавец видит заявку у себя и отмечает статус; чужой продавец — нет.
+    const mine = await req('/leads/mine', { token: seller });
+    expect(mine.body.map((l: { id: string }) => l.id)).toContain(lead.body.id);
+    expect((await req(`/leads/mine/${lead.body.id}`, { method: 'PATCH', token: seller, body: { status: 'CONTACTED' } })).status).toBe(200);
+    const other = await login('seller@vetglobal.com', 'seller123');
+    const foreign = await req(`/leads/mine/${lead.body.id}`, { method: 'PATCH', token: other, body: { status: 'CLOSED' } });
+    expect([foreign.status, foreign.body.message]).toEqual([404, 'Заявка не найдена']);
   });
 });

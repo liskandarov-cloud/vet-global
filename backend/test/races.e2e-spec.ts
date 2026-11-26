@@ -51,7 +51,8 @@ describe('одновременные запросы', () => {
   // «Заказать сейчас» дважды: создавалось два заказа.
   it('подписка: двойное «заказать сейчас» — один заказ', async () => {
     const buyer = await login('buyer@vetglobal.com', 'buyer123');
-    const product = (await req('/products?limit=1')).body.products[0];
+    // С ценой: товар «по запросу» (цена 0) заказать нельзя, а тесты идут в одной базе.
+    const product = (await req('/products?limit=1&priceMin=1')).body.products[0];
     const sub = await req('/subscriptions', {
       token: buyer,
       body: { productId: product.id, quantity: product.offerMinOrder ?? product.minOrder ?? 1, intervalDays: 30 },

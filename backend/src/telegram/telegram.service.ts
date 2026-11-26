@@ -10,6 +10,8 @@ import { applyPromotion } from '../common/pricing';
 import { LeadsService } from '../leads/leads.service';
 import { BotLang, t } from './telegram.i18n';
 import { searchVariants } from '../products/search-variants';
+import { UsersService } from '../users/users.service';
+import { AuditService } from '../audit/audit.service';
 import { statusText } from '../alerts/text';
 import { EMAIL, PHONE_DISPLAY, SITE, TG_CHANNEL } from '../common/contacts';
 
@@ -32,14 +34,18 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
   private bot?: Bot;
   private readonly state = new Map<number, ChatState>();
   private frontendUrl: string;
+  private readonly adminChatId?: string;
 
   constructor(
     private readonly config: ConfigService,
     private readonly prisma: PrismaService,
     private readonly leads: LeadsService,
     private readonly promotions: PromotionsService,
+    private readonly users: UsersService,
+    private readonly audit: AuditService,
   ) {
     this.frontendUrl = frontendUrl();
+    this.adminChatId = config.get<string>('TELEGRAM_ADMIN_CHAT_ID');
   }
 
   onModuleInit() {
@@ -151,6 +157,30 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
         data: { userId: user.id, confirmedAt: new Date() },
       });
       await ctx.reply(t(ok.count ? 'login_done' : 'login_expired', lang));
+    });
+
+    // Подтверждение продавца кнопкой под уведомлением «Новый продавец ждёт
+    // проверки» — только из чата команды. Без этого продавца можно было
+    // подтвердить лишь из админки на сайте.
+    bot.callbackQuery(/^verify:([0-9a-f-]{36})$/, async (ctx) => {
+      if (!this.adminChatId || String(ctx.chat?.id) !== this.adminChatId) {
+        return ctx.answerCallbackQuery({ text: 'Нет доступа' });
+      }
+      const id = ctx.match![1];
+      const seller = await this.prisma.user.findUnique({ where: { id }, select: { role: true, isVerified: true, company: true, fullName: true } });
+      if (!seller || seller.role !== 'SELLER') return ctx.answerCallbackQuery({ text: 'Продавец не найден' });
+      if (!seller.isVerified) await this.users.adminVerify(id, true);
+      // В журнал — от администратора, чей Telegram нажал кнопку; иначе от
+      // владельца площадки (чат команды — его).
+      const actor =
+        (await this.prisma.user.findFirst({ where: { role: 'ADMIN', telegramChatId: String(ctx.from.id) }, select: { id: true } })) ??
+        (await this.prisma.user.findFirst({ where: { role: 'ADMIN', isBanned: false }, orderBy: { createdAt: 'asc' }, select: { id: true } }));
+      if (actor) {
+        void this.audit.record({ adminId: actor.id, action: 'user.verify', targetType: 'User', targetId: id, details: { via: 'telegram', telegramUser: ctx.from.username ?? ctx.from.id } });
+      }
+      await ctx.answerCallbackQuery({ text: 'Продавец подтверждён' });
+      await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
+      await ctx.reply(`✅ ${seller.company || seller.fullName}: продавец подтверждён, товары видны покупателям.`);
     });
 
     bot.command('stop', async (ctx) => {
