@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { serverFetch, SITE_URL } from '@/lib/server-api';
+import { productJsonLd } from '@/lib/product-jsonld';
 
 // Метаданные карточки товара. Сама страница клиентская (`'use client'`) и
 // объявить metadata внутри неё нельзя — поэтому серверный layout рядом:
@@ -14,6 +15,7 @@ interface Product {
   images?: string[];
   price?: number;
   minPrice?: number | null;
+  inStock?: boolean;
 }
 
 // Картинки товаров лежат либо в /public фронтенда, либо отдаются API —
@@ -64,6 +66,19 @@ export async function generateMetadata(
   };
 }
 
-export default function ProductLayout({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+export default async function ProductLayout(props: { children: React.ReactNode; params: Promise<{ id: string }> }) {
+  const { id } = await props.params;
+  const product = await serverFetch<Product>(`/products/${id}`);
+  return (
+    <>
+      {product?.name && (
+        <script
+          type="application/ld+json"
+          // «<» экранируется: текст описания не должен закрыть тег script.
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd(product)).replace(/</g, '\\u003c') }}
+        />
+      )}
+      {props.children}
+    </>
+  );
 }

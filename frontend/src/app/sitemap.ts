@@ -11,10 +11,11 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   }));
 
   // Динамические URL (устойчиво к недоступности API — при null просто пропускаем).
-  const [blog, products, brands] = await Promise.all([
+  const [blog, products, brands, sellers] = await Promise.all([
     serverFetch<{ posts: { slug: string; createdAt: string }[] }>('/blog?limit=200').catch(() => null),
     serverFetch<{ products: { id: string; updatedAt?: string }[] }>('/products?limit=200').catch(() => null),
     serverFetch<{ slug: string }[]>('/brands').catch(() => null),
+    serverFetch<{ id: string }[] | { sellers: { id: string }[] }>('/sellers').catch(() => null),
   ]);
 
   const posts = (blog?.posts ?? []).map((p) => ({
@@ -33,5 +34,13 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     changeFrequency: 'monthly' as const,
   }));
 
-  return [...staticRoutes, ...productUrls, ...brandUrls, ...posts];
+  // Страницы поставщиков: по названию компании ищут не реже, чем по товару.
+  const sellerList = Array.isArray(sellers) ? sellers : (sellers?.sellers ?? []);
+  const sellerUrls = sellerList.map((s) => ({
+    url: `${SITE_URL}/suppliers/${s.id}`,
+    lastModified: new Date(),
+    changeFrequency: 'weekly' as const,
+  }));
+
+  return [...staticRoutes, ...productUrls, ...sellerUrls, ...brandUrls, ...posts];
 }
