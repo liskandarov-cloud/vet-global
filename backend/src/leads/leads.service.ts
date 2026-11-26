@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { LeadSource, LeadStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationsService } from '../mail/notifications.service';
@@ -48,6 +48,17 @@ export class LeadsService {
 
     void this.notifications.onLeadCreated(lead.id).catch(() => undefined);
     return lead;
+  }
+
+  // Заявки на товары продавца («Запросить у поставщика», бот, сайт).
+  listForSeller(sellerId: string) {
+    return this.prisma.lead.findMany({ where: { sellerId }, orderBy: { createdAt: 'desc' }, take: 200 });
+  }
+
+  async setStatusForSeller(id: string, sellerId: string, status: LeadStatus) {
+    const res = await this.prisma.lead.updateMany({ where: { id, sellerId }, data: { status } });
+    if (!res.count) throw new NotFoundException('Заявка не найдена');
+    return { ok: true };
   }
 
   async list(status?: LeadStatus) {

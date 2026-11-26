@@ -18,6 +18,7 @@ import { Category, Product } from '@/lib/types';
 import { formatMoney } from '@/lib/utils';
 
 import { signWithEimzo } from '@/lib/eimzo';
+import { SellerLeadsPanel } from '@/components/SellerLeadsPanel';
 import { ReconciliationButton } from '@/components/ReconciliationButton';
 import { useI18n } from '@/lib/i18n';
 import { ownInvoice, ownShipment } from '@/lib/seller-order';
@@ -47,7 +48,7 @@ function SellerContent() {
     PROCESSING: tt('В обработке', 'Qayta ishlanmoqda'), SHIPPED: tt('Отгружен', 'Joʻnatilgan'),
     DELIVERED: tt('Доставлен', 'Yetkazilgan'), CANCELLED: tt('Отменён', 'Bekor qilingan'),
   };
-  const [tab, setTab] = useState<'products' | 'import' | 'offers' | 'contracts' | 'tariffs' | 'orders' | 'promotions' | 'requisites' | 'profile'>('products');
+  const [tab, setTab] = useState<'products' | 'import' | 'offers' | 'contracts' | 'tariffs' | 'orders' | 'leads' | 'promotions' | 'requisites' | 'profile'>('products');
   const [stats, setStats] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<any[]>([]);
@@ -233,7 +234,7 @@ function SellerContent() {
       </div>
 
       <div className="mt-8 flex gap-2 overflow-x-auto border-b border-slate-200">
-        {[['products', tt('Товары', 'Mahsulotlar')], ['import', tt('Импорт прайса', 'Narxnoma importi')], ['offers', tt('Мои офферы', 'Mening takliflarim')], ['contracts', tt('Договорные цены', 'Shartnoma narxlari')], ['tariffs', tt('Доставка', 'Yetkazib berish')], ['orders', tt('Заказы', 'Buyurtmalar')], ['promotions', `${tt('Акции', 'Aksiyalar')}${promotions.length ? ` (${promotions.length})` : ''}`], ['requisites', tt('Реквизиты', 'Rekvizitlar')], ['profile', tt('Профиль', 'Profil')]].map(([k, l]) => (
+        {[['products', tt('Товары', 'Mahsulotlar')], ['import', tt('Импорт прайса', 'Narxnoma importi')], ['offers', tt('Мои офферы', 'Mening takliflarim')], ['contracts', tt('Договорные цены', 'Shartnoma narxlari')], ['tariffs', tt('Доставка', 'Yetkazib berish')], ['orders', tt('Заказы', 'Buyurtmalar')], ['leads', tt('Заявки', 'Arizalar')], ['promotions', `${tt('Акции', 'Aksiyalar')}${promotions.length ? ` (${promotions.length})` : ''}`], ['requisites', tt('Реквизиты', 'Rekvizitlar')], ['profile', tt('Профиль', 'Profil')]].map(([k, l]) => (
           <button key={k} onClick={() => setTab(k as any)}
             className={`whitespace-nowrap px-4 py-2 font-medium ${tab === k ? 'border-b-2 border-teal-600 text-teal-700' : 'text-ink-muted'}`}>
             {l}
@@ -368,6 +369,8 @@ function SellerContent() {
       {tab === 'import' && <SellerImportPanel onDone={load} />}
 
       {tab === 'offers' && <SellerOffersPanel />}
+
+      {tab === 'leads' && <SellerLeadsPanel />}
 
       {tab === 'requisites' && <SellerRequisitesPanel />}
 

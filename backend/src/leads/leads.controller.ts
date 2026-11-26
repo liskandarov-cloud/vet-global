@@ -1,4 +1,5 @@
-import { Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { BadRequestException, Body, Controller, Get, Param, Patch, Post, Query, UseGuards } from '@nestjs/common';
+import { CurrentUser, AuthUser } from '../common/decorators/current-user.decorator';
 import { Audit } from '../audit/audit.decorator';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsOptional, IsString } from 'class-validator';
@@ -30,6 +31,24 @@ export class LeadsController {
   @Post()
   create(@Body() dto: CreateLeadDto) {
     return this.leads.create(dto);
+  }
+
+  // Продавец: заявки на свои товары и их статус (связался / закрыта).
+  @Get('mine')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER)
+  mine(@CurrentUser() user: AuthUser) {
+    return this.leads.listForSeller(user.id);
+  }
+
+  @Patch('mine/:id')
+  @ApiBearerAuth()
+  @UseGuards(JwtAuthGuard, RolesGuard)
+  @Roles(UserRole.SELLER)
+  setMine(@Param('id') id: string, @Body() dto: UpdateLeadDto, @CurrentUser() user: AuthUser) {
+    if (!dto.status) throw new BadRequestException('Укажите статус');
+    return this.leads.setStatusForSeller(id, user.id, dto.status);
   }
 
   @Get()
