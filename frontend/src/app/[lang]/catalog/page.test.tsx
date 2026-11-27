@@ -11,7 +11,7 @@ const get = vi.fn();
 vi.mock('@/lib/api', () => ({ api: { get: (...a: unknown[]) => get(...a) }, API_BASE: '' }));
 vi.mock('next/navigation', () => ({ useSearchParams: () => new URLSearchParams() }));
 
-import CatalogPage from './page';
+import CatalogPage from './CatalogView';
 
 const productCalls = () => get.mock.calls.filter((c) => c[0] === '/products');
 // В тестах словарь не подгружен, и t() отдаёт ключ — принимаем обе формы.

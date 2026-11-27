@@ -1,0 +1,79 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import { ShieldCheck, Star } from 'lucide-react';
+import { api } from '@/lib/api';
+import { Product } from '@/lib/types';
+import { ProductCard } from '@/components/ProductCard';
+import { useI18n } from '@/lib/i18n';
+
+export interface Seller {
+  id: string;
+  company?: string;
+  description?: string;
+  isVerified: boolean;
+  rating: number;
+  reviewsCount: number;
+  productsCount: number;
+  createdAt: string;
+}
+
+// Страница поставщика: первый рендер — с данными сервера (initial), чтобы
+// описание компании и её товары были в HTML для поисковиков.
+export default function SupplierView({ initialSeller, initialProducts }: { initialSeller?: Seller | null; initialProducts?: Product[] }) {
+  const { tt } = useI18n();
+  const { id } = useParams<{ id: string }>();
+  const [seller, setSeller] = useState<Seller | null>(initialSeller ?? null);
+  const [notFound, setNotFound] = useState(false);
+  const [products, setProducts] = useState<Product[]>(initialProducts ?? []);
+
+  useEffect(() => {
+    if (!id) return;
+    api.get(`/sellers/${id}`).then((r) => setSeller(r.data)).catch(() => setNotFound(true));
+    api.get('/products', { params: { sellerId: id, limit: 24 } }).then((r) => setProducts(r.data.products)).catch(() => {});
+  }, [id]);
+
+  if (notFound) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <div className="text-ink-subtle">{tt('Поставщик не найден', 'Yetkazib beruvchi topilmadi')}</div>
+        <Link href="/suppliers" className="btn-ghost mt-4">{tt('Все поставщики', 'Barcha yetkazib beruvchilar')}</Link>
+      </div>
+    );
+  }
+  if (!seller) return <div className="py-24 text-center text-ink-subtle">{tt('Загрузка…', 'Yuklanmoqda…')}</div>;
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-10">
+      <div className="card overflow-hidden p-0">
+        <div className="flex items-center gap-4 bg-gradient-to-r from-teal-600 to-emerald-500 p-6 text-white">
+          <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-white/20 font-heading text-2xl font-extrabold">
+            {(seller.company ?? 'V').charAt(0)}
+          </span>
+          <div>
+            <div className="flex items-center gap-2">
+              <h1 className="font-heading text-3xl font-extrabold">{seller.company ?? tt('Поставщик', 'Yetkazib beruvchi')}</h1>
+              {seller.isVerified && <ShieldCheck size={22} />}
+            </div>
+            {seller.isVerified && <span className="mt-1 inline-block rounded-full bg-white/20 px-3 py-0.5 text-xs font-medium">{tt('Проверенный поставщик', 'Tekshirilgan yetkazib beruvchi')}</span>}
+          </div>
+        </div>
+        <div className="p-6">
+        {seller.description && <p className="text-ink-muted">{seller.description}</p>}
+        <div className="mt-4 flex gap-6 text-sm text-ink-muted">
+          <span className="flex items-center gap-1"><Star size={15} className="fill-amber-400 text-amber-400" />{seller.rating.toFixed(1)} ({seller.reviewsCount})</span>
+          <span>{seller.productsCount} {tt('товаров', 'mahsulot')}</span>
+          <span>{tt('С нами с', 'Biz bilan')} {new Date(seller.createdAt).toLocaleDateString('ru-RU')}</span>
+        </div>
+        </div>
+      </div>
+
+      <h2 className="mb-4 mt-8 font-heading text-2xl font-bold">{tt('Ассортимент', 'Assortiment')}</h2>
+      <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+        {products.map((p) => <ProductCard key={p.id} product={p} />)}
+      </div>
+    </div>
+  );
+}
