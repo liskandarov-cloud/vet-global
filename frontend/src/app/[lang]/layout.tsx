@@ -69,6 +69,19 @@ const ORG_LD = JSON.stringify({
   sameAs: [`https://t.me/${TG_CHANNEL}`, `https://t.me/${TG_BOT}`],
 });
 
+const SITE_LD = JSON.stringify({
+  '@context': 'https://schema.org',
+  '@type': 'WebSite',
+  name: 'VetHub',
+  url: SITE_URL,
+  inLanguage: ['ru', 'uz'],
+  potentialAction: {
+    '@type': 'SearchAction',
+    target: { '@type': 'EntryPoint', urlTemplate: `${SITE_URL}/catalog?search={search_term_string}` },
+    'query-input': 'required name=search_term_string',
+  },
+});
+
 export const viewport: Viewport = {
   themeColor: '#0d9488',
 };
@@ -82,6 +95,8 @@ export default async function RootLayout(props: { children: React.ReactNode; par
       <body className="min-h-screen bg-background font-body text-ink antialiased">
         {/* Карточка организации для поисковиков: телефон и почта в выдаче. */}
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ORG_LD }} />
+        {/* Сайт с поиском: Google может показать строку поиска по VetHub в выдаче. */}
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: SITE_LD }} />
         <Providers lang={lang as Lang}>
           <PWARegister />
           <div className="flex min-h-screen flex-col">

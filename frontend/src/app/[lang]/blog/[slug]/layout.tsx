@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { serverFetch, SITE_URL } from '@/lib/server-api';
+import { langAlternates } from '@/lib/seo';
 
 // Метаданные статьи блога — серверный layout рядом с клиентской страницей.
 // Блог существует ради поискового трафика, без этого все статьи выглядели
@@ -7,7 +8,9 @@ import { serverFetch, SITE_URL } from '@/lib/server-api';
 
 interface Post {
   title: string;
+  titleUz?: string | null;
   excerpt?: string;
+  excerptUz?: string | null;
   content?: string;
   image?: string;
   slug: string;
@@ -26,26 +29,29 @@ function absolute(url?: string): string | undefined {
 
 export async function generateMetadata(
   props: {
-    params: Promise<{ slug: string }>;
+    params: Promise<{ slug: string; lang: string }>;
   }
 ): Promise<Metadata> {
   const params = await props.params;
   const post = await serverFetch<Post>(`/blog/${params.slug}`);
   if (!post?.title) return {};
+  const uz = params.lang === 'uz';
 
-  const title = post.metaTitle || post.title;
+  const title = (uz && post.titleUz) || post.metaTitle || post.title;
   const description =
+    (uz && post.excerptUz) ||
     post.metaDesc ||
     post.excerpt ||
     post.content?.replace(/\s+/g, ' ').slice(0, 160) ||
     'Экспертные материалы о ветеринарии и закупках на VetHub.';
   const image = absolute(post.image) ?? `${SITE_URL}/icon-512.png`;
-  const url = `${SITE_URL}/blog/${post.slug}`;
+  const alternates = langAlternates(params.lang, `/blog/${post.slug}`);
+  const url = alternates.canonical;
 
   return {
     title,
     description,
-    alternates: { canonical: url },
+    alternates,
     openGraph: {
       type: 'article',
       title,
