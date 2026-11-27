@@ -1,0 +1,61 @@
+# Публикация статей блога из content/blog/*.json от имени администратора.
+#
+# Статья проходит проверку в pull request (текст в репозитории), после слияния
+# этот workflow заводит её в блог. Повторный запуск не дублирует: статья с
+# тем же заголовком пропускается. Учётная запись администратора — из
+# окружения Render внутри прогона, не печатается.
+
+name: Admin publish blog posts
+
+on:
+  workflow_dispatch:
+    inputs:
+      files:
+        description: 'Имена файлов из content/blog без .json, через пробел'
+        required: true
+      published:
+        description: 'Сразу опубликовать (иначе — черновик)'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      FILES: ${{ inputs.files }}
+      PUBLISHED: ${{ inputs.published }}
+      SERVICE: srv-dbe9iflg1s2s73es8lh0
+      API: https://api.vethub.uz/api
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: content/blog
+      - name: Опубликовать
+        run: |
+          set -euo pipefail
+          curl -fsS "https://api.render.com/v1/services/$SERVICE/env-vars?limit=100" -H "Authorization: Bearer $RENDER_API_KEY" > "$RUNNER_TEMP/env.json"
+          pick() { jq -r --arg k "$1" '[.[] | select(.envVar.key == $k) | .envVar.value][0] // empty' "$RUNNER_TEMP/env.json"; }
+          ADMIN_EMAIL=$(pick ADMIN_EMAIL); ADMIN_PASSWORD=$(pick ADMIN_PASSWORD)
+          rm -f "$RUNNER_TEMP/env.json"
+          echo "::add-mask::$ADMIN_PASSWORD"
+          TOKEN=$(jq -n --arg e "$ADMIN_EMAIL" --arg p "$ADMIN_PASSWORD" '{email: $e, password: $p}' \
+            | curl -sS -X POST "$API/auth/login" -H 'Content-Type: application/json' --data @- | jq -r '.token // empty')
+          [ -n "$TOKEN" ] || { echo "::error::вход администратора не прошёл"; exit 1; }
+          echo "::add-mask::$TOKEN"
+          existing=$(curl -fsS "$API/blog?all=true&limit=200" -H "Authorization: Bearer $TOKEN" | jq -c '[(.posts // .)[] | .title]')
+          for name in $FILES; do
+            echo "$name" | grep -Eq '^[a-z0-9-]+$' || { echo "::error::недопустимое имя $name"; exit 1; }
+            f="content/blog/$name.json"
+            [ -f "$f" ] || { echo "::error::нет файла $f"; exit 1; }
+            title=$(jq -r .title "$f")
+            if echo "$existing" | jq -e --arg t "$title" 'index($t) != null' >/dev/null; then echo "уже есть: $title"; continue; fi
+            res=$(jq --argjson pub "$PUBLISHED" '. + {published: $pub}' "$f" \
+              | curl -sS -X POST "$API/blog" -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' --data @-)
+            echo "$res" | jq -e '.slug' >/dev/null || { echo "::error::$name: $(echo "$res" | jq -c '.message? // .')"; exit 1; }
+            echo "опубликовано: https://vethub.uz/blog/$(echo "$res" | jq -r .slug) (published=$PUBLISHED)"
+          done
