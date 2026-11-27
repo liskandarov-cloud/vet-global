@@ -1,0 +1,54 @@
+# Узбекские названия товаров от имени администратора.
+#
+# Товар принадлежит продавцу, а узбекского названия у него нет — и на /uz/…
+# он показывается кириллицей. Workflow записывает только поле nameUz;
+# остальное (название, описание, цена, категория) отправляется как есть,
+# потому что PUT /products/:id требует полный набор полей. Учётная запись
+# администратора берётся из окружения Render внутри прогона и не печатается.
+
+name: Admin set Uzbek product names
+
+on:
+  workflow_dispatch:
+    inputs:
+      names:
+        description: 'JSON: {"<id товара>": "Название латиницей", …}'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  names:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      NAMES: ${{ inputs.names }}
+      SERVICE: srv-dbe9iflg1s2s73es8lh0
+      API: https://api.vethub.uz/api
+    steps:
+      - name: Записать узбекские названия
+        run: |
+          set -euo pipefail
+          echo "$NAMES" | jq -e 'type == "object" and length > 0 and length <= 100
+            and all(to_entries[]; (.key | test("^[0-9a-f-]{36}$")) and (.value | type == "string" and length > 0 and length < 200))' >/dev/null \
+            || { echo "::error::нужен JSON-объект {id товара: название}"; exit 1; }
+          curl -fsS "https://api.render.com/v1/services/$SERVICE/env-vars?limit=100" -H "Authorization: Bearer $RENDER_API_KEY" > "$RUNNER_TEMP/env.json"
+          pick() { jq -r --arg k "$1" '[.[] | select(.envVar.key == $k) | .envVar.value][0] // empty' "$RUNNER_TEMP/env.json"; }
+          ADMIN_EMAIL=$(pick ADMIN_EMAIL); ADMIN_PASSWORD=$(pick ADMIN_PASSWORD)
+          rm -f "$RUNNER_TEMP/env.json"
+          echo "::add-mask::$ADMIN_PASSWORD"
+          TOKEN=$(jq -n --arg e "$ADMIN_EMAIL" --arg p "$ADMIN_PASSWORD" '{email: $e, password: $p}' \
+            | curl -sS -X POST "$API/auth/login" -H 'Content-Type: application/json' --data @- | jq -r '.token // empty')
+          [ -n "$TOKEN" ] || { echo "::error::вход администратора не прошёл"; exit 1; }
+          echo "::add-mask::$TOKEN"
+
+          echo "$NAMES" | jq -r 'to_entries[] | "\(.key)\t\(.value)"' | while IFS=$'\t' read -r id uz; do
+            p=$(curl -fsS "$API/products/$id")
+            body=$(echo "$p" | jq --arg uz "$uz" '{name, description, categoryId, price, nameUz: $uz}')
+            res=$(curl -sS -o /dev/null -w '%{http_code}' -X PUT "$API/products/$id" -H "Authorization: Bearer $TOKEN" \
+              -H 'Content-Type: application/json' --data "$body")
+            echo "$res  $(echo "$p" | jq -r .name)  →  $uz"
+            [ "$res" = 200 ] || { echo "::error::товар $id: ответ $res"; exit 1; }
+          done
