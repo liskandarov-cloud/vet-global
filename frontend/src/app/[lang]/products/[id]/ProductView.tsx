@@ -29,7 +29,7 @@ import { Product, Offer } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 import { formatMoney } from '@/lib/utils';
 import { expiryInfo } from '@/lib/expiry';
-import { ANIMALS, splitDescription } from '@/lib/product-facts';
+import { ANIMALS, hasCyrillic, latin, mergeFacts, splitDescription } from '@/lib/product-facts';
 import { applyPromotion, effectiveUnitPrice, unitPriceForQty } from '@/lib/pricing';
 
 interface Review { id: string; buyerName: string; rating: number; comment: string; createdAt: string }
@@ -218,13 +218,18 @@ export default function ProductView({ initial }: { initial?: Product | null }) {
 
   const desc = splitDescription((lang === 'uz' && product.descriptionUz) || product.description || '');
   const animal = ANIMALS.find((a) => a.value === product.animalType);
-  const facts: [string, string][] = [
-    ...(product.activeSubstance ? [[t('product.substance'), product.activeSubstance] as [string, string]] : []),
-    ...(product.form ? [[t('product.form'), product.form] as [string, string]] : []),
-    ...(animal ? [[tt('Вид животных', 'Hayvon turi'), tt(...animal.label)] as [string, string]] : []),
-    ...desc.rows,
-    ...(product.manufacturer ? [[t('product.manufacturer'), product.manufacturer] as [string, string]] : []),
-  ];
+  // На узбекской странице поля с кириллицей не показываем: узбекских версий
+  // вещества и формы нет, а суть есть в узбекском описании.
+  const own = (v?: string | null) => (v && !(lang === 'uz' && hasCyrillic(v)) ? v : null);
+  const facts = mergeFacts(
+    [
+      [t('product.substance'), own(product.activeSubstance)],
+      [t('product.form'), own(product.form)],
+      [tt('Вид животных', 'Hayvon turi'), animal ? tt(...animal.label) : null],
+    ],
+    desc.rows,
+  );
+  if (product.manufacturer) facts.push([t('product.manufacturer'), lang === 'uz' ? latin(product.manufacturer) : product.manufacturer]);
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
