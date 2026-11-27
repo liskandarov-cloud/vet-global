@@ -754,7 +754,7 @@ function ProductForm({ initial, categories, onClose, onSaved }: any) {
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <input className="input sm:col-span-2" placeholder={tt('Название', 'Nomi')} value={form.name} onChange={(e) => upd('name', e.target.value)} />
-          <textarea className="input !h-auto py-2 sm:col-span-2" rows={3} placeholder={tt('Описание', 'Tavsif')} value={form.description} onChange={(e) => upd('description', e.target.value)} />
+          <textarea className="input !h-auto py-2 sm:col-span-2" rows={6} placeholder={tt('Описание. Строки «Показания: …», «Дозировка: …», «Хранение: …» покажутся на сайте таблицей', 'Tavsif. «Koʻrsatmalar: …», «Doza: …», «Saqlash: …» qatorlari saytda jadval boʻlib chiqadi')} value={form.description} onChange={(e) => upd('description', e.target.value)} />
           <select className="input" value={form.categoryId} onChange={(e) => upd('categoryId', e.target.value)}>
             <option value="">{tt('Категория…', 'Kategoriya…')}</option>
             {categories.map((c: Category) => <option key={c.id} value={c.id}>{c.name}</option>)}

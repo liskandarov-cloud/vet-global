@@ -1,3 +1,4 @@
+import { flatDescription } from './product-facts';
 import { SITE_URL } from './server-api';
 
 export interface JsonLdProduct {
@@ -30,7 +31,7 @@ export function productJsonLd(p: JsonLdProduct) {
     name: p.name,
     sku: p.id,
     url,
-    ...(p.description ? { description: p.description.slice(0, 500) } : {}),
+    ...(p.description ? { description: flatDescription(p.description).slice(0, 500) } : {}),
     ...(p.images?.length ? { image: p.images.map(absolute).filter(Boolean) } : {}),
     ...(p.manufacturer ? { brand: { '@type': 'Brand', name: p.manufacturer } } : {}),
     ...(price > 0

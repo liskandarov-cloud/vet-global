@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { serverFetch, SITE_URL } from '@/lib/server-api';
+import { flatDescription } from '@/lib/product-facts';
 import { productJsonLd } from '@/lib/product-jsonld';
 
 // Метаданные карточки товара. Сама страница клиентская (`'use client'`) и
@@ -46,7 +47,7 @@ export async function generateMetadata(
   const priceText = price ? (uz ? `${fmt} soʻmdan · ` : `от ${fmt} сум · `) : '';
   const description =
     `${priceText}${product.manufacturer ? `${product.manufacturer}. ` : ''}` +
-    (product.description?.slice(0, 160) ??
+    (flatDescription(product.description ?? '').slice(0, 160) ||
       (uz ? 'VetHub — veterinariya preparatlarini ulgurji yetkazib berish.' : 'Оптовые поставки ветеринарных препаратов на VetHub.'));
 
   const image = absolute(product.images?.[0]) ?? `${SITE_URL}/icon-512.png`;

@@ -7,15 +7,7 @@ import { api } from '@/lib/api';
 import { useI18n } from '@/lib/i18n';
 import { Category, Product } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
-
-const ANIMALS: { value: string; label: [string, string] }[] = [
-  { value: 'POULTRY', label: ['Птица', 'Parranda'] },
-  { value: 'CATTLE', label: ['КРС', 'Yirik shoxli mol'] },
-  { value: 'SMALL_RUMINANTS', label: ['МРС', 'Mayda shoxli mol'] },
-  { value: 'HORSES', label: ['Лошади', 'Otlar'] },
-  { value: 'PETS', label: ['Кошки/собаки', 'Mushuklar/itlar'] },
-  { value: 'OTHER', label: ['Прочее', 'Boshqa'] },
-];
+import { ANIMALS } from '@/lib/product-facts';
 
 function CatalogInner() {
   const { t, tt, lang } = useI18n();
