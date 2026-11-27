@@ -29,6 +29,7 @@ import { Product, Offer } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
 import { formatMoney } from '@/lib/utils';
 import { expiryInfo } from '@/lib/expiry';
+import { ANIMALS, splitDescription } from '@/lib/product-facts';
 import { applyPromotion, effectiveUnitPrice, unitPriceForQty } from '@/lib/pricing';
 
 interface Review { id: string; buyerName: string; rating: number; comment: string; createdAt: string }
@@ -215,6 +216,16 @@ export default function ProductView({ initial }: { initial?: Product | null }) {
     ? product.images
     : ['/products/vaccine.jpg'];
 
+  const desc = splitDescription((lang === 'uz' && product.descriptionUz) || product.description || '');
+  const animal = ANIMALS.find((a) => a.value === product.animalType);
+  const facts: [string, string][] = [
+    ...(product.activeSubstance ? [[t('product.substance'), product.activeSubstance] as [string, string]] : []),
+    ...(product.form ? [[t('product.form'), product.form] as [string, string]] : []),
+    ...(animal ? [[tt('Вид животных', 'Hayvon turi'), tt(...animal.label)] as [string, string]] : []),
+    ...desc.rows,
+    ...(product.manufacturer ? [[t('product.manufacturer'), product.manufacturer] as [string, string]] : []),
+  ];
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-10">
       <nav className="mb-5 flex items-center gap-2 text-sm text-ink-subtle">
@@ -261,13 +272,21 @@ export default function ProductView({ initial }: { initial?: Product | null }) {
             </div>
           )}
 
-          <div className="mt-4 space-y-1 text-sm">
-            {product.activeSubstance && <Row label={t('product.substance')} value={product.activeSubstance} />}
-            {product.manufacturer && <Row label={t('product.manufacturer')} value={product.manufacturer} />}
-            {product.form && <Row label={t('product.form')} value={product.form} />}
-          </div>
+          {desc.paras.map((para, i) => <p key={i} className="mt-4 text-ink-muted">{para}</p>)}
 
-          <p className="mt-4 text-ink-muted">{(lang === 'uz' && product.descriptionUz) || product.description}</p>
+          {facts.length > 0 && (
+            <section className="mt-5 overflow-hidden rounded-2xl border border-slate-200 bg-white text-sm shadow-soft">
+              <h2 className="border-b border-slate-200 bg-slate-50 px-4 py-2.5 font-heading font-semibold">{tt('Характеристики', 'Xususiyatlari')}</h2>
+              <dl className="divide-y divide-slate-100 dark:divide-slate-800">
+                {facts.map(([k, v], i) => (
+                  <div key={i} className={`grid gap-0.5 px-4 py-2.5 sm:grid-cols-[10rem_1fr] sm:gap-4 ${k === 'Важно' || k === 'Muhim' ? 'bg-amber-50/70 dark:bg-amber-950/30' : ''}`}>
+                    <dt className="text-ink-subtle">{k}</dt>
+                    <dd className="font-medium">{v}</dd>
+                  </div>
+                ))}
+              </dl>
+            </section>
+          )}
 
           {product.certificates?.length > 0 && (
             <a href={product.certificates[0]} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-teal-700 hover:underline">
@@ -664,13 +683,4 @@ function packNote(o: Offer, tt: (ru: string, uz: string) => string): string | nu
   const base = o.priceUnit ? tt(`${price} за ${o.priceUnit}`, `${o.priceUnit} uchun ${price}`) : price;
   const pack = [o.packUnit, size.toLocaleString('ru-RU'), noun].filter(Boolean).join(' ');
   return pack ? `${base} · ${pack}` : base;
-}
-
-function Row({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-2">
-      <span className="text-ink-subtle">{label}:</span>
-      <span className="font-medium">{value}</span>
-    </div>
-  );
 }

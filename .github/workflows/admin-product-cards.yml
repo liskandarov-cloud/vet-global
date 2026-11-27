@@ -1,0 +1,68 @@
+# Карточки товаров от имени администратора: описание (ru/uz) строками
+# «Показания: …», узбекское название, производитель, форма, действующее вещество.
+#
+# Товар принадлежит продавцу; правка проходит проверку в pull request (файл
+# content/products/<имя>.json: {id товара: {поле: значение}}), после слияния
+# этот workflow записывает её. Пишутся только поля из списка ниже, ключи с «_»
+# — пометки для человека. Название, категория и цена отправляются как есть:
+# PUT /products/:id требует их, а цена предложения меняется только при
+# настоящей смене цены. Учётная запись администратора — из окружения Render
+# внутри прогона, не печатается.
+
+name: Admin update product cards
+
+on:
+  workflow_dispatch:
+    inputs:
+      file:
+        description: 'Имя файла из content/products без .json'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  cards:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RENDER_API_KEY: ${{ secrets.RENDER_API_KEY }}
+      FILE: ${{ inputs.file }}
+      SERVICE: srv-dbe9iflg1s2s73es8lh0
+      API: https://api.vethub.uz/api
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          sparse-checkout: content/products
+      - name: Записать карточки
+        run: |
+          set -euo pipefail
+          echo "$FILE" | grep -Eq '^[a-z0-9-]+$' || { echo "::error::недопустимое имя $FILE"; exit 1; }
+          f="content/products/$FILE.json"
+          [ -f "$f" ] || { echo "::error::нет файла $f"; exit 1; }
+          FIELDS='["nameUz","description","descriptionUz","manufacturer","form","activeSubstance"]'
+          jq -e --argjson ok "$FIELDS" 'type == "object" and length > 0 and length <= 200
+            and all(to_entries[]; (.key | test("^[0-9a-f-]{36}$")) and (.value | type == "object")
+              and all(.value | to_entries[] | select(.key | startswith("_") | not);
+                (.key as $k | $ok | index($k)) and (.value | type == "string" and length > 0 and length < 5000)))' "$f" >/dev/null \
+            || { echo "::error::нужен объект {id товара: {поле: строка}}; поля: $FIELDS"; exit 1; }
+
+          curl -fsS "https://api.render.com/v1/services/$SERVICE/env-vars?limit=100" -H "Authorization: Bearer $RENDER_API_KEY" > "$RUNNER_TEMP/env.json"
+          pick() { jq -r --arg k "$1" '[.[] | select(.envVar.key == $k) | .envVar.value][0] // empty' "$RUNNER_TEMP/env.json"; }
+          ADMIN_EMAIL=$(pick ADMIN_EMAIL); ADMIN_PASSWORD=$(pick ADMIN_PASSWORD)
+          rm -f "$RUNNER_TEMP/env.json"
+          echo "::add-mask::$ADMIN_PASSWORD"
+          TOKEN=$(jq -n --arg e "$ADMIN_EMAIL" --arg p "$ADMIN_PASSWORD" '{email: $e, password: $p}' \
+            | curl -sS -X POST "$API/auth/login" -H 'Content-Type: application/json' --data @- | jq -r '.token // empty')
+          [ -n "$TOKEN" ] || { echo "::error::вход администратора не прошёл"; exit 1; }
+          echo "::add-mask::$TOKEN"
+
+          for id in $(jq -r 'keys[]' "$f"); do
+            p=$(curl -fsS "$API/products/$id")
+            body=$(jq -n --argjson p "$p" --argjson upd "$(jq --arg id "$id" '.[$id] | with_entries(select(.key | startswith("_") | not))' "$f")" \
+              '{name: $p.name, description: $p.description, categoryId: $p.categoryId, price: $p.price} + $upd')
+            res=$(curl -sS -o /dev/null -w '%{http_code}' -X PUT "$API/products/$id" -H "Authorization: Bearer $TOKEN" \
+              -H 'Content-Type: application/json' --data "$body")
+            echo "$res  $(echo "$p" | jq -r .name)"
+            [ "$res" = 200 ] || { echo "::error::товар $id: ответ $res"; exit 1; }
+          done
