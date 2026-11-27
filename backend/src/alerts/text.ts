@@ -12,7 +12,7 @@ export interface Alert {
   url?: string;
   // Кнопки действий в Telegram (callback_data обрабатывает бот), например
   // «Подтвердить продавца» в чате команды. На сайте и в push не показываются.
-  actions?: { text: string; data: string }[];
+  actions?: { text: Text; data: string }[];
 }
 
 export const tt = (ru: string, uz: string): Text => ({ ru, uz });

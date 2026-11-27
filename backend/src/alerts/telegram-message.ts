@@ -8,7 +8,7 @@ export function telegramMessage(alert: Alert, lang: Lang, siteUrl: string) {
   const url = alert.url ? `${siteUrl}${alert.url}` : null;
   const rows: object[][] = [];
   if (url?.startsWith('https://')) rows.push([{ text: lang === 'uz' ? 'Ochish' : 'Открыть', url }]);
-  if (alert.actions?.length) rows.push(alert.actions.map((a) => ({ text: a.text, callback_data: a.data })));
+  if (alert.actions?.length) rows.push(alert.actions.map((a) => ({ text: textIn(a.text, lang), callback_data: a.data })));
   return {
     text: `<b>${esc(textIn(alert.title, lang))}</b>\n${esc(textIn(alert.body, lang))}`,
     parse_mode: 'HTML' as const,

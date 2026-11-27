@@ -501,11 +501,14 @@ export class OrdersService {
               `${buyerName}: buyurtmada «buyurtma asosida» pozitsiyasi bor. Toʻlov ochilishi uchun mavjudligini tasdiqlang.`,
             ),
             url: '/seller',
+            // Ответ прямо из Telegram (обрабатывает бот).
+            actions: [{ text: tt('✅ Есть в наличии', '✅ Mavjud'), data: `oa:${order.id}` }],
           }
         : {
             title: tt(`Новый заказ #${shortId(order.id)}`, `Yangi buyurtma #${shortId(order.id)}`),
             body: tt(`Покупатель: ${buyerName}. Подтвердите заказ в кабинете продавца.`, `Xaridor: ${buyerName}. Buyurtmani sotuvchi kabinetida tasdiqlang.`),
             url: '/seller',
+            actions: [{ text: tt('✅ Подтвердить заказ', '✅ Buyurtmani tasdiqlash'), data: `oc:${order.id}` }],
           },
     );
 
