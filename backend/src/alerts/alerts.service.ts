@@ -141,6 +141,13 @@ export class AlertsService {
     await this.telegramAdmins(alert);
   }
 
+  // Готовый текст (HTML) в чат команды — для сводок и отчётов.
+  async teamTelegram(html: string) {
+    const chatId = this.config.get<string>('TELEGRAM_ADMIN_CHAT_ID');
+    if (!chatId) return;
+    await this.telegramSend(chatId, { text: html, parse_mode: 'HTML', disable_web_page_preview: true });
+  }
+
   // Отдельно от бота: бот может быть выключен, а сообщение в чат — это один
   // HTTP-запрос с тем же токеном.
   private async telegramAdmins(alert: Alert) {
