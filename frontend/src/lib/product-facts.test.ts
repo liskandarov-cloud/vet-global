@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flatDescription, splitDescription } from './product-facts';
+import { flatDescription, latin, mergeFacts, splitDescription } from './product-facts';
 
 describe('splitDescription', () => {
   it('строки «Метка: значение» — в таблицу, остальное — абзацами', () => {
@@ -29,5 +29,22 @@ describe('splitDescription', () => {
 describe('flatDescription', () => {
   it('склеивает строки в предложения без двойных точек', () => {
     expect(flatDescription('Вакцина (живая).\nФасовка: 1 000 доз\nЦена: с НДС')).toBe('Вакцина (живая). Фасовка: 1 000 доз. Цена: с НДС');
+  });
+});
+
+describe('mergeFacts', () => {
+  it('пропускает пустые поля и строки, повторяющие поле', () => {
+    expect(mergeFacts([['Форма', 'живая'], ['Вещество', null]], [['Тип', 'Живая'], ['Фасовка', '1 000 доз']])).toEqual([
+      ['Форма', 'живая'],
+      ['Фасовка', '1 000 доз'],
+    ]);
+  });
+});
+
+describe('latin', () => {
+  it('имена производителей латиницей', () => {
+    expect(latin('НПЦ БелАгроГен (Беларусь)')).toBe('NPTs BelAgroGen (Belarus)');
+    expect(latin('АВИВАК')).toBe('AVIVAK');
+    expect(latin('Kaesler Nutrition GmbH (Германия)')).toBe('Kaesler Nutrition GmbH (Germaniya)');
   });
 });
