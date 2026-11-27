@@ -214,15 +214,22 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     // Продавец отвечает на заказ кнопкой под уведомлением: «Подтвердить заказ»
     // (oc) или «Есть в наличии» для предзаказа (oa). Только из чата продавца;
     // права и переходы статуса проверяет тот же код, что у кабинета.
-    bot.callbackQuery(/^(oc|oa):([0-9a-f-]{36})$/, async (ctx) => {
-      const [, act, orderId] = ctx.match!;
+    bot.callbackQuery(/^(oc|oa|os):(?:(SHIPPED|DELIVERED):)?([0-9a-f-]{36})$/, async (ctx) => {
+      const [, act, target, orderId] = ctx.match!;
       const u = await this.prisma.user.findUnique({ where: { telegramChatId: String(ctx.chat?.id) } });
       const lang: BotLang = u?.telegramLang === 'uz' ? 'uz' : 'ru';
       if (!u || u.role !== UserRole.SELLER) return ctx.answerCallbackQuery({ text: t('seller_only', lang), show_alert: true });
       const auth: AuthUser = { id: u.id, email: u.email, role: u.role, fullName: u.fullName, phone: u.phone, company: u.company };
       try {
         if (act === 'oa') await this.orders.confirmAvailability(orderId, auth);
-        else await this.orders.updateStatus(orderId, OrderStatus.CONFIRMED, auth);
+        else if (act === 'oc') await this.orders.updateStatus(orderId, OrderStatus.CONFIRMED, auth);
+        else if (target === 'SHIPPED') {
+          // «Отгружен» из «Подтверждён» — через «В обработке»: порядок статусов
+          // тот же, что в кабинете, продавцу не нужно нажимать лишнее.
+          const o = await this.orders.getOne(orderId, auth);
+          if (o.status === OrderStatus.CONFIRMED) await this.orders.updateStatus(orderId, OrderStatus.PROCESSING, auth);
+          await this.orders.updateStatus(orderId, OrderStatus.SHIPPED, auth);
+        } else await this.orders.updateStatus(orderId, OrderStatus.DELIVERED, auth);
       } catch (e) {
         const raw = (e as { response?: { message?: unknown } })?.response?.message;
         const msg = typeof raw === 'string' ? raw : (e as Error).message;
@@ -230,7 +237,20 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       }
       await ctx.answerCallbackQuery();
       await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
-      await ctx.reply(act === 'oa' ? t('seller_avail_done', lang) : t('seller_confirm_done', lang).replace('{no}', orderId.slice(0, 8)));
+      const no = orderId.slice(0, 8);
+      // Следующий шаг — следующей кнопкой: подтверждён → отгружен → доставлен.
+      if (act === 'oa') return ctx.reply(t('seller_avail_done', lang));
+      if (act === 'oc') {
+        return ctx.reply(t('seller_confirm_done', lang).replace('{no}', no), {
+          reply_markup: new InlineKeyboard().text(t('btn_shipped', lang), `os:SHIPPED:${orderId}`),
+        });
+      }
+      if (target === 'SHIPPED') {
+        return ctx.reply(t('seller_shipped_done', lang).replace('{no}', no), {
+          reply_markup: new InlineKeyboard().text(t('btn_delivered', lang), `os:DELIVERED:${orderId}`),
+        });
+      }
+      await ctx.reply(t('seller_delivered_done', lang).replace('{no}', no));
     });
 
     bot.command('stop', async (ctx) => {
