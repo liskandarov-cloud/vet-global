@@ -1,0 +1,676 @@
+'use client';
+
+import { useEffect, useState, Fragment } from 'react';
+import { useParams } from 'next/navigation';
+import Link from 'next/link';
+import {
+  ShieldCheck,
+  FileText,
+  Star,
+  ShoppingCart,
+  Minus,
+  Plus,
+  Truck,
+  BadgeCheck,
+  Pill,
+  Layers,
+  ChevronDown,
+  ShieldAlert,
+  CalendarClock,
+  ClipboardCheck,
+  Repeat,
+} from 'lucide-react';
+import { toast } from 'sonner';
+import { api } from '@/lib/api';
+import { SupplierRequest } from '@/components/SupplierRequest';
+import { useI18n } from '@/lib/i18n';
+import { useCart, useAuth } from '@/lib/store';
+import { Product, Offer } from '@/lib/types';
+import { ProductCard } from '@/components/ProductCard';
+import { formatMoney } from '@/lib/utils';
+import { expiryInfo } from '@/lib/expiry';
+import { applyPromotion, effectiveUnitPrice, unitPriceForQty } from '@/lib/pricing';
+
+interface Review { id: string; buyerName: string; rating: number; comment: string; createdAt: string }
+
+// Страница товара. Первый рендер — с данными, полученными сервером (initial):
+// текст, цена и предложения приходят в HTML, и их видят поисковики без
+// выполнения скриптов. Затем браузер обновляет данные с учётом входа
+// (договорные цены, подписки).
+export default function ProductView({ initial }: { initial?: Product | null }) {
+  const { id } = useParams<{ id: string }>();
+  const { t, tt, lang } = useI18n();
+  const add = useCart((s) => s.add);
+  const currentUser = useAuth((s) => s.user);
+
+  const [product, setProduct] = useState<Product | null>(initial ?? null);
+  const [notFound, setNotFound] = useState(false);
+  const [reviews, setReviews] = useState<Review[]>([]);
+  const [qty, setQty] = useState(initial?.offers?.[0]?.minOrder ?? initial?.minOrder ?? 1);
+  const [activeImg, setActiveImg] = useState(0);
+  const [selectedOfferId, setSelectedOfferId] = useState<string | null>(initial?.offers?.[0]?.id ?? null);
+  const [expandedOfferId, setExpandedOfferId] = useState<string | null>(null);
+  const [subInterval, setSubInterval] = useState(30);
+  const [contractMap, setContractMap] = useState<Record<string, number>>({});
+  const [stockSub, setStockSub] = useState(false);
+  const [rvRating, setRvRating] = useState(5);
+  const [rvComment, setRvComment] = useState('');
+  const [rvSending, setRvSending] = useState(false);
+  const [rvDone, setRvDone] = useState(false); // отзыв отправлен или уже был
+
+  useEffect(() => {
+    if (!id) return;
+    api.get(`/products/${id}`).then((r) => {
+      const p: Product = r.data;
+      setProduct(p);
+      const cheapest = p.offers?.[0]; // офферы приходят отсортированными по цене
+      setSelectedOfferId(cheapest?.id ?? null);
+      setQty(cheapest?.minOrder ?? p.minOrder ?? 1);
+    }).catch(() => setNotFound(true));
+    api.get('/reviews', { params: { productId: id } }).then((r) => setReviews(r.data)).catch(() => {});
+  }, [id]);
+
+  // Статус подписки «сообщить о поступлении».
+  useEffect(() => {
+    if (!id || !currentUser) { setStockSub(false); return; }
+    api.get(`/products/${id}/notify-me`).then((r) => setStockSub(!!r.data?.subscribed)).catch(() => {});
+  }, [id, currentUser]);
+
+  const toggleStockSub = async () => {
+    if (!currentUser) { toast.error(tt('Войдите, чтобы подписаться', 'Obuna uchun tizimga kiring')); return; }
+    try {
+      if (stockSub) {
+        await api.delete(`/products/${id}/notify-me`);
+        setStockSub(false);
+        toast.success(tt('Подписка отменена', 'Obuna bekor qilindi'));
+      } else {
+        await api.post(`/products/${id}/notify-me`);
+        setStockSub(true);
+        toast.success(tt('Сообщим, когда товар поступит', 'Mahsulot kelganda xabar beramiz'));
+      }
+    } catch (e: any) { toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik')); }
+  };
+
+  // Отзыв покупателя (бэкенд разрешает только после подтверждённой покупки).
+  const submitReview = async () => {
+    if (!rvComment.trim()) { toast.error(tt('Напишите отзыв', 'Sharh yozing')); return; }
+    setRvSending(true);
+    try {
+      await api.post('/reviews', { productId: id, rating: rvRating, comment: rvComment.trim() });
+      toast.success(tt('Спасибо! Отзыв отправлен на модерацию', 'Rahmat! Sharh moderatsiyaga yuborildi'));
+      setRvComment(''); setRvDone(true);
+    } catch (e: any) {
+      const msg = e?.response?.data?.message ?? tt('Ошибка', 'Xatolik');
+      toast.error(msg);
+      if (/уже|already/i.test(String(msg))) setRvDone(true);
+    } finally { setRvSending(false); }
+  };
+
+  // Контрактные (персональные) цены покупателя по этому товару.
+  useEffect(() => {
+    if (!id || !currentUser) { setContractMap({}); return; }
+    api.get('/contract-prices/my', { params: { productId: id } }).then((r) => {
+      const m: Record<string, number> = {};
+      (r.data ?? []).forEach((c: any) => { m[c.offerId] = c.price; });
+      setContractMap(m);
+    }).catch(() => {});
+  }, [id, currentUser]);
+
+  // Эффективная цена оффера: объёмная скидка, затем акция, затем договорная цена
+  // как потолок — тем же правилом, которым сервер считает сумму заказа.
+  //
+  // Раньше договорная цена здесь перебивала расчёт, и при выгодной объёмной
+  // скидке витрина показывала цену выше той, что списывал сервер.
+  const effPrice = (o: Offer | undefined, quantity: number): number | undefined =>
+    effectiveUnitPrice(o, quantity, contractMap[o?.id ?? ''] ?? null, o?.promoPercent);
+
+  if (notFound) {
+    return (
+      <div className="mx-auto max-w-3xl px-4 py-20 text-center">
+        <div className="text-ink-subtle">{tt('Товар не найден', 'Mahsulot topilmadi')}</div>
+        <Link href="/catalog" className="btn-ghost mt-4">{tt('В каталог', 'Katalogga')}</Link>
+      </div>
+    );
+  }
+  if (!product) return <div className="py-24 text-center text-ink-subtle">{t('common.loading')}</div>;
+
+  const offers = product.offers ?? [];
+  const selectedOffer: Offer | undefined =
+    offers.find((o) => o.id === selectedOfferId) ?? offers[0];
+  const selectedExp = selectedOffer ? expiryInfo(selectedOffer.expiryDate, { shortDated: selectedOffer.shortDated }) : null;
+
+  // Эффективная цена/минимум/наличие: из выбранного оффера, иначе — базовый товар (легаси).
+  const hasPromo = (pct: number) => pct > 0;
+  const hasContractFor = (o: Offer | undefined) => !!o && contractMap[o.id] != null;
+
+  // Без оффера (легаси) акция применяется к цене товара: иначе скидка зависела
+  // бы от того, завёл ли продавец оффер.
+  const unitPrice = effPrice(selectedOffer, qty) ?? applyPromotion(product.price, product.promoPercent);
+  // Цена 0 — «по запросу»: вместо корзины — запрос поставщику.
+  const onRequest = !(unitPrice > 0);
+  const promoPercent = selectedOffer?.promoPercent ?? product.promoPercent ?? 0;
+  // Цена до скидки — для зачёркивания. Договорная цена акцией не уценивается,
+  // поэтому при ней зачёркивать нечего.
+  const priceBeforePromo = hasPromo(promoPercent) && !hasContractFor(selectedOffer)
+    ? (unitPriceForQty(selectedOffer, qty) ?? product.price)
+    : null;
+  const hasContract = selectedOffer ? contractMap[selectedOffer.id] != null : false;
+  const effMinOrder = selectedOffer?.minOrder ?? product.minOrder;
+  // «Под заказ», если товар помечен продавцом как не в наличии ИЛИ выбранный
+  // оффер не в наличии. Товарный флаг перебивает оффер — это сигнал продавца.
+  const effInStock = product.inStock && (selectedOffer ? selectedOffer.inStock : true);
+  const sellerName = selectedOffer?.seller?.company ?? product.seller?.company ?? undefined;
+
+  const addToCart = () => {
+    add(
+      {
+        productId: product.id,
+        offerId: selectedOffer?.id,
+        sellerName,
+        name: product.name,
+        price: unitPrice,
+        minOrder: effMinOrder,
+        image: images[0],
+      },
+      qty,
+    );
+    toast.success(tt('Добавлено в корзину', 'Savatga qoʻshildi'));
+  };
+
+  const selectOffer = (o: Offer) => {
+    setSelectedOfferId(o.id);
+    setQty((q) => Math.max(o.minOrder, q));
+  };
+
+  // Автопополнение: подписка на регулярную поставку выбранного оффера.
+  const subscribe = async () => {
+    if (!currentUser) { toast.error(tt('Войдите, чтобы оформить автопополнение', 'Avto toʻldirishni rasmiylashtirish uchun tizimga kiring')); return; }
+    try {
+      await api.post('/subscriptions', {
+        productId: product.id,
+        offerId: selectedOffer?.id,
+        quantity: qty,
+        intervalDays: subInterval,
+      });
+      toast.success(`${tt('Автопополнение оформлено: каждые', 'Avto toʻldirish rasmiylashtirildi: har')} ${subInterval} ${tt('дн.', 'kun')}`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
+    }
+  };
+
+  // Админ: верификация подлинности оффера.
+  const verifyOffer = async (offerId: string, verified: boolean) => {
+    try {
+      await api.post(`/offers/${offerId}/verify`, { verified });
+      setProduct((prev) =>
+        prev ? { ...prev, offers: prev.offers?.map((o) => (o.id === offerId ? { ...o, certVerified: verified } : o)) } : prev,
+      );
+      toast.success(verified ? tt('Оффер верифицирован', 'Taklif tasdiqlandi') : tt('Верификация снята', 'Tasdiqlash bekor qilindi'));
+    } catch {
+      toast.error(tt('Ошибка', 'Xatolik'));
+    }
+  };
+
+  const images = product.images?.length
+    ? product.images
+    : ['/products/vaccine.jpg'];
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-10">
+      <nav className="mb-5 flex items-center gap-2 text-sm text-ink-subtle">
+        <Link href="/" className="hover:text-teal-700">{tt('Главная', 'Bosh sahifa')}</Link>
+        <span>/</span>
+        <Link href="/catalog" className="hover:text-teal-700">{t('nav.catalog')}</Link>
+        {product.category && (<><span>/</span><span className="text-ink-muted">{(lang === 'uz' && product.category.nameUz) || product.category.name}</span></>)}
+      </nav>
+      <div className="grid gap-10 md:grid-cols-2 [&>*]:min-w-0">
+        {/* Gallery */}
+        <div className="md:sticky md:top-20 md:self-start">
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-soft">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={images[activeImg]} alt={product.name} className="aspect-square w-full object-cover" />
+          </div>
+          {images.length > 1 && (
+            <div className="mt-3 flex gap-2">
+              {images.map((img, i) => (
+                <button
+                  key={i}
+                  onClick={() => setActiveImg(i)}
+                  className={`h-16 w-16 overflow-hidden rounded-lg border-2 ${i === activeImg ? 'border-teal-500' : 'border-transparent'}`}
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={img} alt="" className="h-full w-full object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Info */}
+        <div>
+          <div className="flex gap-2">
+            {product.isPromotion && <span className="rounded-md bg-secondary px-2 py-0.5 text-xs font-semibold text-white">{tt('Акция', 'Aksiya')}</span>}
+            {product.isNew && <span className="rounded-md bg-teal-600 px-2 py-0.5 text-xs font-semibold text-white">{tt('Новинка', 'Yangi')}</span>}
+          </div>
+          <h1 className="mt-2 font-heading text-3xl font-extrabold">{lang === 'uz' && product.nameUz ? product.nameUz : product.name}</h1>
+
+          {product.rating > 0 && (
+            <div className="mt-2 flex items-center gap-1 text-sm text-ink-muted">
+              <Star size={15} className="fill-amber-400 text-amber-400" />
+              {product.rating.toFixed(1)} · {product.reviewsCount} {tt('отзывов', 'sharh')}
+            </div>
+          )}
+
+          <div className="mt-4 space-y-1 text-sm">
+            {product.activeSubstance && <Row label={t('product.substance')} value={product.activeSubstance} />}
+            {product.manufacturer && <Row label={t('product.manufacturer')} value={product.manufacturer} />}
+            {product.form && <Row label={t('product.form')} value={product.form} />}
+          </div>
+
+          <p className="mt-4 text-ink-muted">{(lang === 'uz' && product.descriptionUz) || product.description}</p>
+
+          {product.certificates?.length > 0 && (
+            <a href={product.certificates[0]} target="_blank" rel="noreferrer" className="mt-4 inline-flex items-center gap-2 text-sm font-medium text-teal-700 hover:underline">
+              <FileText size={16} /> {t('product.certificate')}
+            </a>
+          )}
+
+          {product.seller && (
+            <Link href={`/suppliers/${product.seller.id}`} className="mt-4 flex items-center gap-2 rounded-lg border border-slate-200 p-3 text-sm hover:border-teal-200">
+              {product.seller.isVerified && <ShieldCheck size={16} className="text-teal-700" />}
+              <span className="font-medium">{product.seller.company}</span>
+            </Link>
+          )}
+
+          <div className="mt-6 rounded-2xl border border-teal-100 bg-gradient-to-br from-white to-teal-50/40 p-5 shadow-soft">
+            {offers.length > 0 && (
+              <div className="mb-1 text-xs font-medium text-teal-700">
+                {selectedOffer?.seller?.company
+                  ? `${tt('Предложение', 'Taklif')}: ${selectedOffer.seller.company}`
+                  : tt('Лучшее предложение', 'Eng yaxshi taklif')}
+                {offers.length > 1 && ` · ${tt('всего', 'jami')} ${offers.length} ${tt('поставщиков', 'yetkazib beruvchi')}`}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
+              <div className="font-heading text-4xl font-extrabold text-gradient">{onRequest ? <span className="text-2xl">{tt('Цена по запросу', 'Narx soʻrov boʻyicha')}</span> : formatMoney(unitPrice)}</div>
+              {selectedOffer?.packUnit && <span className="text-sm text-ink-subtle">/ {selectedOffer.packUnit}</span>}
+              {hasContract && (
+                <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-700">{tt('по договору', 'shartnoma boʻyicha')}</span>
+              )}
+              {priceBeforePromo != null && (
+                <>
+                  <span className="text-lg text-ink-subtle line-through">{formatMoney(priceBeforePromo)}</span>
+                  <span className="rounded-md bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-600">−{promoPercent}%</span>
+                </>
+              )}
+            </div>
+            {selectedOffer && packNote(selectedOffer, tt) && !hasContract && (
+              <div className="mt-1 text-xs text-ink-subtle">{packNote(selectedOffer, tt)}</div>
+            )}
+            <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-subtle">
+              <span>{t('product.minOrder')}: {effMinOrder}</span>
+              <span>·</span>
+              <span className={`inline-flex items-center gap-1 font-medium ${effInStock ? 'text-teal-700' : 'text-amber-600'}`}>
+                <span className={`h-2 w-2 rounded-full ${effInStock ? 'bg-teal-500' : 'bg-amber-500'}`} />
+                {effInStock ? tt('В наличии', 'Mavjud') : tt('Под заказ', 'Buyurtma asosida')}
+              </span>
+              {effInStock && product.stockQty != null && (
+                <><span>·</span><span className={product.stockQty <= 10 ? 'font-medium text-amber-600' : ''}>{tt('осталось', 'qoldi')} {product.stockQty} {tt('шт', 'dona')}</span></>
+              )}
+              {selectedOffer?.leadTimeDays != null && (<><span>·</span><span className="inline-flex items-center gap-1"><Truck size={13} /> {selectedOffer.leadTimeDays} {tt('дн.', 'kun')}</span></>)}
+              {selectedOffer?.isRx && (<><span>·</span><span className="inline-flex items-center gap-1 text-amber-600"><Pill size={13} /> {tt('по рецепту', 'retsept boʻyicha')}</span></>)}
+              {selectedExp?.short && (<><span>·</span><span className="inline-flex items-center gap-1 font-medium text-orange-700"><CalendarClock size={13} /> {tt(`Короткий срок: до ${selectedExp.until}`, `Qisqa muddat: ${selectedExp.until} gacha`)}</span></>)}
+            </div>
+            {!effInStock && (
+              <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-950/30 dark:text-amber-300">
+                <div className="flex items-start gap-2">
+                  <CalendarClock size={14} className="mt-0.5 shrink-0" />
+                  <span>{tt('Товар под заказ. Оформить можно сейчас, но оплата станет доступна после подтверждения наличия продавцом.', 'Mahsulot buyurtma asosida. Hozir rasmiylashtirish mumkin, lekin toʻlov sotuvchi mavjudligini tasdiqlagach ochiladi.')}</span>
+                </div>
+                <button onClick={toggleStockSub} className="mt-2 inline-flex items-center gap-1.5 rounded-md border border-amber-300 bg-white/70 px-2.5 py-1 font-medium text-amber-800 transition-colors hover:bg-white dark:bg-amber-950/40 dark:text-amber-200">
+                  <BadgeCheck size={13} /> {stockSub ? tt('Вы подписаны — отменить', 'Obuna boʻlgansiz — bekor qilish') : tt('Сообщить о поступлении', 'Kelganda xabar berish')}
+                </button>
+              </div>
+            )}
+            {selectedOffer?.priceBreaks && selectedOffer.priceBreaks.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                {selectedOffer.priceBreaks.map((b, i) => (
+                  <span key={i} className={`rounded-md border px-2 py-0.5 ${qty >= b.minQty ? 'border-teal-300 bg-teal-50 text-teal-700' : 'border-slate-200 text-ink-subtle'}`}>
+                    {tt('от', 'dan')} {b.minQty} {tt('шт', 'dona')} — {formatMoney(b.price)}
+                  </span>
+                ))}
+              </div>
+            )}
+
+            {onRequest ? (
+              <SupplierRequest productId={product.id} productName={product.name} qty={qty} />
+            ) : (
+            <div className="mt-4 flex items-center gap-3">
+              <div className="flex items-center rounded-lg border border-slate-200">
+                <button className="p-2.5" onClick={() => setQty((q) => Math.max(effMinOrder, q - 1))}><Minus size={16} /></button>
+                <input className="w-14 text-center outline-none" value={qty} onChange={(e) => setQty(Math.max(effMinOrder, Number(e.target.value) || effMinOrder))} />
+                <button className="p-2.5" onClick={() => setQty((q) => q + 1)}><Plus size={16} /></button>
+              </div>
+              <button className="btn-primary flex-1" onClick={addToCart}>
+                <ShoppingCart size={18} /> {effInStock ? t('product.addToCart') : tt('Оформить предзаказ', 'Buyurtma berish')}
+              </button>
+            </div>
+            )}
+
+            {/* Автопополнение — кроме «цены по запросу»: заказ по подписке на неё не оформится. */}
+            {!onRequest && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-teal-100 pt-3 text-sm">
+              <Repeat size={15} className="text-teal-700" />
+              <span className="text-ink-muted">{tt('Автопополнение каждые', 'Avto toʻldirish har')}</span>
+              <select className="rounded-md border border-slate-200 px-2 py-1 text-sm outline-none" value={subInterval} onChange={(e) => setSubInterval(Number(e.target.value))}>
+                {[7, 14, 30, 60, 90].map((d) => <option key={d} value={d}>{d} {tt('дн', 'kun')}</option>)}
+              </select>
+              <button className="btn-ghost !px-2 !py-1 text-sm text-teal-700" onClick={subscribe}>{tt('Подписаться', 'Obuna boʻlish')}</button>
+            </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Сравнение предложений поставщиков */}
+      {offers.length > 0 && (
+        <section className="mt-12">
+          <div className="mb-3 flex items-center gap-2">
+            <Layers size={20} className="text-teal-700" />
+            <h2 className="font-heading text-2xl font-bold">{tt('Предложения поставщиков', 'Yetkazib beruvchilar takliflari')}</h2>
+            <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs font-medium text-teal-700">{offers.length}</span>
+          </div>
+          {/* Баннер доверия / анти-фальсификат */}
+          <div className="mb-4 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-xl border border-teal-100 bg-teal-50/50 px-4 py-2.5 text-xs text-ink-muted">
+            <span className="flex items-center gap-1.5 font-medium text-teal-700"><ShieldCheck size={14} /> {tt('Гарантия подлинности', 'Haqiqiylik kafolati')}</span>
+            <span className="flex items-center gap-1"><ClipboardCheck size={13} /> {tt('рег. номер госреестра', 'davlat reestri reg. raqami')}</span>
+            <span className="flex items-center gap-1"><CalendarClock size={13} /> {tt('контроль срока годности', 'yaroqlilik muddati nazorati')}</span>
+            <span className="flex items-center gap-1"><BadgeCheck size={13} /> {tt('проверенные сертификаты партии', 'partiyaning tekshirilgan sertifikatlari')}</span>
+          </div>
+          <div className="overflow-x-auto rounded-2xl border border-slate-200">
+            <table className="w-full min-w-[720px] text-sm">
+              <thead className="bg-slate-50 text-left text-xs uppercase tracking-wide text-ink-subtle">
+                <tr>
+                  <th className="px-4 py-3 font-medium">{tt('Поставщик', 'Yetkazib beruvchi')}</th>
+                  <th className="px-4 py-3 font-medium">{tt('Цена / ед.', 'Narx / dona')}</th>
+                  <th className="px-4 py-3 font-medium">{tt('Наличие', 'Mavjudlik')}</th>
+                  <th className="px-4 py-3 font-medium">{tt('Срок', 'Muddat')}</th>
+                  <th className="px-4 py-3 font-medium">{tt('Мин. заказ', 'Min. buyurtma')}</th>
+                  <th className="px-4 py-3 font-medium">{tt('Гарантии', 'Kafolatlar')}</th>
+                  <th className="px-4 py-3"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {offers.map((o, idx) => {
+                  const isSel = o.id === selectedOffer?.id;
+                  const isCheapest = idx === 0;
+                  const exp = expiryInfo(o.expiryDate, { shortDated: o.shortDated });
+                  const isOpen = expandedOfferId === o.id;
+                  return (
+                    <Fragment key={o.id}>
+                    <tr
+                      onClick={() => selectOffer(o)}
+                      className={`cursor-pointer border-t border-slate-100 transition-colors ${isSel ? 'bg-teal-50/60' : 'hover:bg-slate-50'}`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <input type="radio" checked={isSel} onChange={() => selectOffer(o)} className="accent-teal-600" />
+                          <Link href={`/suppliers/${o.sellerId}`} onClick={(e) => e.stopPropagation()} className="font-medium hover:text-teal-700">
+                            {o.seller?.company ?? tt('Поставщик', 'Yetkazib beruvchi')}
+                          </Link>
+                          {o.seller?.isVerified && <ShieldCheck size={14} className="text-teal-700" />}
+                          {o.seller?.isDemo && (
+                            <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                              {tt('демо', 'demo')}
+                            </span>
+                          )}
+                        </div>
+                        {o.seller && (o.seller.rating ?? 0) > 0 && (
+                          <div className="mt-0.5 flex items-center gap-0.5 text-xs text-ink-subtle">
+                            <Star size={11} className="fill-amber-400 text-amber-400" /> {Number(o.seller.rating).toFixed(1)}
+                          </div>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {contractMap[o.id] != null ? (
+                          <>
+                            <span className="font-heading font-bold text-emerald-700">{formatMoney(contractMap[o.id])}</span>
+                            <span className="ml-2 rounded bg-emerald-100 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">{tt('по договору', 'shartnoma boʻyicha')}</span>
+                            <div className="text-xs text-ink-subtle line-through">{formatMoney(o.packPrice ?? o.price)}</div>
+                          </>
+                        ) : (
+                          <>
+                            {/* Цена со скидкой, иначе в таблице одна цена, а в
+                                корзине и заказе другая. */}
+                            <span className="font-heading font-bold">{formatMoney(applyPromotion(o.packPrice ?? o.price, o.promoPercent))}</span>
+                            {!!o.promoPercent && o.promoPercent > 0 && (
+                              <>
+                                <span className="ml-2 text-xs text-ink-subtle line-through">{formatMoney(o.packPrice ?? o.price)}</span>
+                                <span className="ml-1 rounded bg-red-50 px-1 text-[10px] font-semibold text-red-600">−{o.promoPercent}%</span>
+                              </>
+                            )}
+                            {o.packUnit && <span className="ml-1 text-xs text-ink-subtle">/ {o.packUnit}</span>}
+                            {isCheapest && offers.length > 1 && (
+                              <span className="ml-2 rounded bg-teal-600 px-1.5 py-0.5 text-[10px] font-semibold text-white">{tt('мин. цена', 'min. narx')}</span>
+                            )}
+                            {packNote(o, tt) && <div className="text-xs text-ink-subtle">{packNote(o, tt)}</div>}
+                            {o.netTermDays ? (
+                              <div className="text-xs text-ink-subtle">{tt('отсрочка', 'muddatli toʻlov')} {o.netTermDays} {tt('дн.', 'kun')}</div>
+                            ) : null}
+                          </>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {o.inStock ? (
+                          <span className="text-teal-700">{o.stockQty != null ? `${o.stockQty} ${tt('шт', 'dona')}` : tt('В наличии', 'Mavjud')}</span>
+                        ) : (
+                          <span className="text-ink-subtle">{tt('Под заказ', 'Buyurtma asosida')}</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-ink-muted">{o.leadTimeDays != null ? `${o.leadTimeDays} ${tt('дн.', 'kun')}` : '—'}</td>
+                      <td className="px-4 py-3 text-ink-muted">{o.minOrder} {tt('шт', 'dona')}</td>
+                      <td className="px-4 py-3">
+                        <div className="flex flex-wrap gap-1">
+                          {o.certVerified && (
+                            <span className="inline-flex items-center gap-1 rounded bg-teal-50 px-1.5 py-0.5 text-[11px] text-teal-700"><BadgeCheck size={12} /> {tt('сертиф.', 'sertif.')}</span>
+                          )}
+                          {o.isRx && (
+                            <span className="inline-flex items-center gap-1 rounded bg-amber-50 px-1.5 py-0.5 text-[11px] text-amber-700"><Pill size={12} /> Rx</span>
+                          )}
+                          {exp?.short && (
+                            <span className="inline-flex items-center gap-1 rounded bg-orange-50 px-1.5 py-0.5 text-[11px] font-medium text-orange-700" title={tt('Срок годности партии истекает менее чем через 3 месяца', 'Partiyaning yaroqlilik muddati 3 oydan kamroq vaqtda tugaydi')}>
+                              <CalendarClock size={12} /> {tt(`Короткий срок: до ${exp.until}`, `Qisqa muddat: ${exp.until} gacha`)}
+                            </span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-right">
+                        <div className="flex items-center justify-end gap-1">
+                          <button
+                            className="btn-outline !px-3 !py-1.5 text-xs"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              add(
+                                {
+                                  productId: product.id,
+                                  offerId: o.id,
+                                  sellerName: o.seller?.company ?? undefined,
+                                  name: product.name,
+                                  price: effPrice(o, o.minOrder) ?? o.price,
+                                  minOrder: o.minOrder,
+                                  image: images[0],
+                                },
+                                o.minOrder,
+                              );
+                              toast.success(`${tt('Добавлено', 'Qoʻshildi')}: ${o.seller?.company ?? tt('поставщик', 'yetkazib beruvchi')}`);
+                            }}
+                          >
+                            <ShoppingCart size={14} /> {tt('В корзину', 'Savatga')}
+                          </button>
+                          {currentUser?.role === 'ADMIN' && (
+                            <button
+                              aria-label={tt('Верификация', 'Tasdiqlash')}
+                              title={o.certVerified ? tt('Снять верификацию', 'Tasdiqlashni bekor qilish') : tt('Верифицировать подлинность', 'Haqiqiyligini tasdiqlash')}
+                              className={`grid h-8 w-8 place-items-center rounded-lg ${o.certVerified ? 'text-teal-700 hover:bg-teal-50' : 'text-ink-subtle hover:bg-slate-100'}`}
+                              onClick={(e) => { e.stopPropagation(); verifyOffer(o.id, !o.certVerified); }}
+                            >
+                              <BadgeCheck size={16} />
+                            </button>
+                          )}
+                          <button
+                            aria-label={tt('Детали партии', 'Partiya tafsilotlari')}
+                            className="grid h-8 w-8 place-items-center rounded-lg text-ink-subtle hover:bg-slate-100"
+                            onClick={(e) => { e.stopPropagation(); setExpandedOfferId(isOpen ? null : o.id); }}
+                          >
+                            <ChevronDown size={16} className={`transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+                          </button>
+                        </div>
+                      </td>
+                    </tr>
+                    {isOpen && (
+                      <tr className="border-t border-slate-100 bg-slate-50/60">
+                        <td colSpan={7} className="px-4 py-3">
+                          <div className="grid gap-3 text-xs sm:grid-cols-4">
+                            <Detail icon={<ClipboardCheck size={14} />} label={tt('Госреестр №', 'Davlat reestri №')} value={o.regNumber ?? '—'} />
+                            <Detail icon={<Layers size={14} />} label={tt('Партия', 'Partiya')} value={o.batchNumber ?? '—'} />
+                            <Detail
+                              icon={exp?.expired ? <ShieldAlert size={14} /> : <CalendarClock size={14} />}
+                              label={tt('Годен до', 'Yaroqlilik muddati')}
+                              value={exp?.label ?? '—'}
+                              tone={exp?.expired ? 'danger' : exp?.short ? 'warn' : 'ok'}
+                              note={exp?.expired ? tt('срок истёк, не продаётся', 'muddati oʻtgan, sotilmaydi') : exp?.short ? tt('короткий срок', 'qisqa muddat') : undefined}
+                            />
+                            <div>
+                              <div className="mb-1 flex items-center gap-1 text-ink-subtle"><FileText size={14} /> {tt('Сертификаты', 'Sertifikatlar')}</div>
+                              {o.certificates?.length ? (
+                                o.certificates.map((c, ci) => (
+                                  <a key={ci} href={c} target="_blank" rel="noreferrer" onClick={(e) => e.stopPropagation()} className="block text-teal-700 hover:underline">{tt('Сертификат', 'Sertifikat')} {ci + 1}</a>
+                                ))
+                              ) : (
+                                <span className="text-ink-subtle">—</span>
+                              )}
+                              {o.certVerified && <div className="mt-1 inline-flex items-center gap-1 text-teal-700"><BadgeCheck size={12} /> {tt('проверено платформой', 'platforma tomonidan tekshirilgan')}</div>}
+                            </div>
+                          </div>
+                          {o.isRx && (
+                            <div className="mt-2 inline-flex items-center gap-1 rounded-md bg-amber-50 px-2 py-1 text-[11px] text-amber-700">
+                              <Pill size={12} /> {tt('Рецептурный препарат — отпуск по ветеринарному рецепту', 'Retsept boʻyicha preparat — veterinariya retsepti boʻyicha beriladi')}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    )}
+                    </Fragment>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-xs text-ink-subtle">{tt('Цены указаны за единицу. Итог рассчитывается с учётом объёмных скидок выбранного поставщика.', 'Narxlar bir dona uchun koʻrsatilgan. Jami tanlangan yetkazib beruvchining hajmli chegirmalari hisobga olingan holda hisoblanadi.')}</p>
+        </section>
+      )}
+
+      {/* Reviews */}
+      {(reviews.length > 0 || currentUser?.role === 'BUYER') && (
+        <section className="mt-12">
+          <h2 className="mb-4 font-heading text-2xl font-bold">{tt('Отзывы', 'Sharhlar')}</h2>
+
+          {/* Форма отзыва — только покупателю (бэкенд пропустит после покупки). */}
+          {currentUser?.role === 'BUYER' && !rvDone && (
+            <div className="card mb-4 p-4">
+              <div className="mb-2 flex items-center gap-2">
+                <span className="text-sm font-medium">{tt('Ваша оценка', 'Bahoyingiz')}</span>
+                <span className="flex items-center gap-0.5">
+                  {[1, 2, 3, 4, 5].map((n) => (
+                    <button key={n} type="button" onClick={() => setRvRating(n)} aria-label={`${n}`}>
+                      <Star size={20} className={n <= rvRating ? 'fill-amber-400 text-amber-400' : 'text-slate-300'} />
+                    </button>
+                  ))}
+                </span>
+              </div>
+              <textarea className="input !h-auto py-2" rows={3} placeholder={tt('Поделитесь опытом использования…', 'Foydalanish tajribangizni yozing…')}
+                value={rvComment} onChange={(e) => setRvComment(e.target.value)} />
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-xs text-ink-subtle">{tt('Отзыв можно оставить после покупки товара.', 'Sharh mahsulotni sotib olgandan keyin qoldiriladi.')}</span>
+                <button className="btn-primary !px-4 !py-1.5 text-sm" onClick={submitReview} disabled={rvSending}>
+                  {rvSending ? tt('Отправка…', 'Yuborilmoqda…') : tt('Оставить отзыв', 'Sharh qoldirish')}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {reviews.length > 0 ? (
+            <div className="grid gap-4 md:grid-cols-2">
+              {reviews.map((r) => (
+                <div key={r.id} className="card p-4">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{r.buyerName}</span>
+                    <span className="flex items-center gap-0.5 text-amber-400">
+                      {Array.from({ length: r.rating }).map((_, i) => <Star key={i} size={14} className="fill-amber-400" />)}
+                    </span>
+                  </div>
+                  <p className="mt-2 text-sm text-ink-muted">{r.comment}</p>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-ink-subtle">{tt('Отзывов пока нет — станьте первым после покупки.', 'Hozircha sharhlar yoʻq — xariddan keyin birinchi boʻling.')}</p>
+          )}
+        </section>
+      )}
+
+      {/* Analogs */}
+      {product.related && product.related.length > 0 && (
+        <section className="mt-12">
+          <h2 className="mb-4 font-heading text-2xl font-bold">{t('product.analogs')}</h2>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {product.related.map((p) => <ProductCard key={p.id} product={p} />)}
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+function Detail({
+  icon,
+  label,
+  value,
+  tone,
+  note,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone?: 'ok' | 'warn' | 'danger';
+  note?: string;
+}) {
+  const toneCls = tone === 'danger' ? 'text-red-600' : tone === 'warn' ? 'text-amber-600' : 'text-ink';
+  return (
+    <div>
+      <div className="mb-1 flex items-center gap-1 text-ink-subtle">{icon} {label}</div>
+      <div className={`font-medium ${toneCls}`}>{value}{note ? <span className="ml-1 text-[10px]">({note})</span> : null}</div>
+    </div>
+  );
+}
+
+// Подпись-расшифровка фасовки: «22 400 сум за 1000 доз · флакон 5000 доз».
+function packNote(o: Offer, tt: (ru: string, uz: string) => string): string | null {
+  const qty = o.priceUnitQty ?? 1;
+  const size = o.packSize ?? 1;
+  if (qty === 1 && size === 1) return null;
+  const noun = (o.priceUnit ?? '').replace(/^[\d\s]+/, '').trim(); // «1000 доз» → «доз»
+  const price = `${Math.round(o.price).toLocaleString('ru-RU')} ${tt('сум', 'soʻm')}`;
+  const base = o.priceUnit ? tt(`${price} за ${o.priceUnit}`, `${o.priceUnit} uchun ${price}`) : price;
+  const pack = [o.packUnit, size.toLocaleString('ru-RU'), noun].filter(Boolean).join(' ');
+  return pack ? `${base} · ${pack}` : base;
+}
+
+function Row({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="flex gap-2">
+      <span className="text-ink-subtle">{label}:</span>
+      <span className="font-medium">{value}</span>
+    </div>
+  );
+}
