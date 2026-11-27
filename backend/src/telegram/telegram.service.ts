@@ -1,6 +1,6 @@
 import { Injectable, Logger, OnModuleInit, OnModuleDestroy } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { LeadSource } from '@prisma/client';
+import { LeadSource, OrderStatus, UserRole } from '@prisma/client';
 import { Bot, Context, InlineKeyboard, InputFile, Keyboard } from 'grammy';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUBLIC_PRODUCT } from '../common/visibility';
@@ -12,6 +12,9 @@ import { BotLang, t } from './telegram.i18n';
 import { searchVariants } from '../products/search-variants';
 import { UsersService } from '../users/users.service';
 import { AuditService } from '../audit/audit.service';
+import { OrdersService } from '../orders/orders.service';
+import { translateToUz } from '../common/i18n/uz-messages';
+import { AuthUser } from '../common/decorators/current-user.decorator';
 import { statusText } from '../alerts/text';
 import { EMAIL, PHONE_DISPLAY, SITE, TG_CHANNEL } from '../common/contacts';
 
@@ -42,6 +45,7 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
     private readonly promotions: PromotionsService,
     private readonly users: UsersService,
     private readonly audit: AuditService,
+    private readonly orders: OrdersService,
   ) {
     this.frontendUrl = frontendUrl();
     this.adminChatId = config.get<string>('TELEGRAM_ADMIN_CHAT_ID');
@@ -205,6 +209,28 @@ export class TelegramService implements OnModuleInit, OnModuleDestroy {
       await ctx.answerCallbackQuery({ text: 'Продавец подтверждён' });
       await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
       await ctx.reply(`✅ ${seller.company || seller.fullName}: продавец подтверждён, товары видны покупателям.`);
+    });
+
+    // Продавец отвечает на заказ кнопкой под уведомлением: «Подтвердить заказ»
+    // (oc) или «Есть в наличии» для предзаказа (oa). Только из чата продавца;
+    // права и переходы статуса проверяет тот же код, что у кабинета.
+    bot.callbackQuery(/^(oc|oa):([0-9a-f-]{36})$/, async (ctx) => {
+      const [, act, orderId] = ctx.match!;
+      const u = await this.prisma.user.findUnique({ where: { telegramChatId: String(ctx.chat?.id) } });
+      const lang: BotLang = u?.telegramLang === 'uz' ? 'uz' : 'ru';
+      if (!u || u.role !== UserRole.SELLER) return ctx.answerCallbackQuery({ text: t('seller_only', lang), show_alert: true });
+      const auth: AuthUser = { id: u.id, email: u.email, role: u.role, fullName: u.fullName, phone: u.phone, company: u.company };
+      try {
+        if (act === 'oa') await this.orders.confirmAvailability(orderId, auth);
+        else await this.orders.updateStatus(orderId, OrderStatus.CONFIRMED, auth);
+      } catch (e) {
+        const raw = (e as { response?: { message?: unknown } })?.response?.message;
+        const msg = typeof raw === 'string' ? raw : (e as Error).message;
+        return ctx.answerCallbackQuery({ text: ((lang === 'uz' && translateToUz(msg)) || msg).slice(0, 190), show_alert: true });
+      }
+      await ctx.answerCallbackQuery();
+      await ctx.editMessageReplyMarkup({ reply_markup: { inline_keyboard: [] } }).catch(() => undefined);
+      await ctx.reply(act === 'oa' ? t('seller_avail_done', lang) : t('seller_confirm_done', lang).replace('{no}', orderId.slice(0, 8)));
     });
 
     bot.command('stop', async (ctx) => {

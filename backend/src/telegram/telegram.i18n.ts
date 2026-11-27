@@ -12,6 +12,9 @@ export const T: Dict = {
   btn_lead: { ru: '📝 Оставить заявку', uz: '📝 Ariza qoldirish' },
   btn_lang: { ru: '🌐 Язык', uz: '🌐 Til' },
   btn_orders: { ru: '📦 Мои заказы', uz: '📦 Buyurtmalarim' },
+  seller_confirm_done: { ru: '✅ Заказ #{no} подтверждён — покупатель получил уведомление.', uz: '✅ #{no} buyurtma tasdiqlandi — xaridorga xabar yuborildi.' },
+  seller_avail_done: { ru: '✅ Наличие подтверждено — покупатель может оплатить заказ.', uz: '✅ Mavjudlik tasdiqlandi — xaridor buyurtmani toʻlashi mumkin.' },
+  seller_only: { ru: 'Кнопка — для продавца этого заказа', uz: 'Tugma — shu buyurtma sotuvchisi uchun' },
   login_link_first: {
     ru: 'Вход через Telegram работает для аккаунтов с подключённым Telegram. Войдите на сайте по паролю и подключите его: колокольчик → «Подключить Telegram».',
     uz: 'Telegram orqali kirish Telegram ulangan akkauntlar uchun ishlaydi. Saytga parol bilan kiring va uni ulang: qoʻngʻiroqcha → «Telegramni ulash».',
