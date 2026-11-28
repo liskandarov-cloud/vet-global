@@ -11,6 +11,7 @@ import { AlertsService } from '../alerts/alerts.service';
 import { fmt, tt } from '../alerts/text';
 import { PromotionsService } from '../promotions/promotions.service';
 import { StockAlertsService } from './stock-alerts.service';
+import { ensureBrand } from '../brands/brand-slug';
 import { StorageService } from '../storage/storage.service';
 
 @Injectable()
@@ -205,25 +206,9 @@ export class ProductsService {
   // Бренд-производитель заводится автоматически из поля manufacturer товара,
   // чтобы страница «Бренды» наполнялась без ручного администрирования.
   async upsertBrand(manufacturer?: string | null) {
-    const name = manufacturer?.trim();
-    if (!name) return;
-    const slug =
-      name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') ||
-      `brand-${name.length}`;
-    const existing = await this.prisma.brand.findUnique({ where: { name } });
-    if (existing) return;
-    // На случай коллизии слага добавляем суффикс.
-    const slugTaken = await this.prisma.brand.findUnique({ where: { slug } });
-    await this.prisma.brand
-      .create({
-        data: {
-          name,
-          slug: slugTaken ? `${slug}-${Date.now().toString(36).slice(-4)}` : slug,
-          description: `${name} — производитель ветеринарной продукции.`,
-        },
-      })
-      .catch(() => undefined);
+    await ensureBrand(this.prisma, manufacturer);
   }
+
 
   async update(id: string, dto: UpdateProductDto, user: AuthUser) {
     const existing = await this.prisma.product.findUnique({ where: { id } });

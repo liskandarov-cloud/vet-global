@@ -21,15 +21,21 @@ export class BrandsService {
       where: PUBLIC_PRODUCT,
       _count: { _all: true },
     });
-    const countMap = new Map(counts.map((c) => [c.manufacturer, c._count._all]));
-    return brands.map((b) => ({ ...b, productCount: countMap.get(b.name) ?? 0 }));
+    // Без учёта регистра — как и бренд создаётся (см. ensureBrand).
+    const countMap = new Map<string, number>();
+    for (const c of counts) {
+      if (!c.manufacturer) continue;
+      const k = c.manufacturer.toLowerCase();
+      countMap.set(k, (countMap.get(k) ?? 0) + c._count._all);
+    }
+    return brands.map((b) => ({ ...b, productCount: countMap.get(b.name.toLowerCase()) ?? 0 }));
   }
 
   async getBySlug(slug: string) {
     const brand = await this.prisma.brand.findUnique({ where: { slug } });
     if (!brand) throw new NotFoundException('Бренд не найден');
     const products = await this.prisma.product.findMany({
-      where: { ...PUBLIC_PRODUCT, manufacturer: brand.name },
+      where: { ...PUBLIC_PRODUCT, manufacturer: { equals: brand.name, mode: 'insensitive' } },
       orderBy: { rating: 'desc' },
       take: 60,
       include: { seller: { select: { id: true, company: true, isVerified: true } } },

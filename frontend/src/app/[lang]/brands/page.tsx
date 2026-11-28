@@ -14,6 +14,7 @@ interface Brand {
   slug: string;
   logoUrl?: string | null;
   description?: string | null;
+  descriptionUz?: string | null;
   isSponsored: boolean;
   productCount: number;
 }
@@ -21,7 +22,7 @@ interface Brand {
 export default function BrandsPage() {
   const [brands, setBrands] = useState<Brand[]>([]);
   const [loading, setLoading] = useState(true);
-  const { tt } = useI18n();
+  const { tt, lang } = useI18n();
   const user = useAuth((s) => s.user);
   const isAdmin = user?.role === 'ADMIN';
 
@@ -61,7 +62,7 @@ export default function BrandsPage() {
                 {b.name.slice(0, 2).toUpperCase()}
               </div>
               <div className="mt-3 font-heading text-lg font-bold">{b.name}</div>
-              {b.description && <p className="mt-1 line-clamp-2 text-sm text-ink-muted">{b.description}</p>}
+              {(lang === 'uz' ? b.descriptionUz : b.description) && <p className="mt-1 line-clamp-2 text-sm text-ink-muted">{lang === 'uz' ? b.descriptionUz : b.description}</p>}
               <div className="mt-3 flex items-center justify-between">
                 <span className="inline-flex items-center gap-1 text-xs text-ink-subtle"><Package size={13} /> {b.productCount} {tt('товаров', 'mahsulot')}</span>
                 {isAdmin && (

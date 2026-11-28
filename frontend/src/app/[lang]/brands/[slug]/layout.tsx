@@ -6,6 +6,7 @@ interface Brand {
   name: string;
   slug: string;
   description?: string | null;
+  descriptionUz?: string | null;
   logoUrl?: string | null;
 }
 
@@ -16,7 +17,7 @@ export async function generateMetadata(props: { params: Promise<{ slug: string; 
   if (!b?.name) return {};
   const uz = lang === 'uz';
   const description =
-    (!uz && b.description) ||
+    (uz ? b.descriptionUz : b.description)?.slice(0, 200) ||
     (uz ? `${b.name} veterinariya preparatlari — VetHub da yetkazib beruvchilar narxlari bilan.` : `Препараты ${b.name} — с ценами поставщиков на VetHub.`);
   const alternates = langAlternates(lang, `/brands/${b.slug}`);
   const image = absoluteUrl(b.logoUrl);

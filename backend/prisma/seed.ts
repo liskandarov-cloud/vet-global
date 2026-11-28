@@ -12,11 +12,11 @@ import { recalcProductAggregates } from '../src/offers/product-aggregates';
 const prisma = new PrismaClient();
 
 const CATEGORIES = [
-  { name: 'Вакцины', nameUz: 'Vaktsinalar', slug: 'vaccines', icon: 'Syringe' },
+  { name: 'Вакцины', nameUz: 'Vaksinalar', slug: 'vaccines', icon: 'Syringe' },
   { name: 'Антибиотики', nameUz: 'Antibiotiklar', slug: 'antibiotics', icon: 'Pill' },
   { name: 'Витамины', nameUz: 'Vitaminlar', slug: 'vitamins', icon: 'Sprout' },
   { name: 'Дезинфектанты', nameUz: 'Dezinfeksiya vositalari', slug: 'disinfectants', icon: 'SprayCan' },
-  { name: 'Кормовые добавки', nameUz: "Ozuqa qo'shimchalari", slug: 'feed-additives', icon: 'Wheat' },
+  { name: 'Кормовые добавки', nameUz: 'Ozuqa qoʻshimchalari', slug: 'feed-additives', icon: 'Wheat' },
   { name: 'Диагностика', nameUz: 'Diagnostika', slug: 'diagnostics', icon: 'Microscope' },
   { name: 'Прочее', nameUz: 'Boshqalar', slug: 'other', icon: 'Package' },
 ];
