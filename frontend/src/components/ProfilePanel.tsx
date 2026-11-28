@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { Save, User, KeyRound, FileText, Upload, Mail, Trash2 } from 'lucide-react';
+import { Save, User, KeyRound, FileText, Upload, Mail, Trash2, Store } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
@@ -23,12 +23,19 @@ export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
   const [pwd, setPwd] = useState({ currentPassword: '', newPassword: '', confirm: '' });
   const [changingPwd, setChangingPwd] = useState(false);
   const [docs, setDocs] = useState<any[]>([]);
+  // Витрина поставщика: то, что покупатель видит на /suppliers/:id.
+  const [shop, setShop] = useState({ description: '', descriptionUz: '', logoUrl: '' });
+  const [savingShop, setSavingShop] = useState(false);
+  const logoRef = useRef<HTMLInputElement>(null);
   const licenseRef = useRef<HTMLInputElement>(null);
 
   const load = () => {
     api.get('/auth/me').then((r) => {
       setMe(r.data);
       setForm({ fullName: r.data.fullName ?? '', phone: r.data.phone ?? '', company: r.data.company ?? '', inn: r.data.inn ?? '' });
+      if (role === 'SELLER') {
+        api.get(`/sellers/${r.data.id}`).then((s) => setShop({ description: s.data.description ?? '', descriptionUz: s.data.descriptionUz ?? '', logoUrl: s.data.logoUrl ?? '' })).catch(() => {});
+      }
     }).catch(() => {});
     if (role === 'SELLER') api.get('/sellers/me/documents').then((r) => setDocs(r.data)).catch(() => {});
   };
@@ -43,6 +50,29 @@ export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
     } catch (e: any) {
       toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
     } finally { setSaving(false); }
+  };
+
+  const saveShop = async () => {
+    setSavingShop(true);
+    try {
+      await api.patch('/users/me', shop);
+      toast.success(tt('Витрина сохранена', 'Vitrina saqlandi'));
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? tt('Ошибка', 'Xatolik'));
+    } finally { setSavingShop(false); }
+  };
+
+  const uploadLogo = async (file?: File) => {
+    if (!file) return;
+    const fd = new FormData();
+    fd.append('file', file);
+    try {
+      const { data } = await api.post('/uploads?kind=image', fd);
+      setShop((s) => ({ ...s, logoUrl: data.url }));
+      toast.success(tt('Логотип загружен — нажмите «Сохранить витрину»', 'Logotip yuklandi — «Vitrinani saqlash» tugmasini bosing'));
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message ?? tt('Не удалось загрузить', 'Yuklab boʻlmadi'));
+    }
   };
 
   const changePassword = async () => {
@@ -131,6 +161,33 @@ export function ProfilePanel({ role }: { role: 'BUYER' | 'SELLER' }) {
           <Save size={16} /> {saving ? '…' : tt('Сохранить', 'Saqlash')}
         </button>
       </div>
+
+      {/* Витрина поставщика — только продавец */}
+      {role === 'SELLER' && (
+        <div className="border-t border-slate-100 pt-6 dark:border-slate-800">
+          <div className="mb-1 flex items-center gap-2 font-medium"><Store size={16} className="text-teal-700" /> {tt('Витрина поставщика', 'Yetkazib beruvchi vitrinasi')}</div>
+          <p className="mb-3 text-xs text-ink-subtle">
+            {tt('Это видят покупатели на странице компании.', 'Buni xaridorlar kompaniya sahifasida koʻradi.')}{' '}
+            {me?.id && <a href={`/suppliers/${me.id}`} target="_blank" rel="noreferrer" className="text-teal-700 hover:underline">{tt('Открыть страницу', 'Sahifani ochish')}</a>}
+          </p>
+          <div className="flex items-center gap-4">
+            <div className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-xl border border-slate-200 bg-white">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              {shop.logoUrl ? <img src={shop.logoUrl} alt="" className="h-full w-full object-contain" /> : <Store size={22} className="text-ink-subtle" />}
+            </div>
+            <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={(e) => uploadLogo(e.target.files?.[0])} />
+            <button className="btn-ghost text-sm" onClick={() => logoRef.current?.click()}>{shop.logoUrl ? tt('Заменить логотип', 'Logotipni almashtirish') : tt('Загрузить логотип', 'Logotip yuklash')}</button>
+          </div>
+          <label className="mb-1 mt-4 block text-xs text-ink-muted">{tt('О компании (русский)', 'Kompaniya haqida (rus tilida)')}</label>
+          <textarea className="input !h-auto py-2" rows={5} value={shop.description} onChange={(e) => setShop((s) => ({ ...s, description: e.target.value }))}
+            placeholder={tt('Что поставляете, какие бренды, склад, доставка, контакты', 'Nimalar yetkazasiz, brendlar, ombor, yetkazib berish, kontaktlar')} />
+          <label className="mb-1 mt-3 block text-xs text-ink-muted">{tt('О компании (узбекский, латиница)', 'Kompaniya haqida (oʻzbek tilida, lotin)')}</label>
+          <textarea className="input !h-auto py-2" rows={5} value={shop.descriptionUz} onChange={(e) => setShop((s) => ({ ...s, descriptionUz: e.target.value }))} />
+          <button className="btn-primary mt-4" disabled={savingShop} onClick={saveShop}>
+            <Save size={16} /> {savingShop ? '…' : tt('Сохранить витрину', 'Vitrinani saqlash')}
+          </button>
+        </div>
+      )}
 
       {/* Лицензии — только продавец */}
       {role === 'SELLER' && (

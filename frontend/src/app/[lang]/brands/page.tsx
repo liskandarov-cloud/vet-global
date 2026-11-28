@@ -6,6 +6,7 @@ import { Award, Package } from 'lucide-react';
 import { toast } from 'sonner';
 import { api } from '@/lib/api';
 import { useAuth } from '@/lib/store';
+import { latin } from '@/lib/product-facts';
 import { useI18n } from '@/lib/i18n';
 
 interface Brand {
@@ -59,9 +60,9 @@ export default function BrandsPage() {
                 </span>
               )}
               <div className="grid h-12 w-12 place-items-center rounded-xl bg-teal-50 font-heading text-lg font-bold text-teal-700">
-                {b.name.slice(0, 2).toUpperCase()}
+                {(lang === 'uz' ? latin(b.name) : b.name).slice(0, 2).toUpperCase()}
               </div>
-              <div className="mt-3 font-heading text-lg font-bold">{b.name}</div>
+              <div className="mt-3 font-heading text-lg font-bold">{lang === 'uz' ? latin(b.name) : b.name}</div>
               {(lang === 'uz' ? b.descriptionUz : b.description) && <p className="mt-1 line-clamp-2 text-sm text-ink-muted">{lang === 'uz' ? b.descriptionUz : b.description}</p>}
               <div className="mt-3 flex items-center justify-between">
                 <span className="inline-flex items-center gap-1 text-xs text-ink-subtle"><Package size={13} /> {b.productCount} {tt('товаров', 'mahsulot')}</span>

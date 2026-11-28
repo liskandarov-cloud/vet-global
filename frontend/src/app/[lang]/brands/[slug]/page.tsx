@@ -7,6 +7,7 @@ import { ArrowLeft, Award } from 'lucide-react';
 import { api } from '@/lib/api';
 import { Product } from '@/lib/types';
 import { ProductCard } from '@/components/ProductCard';
+import { latin } from '@/lib/product-facts';
 import { useI18n } from '@/lib/i18n';
 
 interface BrandDetail {
@@ -41,17 +42,18 @@ export default function BrandPage() {
 
   // Узбекская страница без узбекского описания — без описания, а не по-русски.
   const about = lang === 'uz' ? brand.descriptionUz : brand.description;
+  const name = lang === 'uz' ? latin(brand.name) : brand.name;
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-10">
       <Link href="/brands" className="btn-ghost mb-4"><ArrowLeft size={16} /> {tt('Бренды', 'Brendlar')}</Link>
       <div className="flex items-center gap-4">
         <div className="grid h-16 w-16 place-items-center rounded-2xl bg-teal-50 font-heading text-2xl font-bold text-teal-700">
-          {brand.name.slice(0, 2).toUpperCase()}
+          {name.slice(0, 2).toUpperCase()}
         </div>
         <div>
           <h1 className="flex items-center gap-2 font-heading text-3xl font-extrabold">
-            {brand.name}
+            {name}
             {brand.isSponsored && <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700"><Award size={12} /> {tt('Продвигается', 'Reklama qilinmoqda')}</span>}
           </h1>
           {about && <p className="mt-2 max-w-3xl text-ink-muted">{about}</p>}

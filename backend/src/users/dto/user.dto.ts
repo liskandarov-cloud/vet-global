@@ -6,6 +6,7 @@ export class UpdateProfileDto {
   @IsOptional() @IsString() company?: string;
   @IsOptional() @IsString() inn?: string;
   @IsOptional() @IsString() description?: string; // о поставщике
+  @IsOptional() @IsString() descriptionUz?: string;
   @IsOptional() @IsString() logoUrl?: string;
   @IsOptional() @IsString() bankName?: string;
   @IsOptional() @IsString() bankAccount?: string;

@@ -187,6 +187,7 @@ export class UsersService {
       company: s.company,
       fullName: s.fullName,
       description: s.description,
+      descriptionUz: s.descriptionUz,
       logoUrl: s.logoUrl,
       isVerified: s.isVerified,
       isDemo: s.isDemo,
