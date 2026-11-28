@@ -2,6 +2,7 @@ import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { UserRole } from '@prisma/client';
 import * as bcrypt from 'bcryptjs';
 import { PrismaService } from '../prisma/prisma.service';
+import { ensureBrand } from '../brands/brand-slug';
 import { normalizeEmail } from '../common/email';
 
 export interface ProvisionUserDto {
@@ -74,29 +75,18 @@ export class MaintenanceService {
       distinct: ['manufacturer'],
       select: { manufacturer: true },
     });
-    const names = mans.map((m) => m.manufacturer!).filter(Boolean);
-    await this.prisma.brand.deleteMany({ where: { name: { notIn: names } } });
+    const names = mans.map((m) => m.manufacturer!.trim()).filter(Boolean);
+    // Без учёта регистра, как ensureBrand: бренд «CID Lines» живёт, пока есть товары «CID LINES».
+    const keep = new Set(names.map((n) => n.toLowerCase()));
+    const stale = (await this.prisma.brand.findMany({ select: { id: true, name: true } })).filter((b) => !keep.has(b.name.toLowerCase()));
+    if (stale.length) await this.prisma.brand.deleteMany({ where: { id: { in: stale.map((b) => b.id) } } });
 
     let created = 0;
-    for (const name of names) {
-      const exists = await this.prisma.brand.findUnique({ where: { name } });
-      if (exists) continue;
-      const base = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'brand';
-      const taken = await this.prisma.brand.findUnique({ where: { slug: base } });
-      await this.prisma.brand
-        .create({
-          data: {
-            name,
-            slug: taken ? `${base}-${created}` : base,
-            description: `${name} — производитель ветеринарной продукции.`,
-          },
-        })
-        .catch(() => undefined);
-      created++;
-    }
+    for (const name of names) if (await ensureBrand(this.prisma, name)) created++;
     const total = await this.prisma.brand.count();
     return { ok: true, created, total, manufacturers: names };
   }
+
 
   // Полная очистка демо/операционных данных. Сохраняются: категории (таксономия)
   // и учётные записи администраторов. Требуется точная фраза подтверждения.

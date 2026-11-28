@@ -128,18 +128,18 @@ enum AnimalType {
 // ─────────────────────────────── Users ───────────────────────────────
 
 model User {
-  id              String   @id @default(uuid())
-  email           String   @unique
-  passwordHash    String
-  fullName        String
-  phone           String
-  company         String?
-  inn             String? // ИНН основного юрлица (быстрый доступ)
-  role            UserRole @default(BUYER)
-  isVerified      Boolean  @default(false) // продавец подтверждён админом
-  isBanned        Boolean  @default(false)
-  isDemo          Boolean  @default(false) // демо-поставщик: показываем пометку на витрине
-  vetPointsBalance Decimal @default(0) @db.Decimal(12, 2)
+  id               String   @id @default(uuid())
+  email            String   @unique
+  passwordHash     String
+  fullName         String
+  phone            String
+  company          String?
+  inn              String? // ИНН основного юрлица (быстрый доступ)
+  role             UserRole @default(BUYER)
+  isVerified       Boolean  @default(false) // продавец подтверждён админом
+  isBanned         Boolean  @default(false)
+  isDemo           Boolean  @default(false) // демо-поставщик: показываем пометку на витрине
+  vetPointsBalance Decimal  @default(0) @db.Decimal(12, 2)
 
   // Seller-facing aggregates
   rating       Decimal @default(0) @db.Decimal(3, 2)
@@ -180,19 +180,19 @@ model User {
   // Relations
   counterparties     Counterparty[]
   favorites          Favorite[]
-  products           Product[]           @relation("SellerProducts")
-  deliveryTariffs    DeliveryTariff[]    @relation("SellerTariffs")
-  offers             Offer[]             @relation("SellerOffers")
-  orders             Order[]             @relation("BuyerOrders")
+  products           Product[]              @relation("SellerProducts")
+  deliveryTariffs    DeliveryTariff[]       @relation("SellerTariffs")
+  offers             Offer[]                @relation("SellerOffers")
+  orders             Order[]                @relation("BuyerOrders")
   creditApplications CreditApplication[]
-  rfqs               Rfq[]               @relation("BuyerRfqs")
-  rfqQuotes          RfqQuote[]          @relation("SellerQuotes")
+  rfqs               Rfq[]                  @relation("BuyerRfqs")
+  rfqQuotes          RfqQuote[]             @relation("SellerQuotes")
   memberships        OrgMembership[]
-  subscriptions      Subscription[]      @relation("BuyerSubs")
-  sellerContracts    ContractPrice[]     @relation("SellerContracts")
-  buyerContracts     ContractPrice[]     @relation("BuyerContracts")
-  pushSubscriptions  PushSubscription[]  @relation("PushSubs")
-  notifications      Notification[]      @relation("UserNotifications")
+  subscriptions      Subscription[]         @relation("BuyerSubs")
+  sellerContracts    ContractPrice[]        @relation("SellerContracts")
+  buyerContracts     ContractPrice[]        @relation("BuyerContracts")
+  pushSubscriptions  PushSubscription[]     @relation("PushSubs")
+  notifications      Notification[]         @relation("UserNotifications")
   reviews            Review[]
   vetPointsLedger    VetPointsTransaction[]
   promotions         Promotion[]
@@ -201,10 +201,10 @@ model User {
   stockAlerts        StockAlert[]
   passwordResets     PasswordResetToken[]
   adminActions       AdminAuditLog[]
+  transferPayments   TransferPayment[]      @relation("TransferPayments")
 
   @@index([role])
   @@index([role, isVerified])
-  transferPayments TransferPayment[] @relation("TransferPayments")
 }
 
 // Multiple legal entities a buyer can order on behalf of (SRS 4.4 / Checkout 4.2).
@@ -230,13 +230,13 @@ model Counterparty {
 
 // Запрос коммерческого предложения от покупателя (тендер между поставщиками).
 model Rfq {
-  id        String     @id @default(uuid())
+  id        String    @id @default(uuid())
   buyerId   String
   title     String
   note      String?
   deadline  DateTime?
-  status    RfqStatus  @default(OPEN)
-  createdAt DateTime   @default(now())
+  status    RfqStatus @default(OPEN)
+  createdAt DateTime  @default(now())
 
   buyer  User       @relation("BuyerRfqs", fields: [buyerId], references: [id], onDelete: Cascade)
   items  RfqItem[]
@@ -370,14 +370,15 @@ model PushSubscription {
 
 // Бренд/производитель + платное продвижение (блок 4).
 model Brand {
-  id          String   @id @default(uuid())
-  name        String   @unique
-  slug        String   @unique
-  logoUrl     String?
-  description String?
-  isSponsored Boolean  @default(false) // платное продвижение
-  sponsorRank Int      @default(0) // приоритет в выдаче
-  createdAt   DateTime @default(now())
+  id            String   @id @default(uuid())
+  name          String   @unique
+  slug          String   @unique
+  logoUrl       String?
+  description   String?
+  descriptionUz String?
+  isSponsored   Boolean  @default(false) // платное продвижение
+  sponsorRank   Int      @default(0) // приоритет в выдаче
+  createdAt     DateTime @default(now())
 
   @@index([isSponsored, sponsorRank])
 }
@@ -397,12 +398,12 @@ model Organization {
 
 // Участник организации: роль + лимит на заказ без согласования.
 model OrgMembership {
-  id         String   @id @default(uuid())
+  id         String    @id @default(uuid())
   orgId      String
   userId     String
-  role       OrgRole  @default(PURCHASER)
-  spendLimit Decimal  @default(0) @db.Decimal(12, 2) // лимит заказа без согласования (0 = требуется всегда)
-  createdAt  DateTime @default(now())
+  role       OrgRole   @default(PURCHASER)
+  spendLimit Decimal   @default(0) @db.Decimal(12, 2) // лимит заказа без согласования (0 = требуется всегда)
+  createdAt  DateTime  @default(now())
   // null — приглашение ещё не принято: членство не действует, его заказы не
   // уходят на согласование, контакты не видны организации.
   acceptedAt DateTime? @default(now())
@@ -464,36 +465,36 @@ model Category {
 }
 
 model Product {
-  id             String      @id @default(uuid())
-  name           String
-  nameUz         String?
-  description    String
-  descriptionUz  String?
-  categoryId     String
-  price          Decimal     @db.Decimal(12, 2)
+  id              String      @id @default(uuid())
+  name            String
+  nameUz          String?
+  description     String
+  descriptionUz   String?
+  categoryId      String
+  price           Decimal     @db.Decimal(12, 2)
   activeSubstance String?
-  manufacturer   String?
-  form           String? // форма выпуска
-  animalType     AnimalType?
-  inStock        Boolean     @default(true) // false = «под заказ» (виден, но оплата после подтверждения)
-  stockQty       Int? // числовой остаток; null = не отслеживается (тогда только inStock). 0 → авто «под заказ»
-  isActive       Boolean     @default(true) // false = снят с продажи, скрыт из каталога (без удаления)
-  minOrder       Int         @default(1) // минимальный объём / квант отгрузки
-  images         String[]    @default([])
-  certificates   String[]    @default([]) // URLs PDF-сертификатов
-  isPromotion    Boolean     @default(false)
-  promotionText  String?
-  isNew          Boolean     @default(false)
-  externalId     String? // код товара в 1С/ERP поставщика (ключ синхронизации)
+  manufacturer    String?
+  form            String? // форма выпуска
+  animalType      AnimalType?
+  inStock         Boolean     @default(true) // false = «под заказ» (виден, но оплата после подтверждения)
+  stockQty        Int? // числовой остаток; null = не отслеживается (тогда только inStock). 0 → авто «под заказ»
+  isActive        Boolean     @default(true) // false = снят с продажи, скрыт из каталога (без удаления)
+  minOrder        Int         @default(1) // минимальный объём / квант отгрузки
+  images          String[]    @default([])
+  certificates    String[]    @default([]) // URLs PDF-сертификатов
+  isPromotion     Boolean     @default(false)
+  promotionText   String?
+  isNew           Boolean     @default(false)
+  externalId      String? // код товара в 1С/ERP поставщика (ключ синхронизации)
   // Код ИКПУ (MXIK, 17 цифр) и код упаковки из tasnif.soliq.uz — нужны для
   // ЭСФ в Didox и фискального чека Payme. См. common/mxik.ts.
-  mxikCode    String?
-  packageCode String?
-  rating         Decimal     @default(0) @db.Decimal(3, 2)
-  reviewsCount   Int         @default(0)
+  mxikCode        String?
+  packageCode     String?
+  rating          Decimal     @default(0) @db.Decimal(3, 2)
+  reviewsCount    Int         @default(0)
 
   // Мульти-поставщик: денормализованные агрегаты по офферам для каталога.
-  minPrice     Decimal? @db.Decimal(12, 2) // минимальная цена среди активных офферов
+  minPrice      Decimal? @db.Decimal(12, 2) // минимальная цена среди активных офферов
   // Минимальный заказ по тому же предложению, из которого взята minPrice.
   //
   // Карточка каталога показывает цену лучшего предложения, а минимум брала из
@@ -501,15 +502,15 @@ model Product {
   // выше товарного, получал отказ уже в корзине: покупатель добавлял одну
   // упаковку, а заказ требовал три.
   offerMinOrder Int?
-  offersCount  Int      @default(0) // число активных офферов (продавцов)
+  offersCount   Int      @default(0) // число активных офферов (продавцов)
 
   sellerId String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  category   Category    @relation(fields: [categoryId], references: [id])
-  seller     User        @relation("SellerProducts", fields: [sellerId], references: [id], onDelete: Cascade)
+  category      Category       @relation(fields: [categoryId], references: [id])
+  seller        User           @relation("SellerProducts", fields: [sellerId], references: [id], onDelete: Cascade)
   offers        Offer[]
   reviews       Review[]
   orderItems    OrderItem[]
@@ -529,15 +530,15 @@ model Product {
 // Оффер — предложение конкретного продавца по товару (SKU).
 // Один Product = много Offer от разных поставщиков → сравнение цен (ядро Vetcove).
 model Offer {
-  id           String   @id @default(uuid())
+  id           String  @id @default(uuid())
   productId    String
   sellerId     String
-  price        Decimal  @db.Decimal(12, 2)
-  inStock      Boolean  @default(true)
+  price        Decimal @db.Decimal(12, 2)
+  inStock      Boolean @default(true)
   stockQty     Int? // остаток на складе продавца (null = не указан)
-  minOrder     Int      @default(1) // минимальная партия / квант отгрузки
+  minOrder     Int     @default(1) // минимальная партия / квант отгрузки
   leadTimeDays Int? // срок поставки в днях
-  isActive     Boolean  @default(true)
+  isActive     Boolean @default(true)
 
   // Фасовка: цена в прайсе может указываться за базовую единицу (напр. 1000 доз),
   // а продаётся упаковка (флакон 3000/5000 доз). Цена упаковки = price * packSize / priceUnitQty.
@@ -618,7 +619,7 @@ model Order {
   paymentSchedule Json? // график: [{ n, dueDate, amount }]
 
   // Сделка заключена по запросу цен (RFQ) — для прослеживаемости тендера.
-  rfqId          String?
+  rfqId String?
 
   // Доставка. Способ и адрес указывает покупатель при оформлении, стоимость
   // считается по тарифам продавцов сразу же. Раньше её назначал продавец уже
@@ -656,14 +657,14 @@ model Order {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  buyer        User?         @relation("BuyerOrders", fields: [buyerId], references: [id])
-  counterparty Counterparty? @relation(fields: [counterpartyId], references: [id])
-  org          Organization? @relation(fields: [orgId], references: [id])
-  items        OrderItem[]
-  invoices     Invoice[]
-  shipments    Shipment[]
-  parts        OrderPart[]
-  payments     Payment[]
+  buyer            User?             @relation("BuyerOrders", fields: [buyerId], references: [id])
+  counterparty     Counterparty?     @relation(fields: [counterpartyId], references: [id])
+  org              Organization?     @relation(fields: [orgId], references: [id])
+  items            OrderItem[]
+  invoices         Invoice[]
+  shipments        Shipment[]
+  parts            OrderPart[]
+  payments         Payment[]
   transferPayments TransferPayment[]
 
   @@index([buyerId])
@@ -717,8 +718,8 @@ model OrderItem {
 
 // PDF-счёт, сформированный после подтверждения заказа (ТЗ 6.3).
 model Invoice {
-  id      String @id @default(uuid())
-  orderId String
+  id          String    @id @default(uuid())
+  orderId     String
   // Продавец, от имени которого выпущен документ.
   //
   // Счёт-фактура — документ между двумя юрлицами, и в заказе от нескольких
@@ -730,10 +731,10 @@ model Invoice {
   // ключе различными, и такой ключ не удержал бы второй документ от дубля.
   // Пустое значение означает документ на весь заказ — так выглядят счета,
   // выпущенные до разделения.
-  sellerId String @default("")
-  number   String @unique // человекочитаемый номер счёта
-  fileUrl   String? // ссылка на PDF в S3
-  amount    Decimal  @db.Decimal(12, 2)
+  sellerId    String    @default("")
+  number      String    @unique // человекочитаемый номер счёта
+  fileUrl     String? // ссылка на PDF в S3
+  amount      Decimal   @db.Decimal(12, 2)
   // Didox ЭДО (SRS 3.1): id документа в Didox и его статус (DRAFT/SENT/SIGNED/REJECTED)
   didoxId     String?
   didoxStatus String?
@@ -741,9 +742,9 @@ model Invoice {
   // иначе выпускало два счёта-фактуры на одну поставку (didox.service.ts).
   sendingAt   DateTime?
   // E-imzo (ЭЦП): PKCS#7-подпись документа и время подписания
-  signature String?
-  signedAt  DateTime?
-  createdAt DateTime @default(now())
+  signature   String?
+  signedAt    DateTime?
+  createdAt   DateTime  @default(now())
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -789,11 +790,10 @@ model DeliveryTariff {
   @@index([sellerId, isActive])
 }
 
-
 // Shipment for an order (питч-дек: «Доставка»). 1:1 with Order.
 model Shipment {
-  id      String @id @default(uuid())
-  orderId String
+  id             String         @id @default(uuid())
+  orderId        String
   // Отправка принадлежит продавцу, а не заказу целиком: в заказе могут быть
   // товары от нескольких поставщиков, и физически это разные посылки — со
   // своим перевозчиком, трек-номером и стоимостью. Раньше на заказ приходилась
@@ -801,7 +801,7 @@ model Shipment {
   //
   // Необязательное поле ради уже существующих записей: их продавец
   // восстанавливается отдельным скриптом по первой позиции заказа.
-  sellerId String?
+  sellerId       String?
   method         DeliveryMethod @default(COURIER)
   status         ShipmentStatus @default(PENDING)
   city           String?
@@ -820,7 +820,6 @@ model Shipment {
   // Одна отправка на продавца в заказе.
   @@unique([orderId, sellerId])
   @@index([sellerId])
-
   @@index([status])
 }
 
@@ -842,16 +841,16 @@ model Favorite {
 // ─────────────────────────────── Payments ───────────────────────────────
 
 model Payment {
-  id             String          @id @default(uuid())
-  orderId        String
-  provider       PaymentProvider
-  amount         Decimal         @db.Decimal(12, 2)
-  status         PaymentStatus   @default(PENDING)
+  id              String          @id @default(uuid())
+  orderId         String
+  provider        PaymentProvider
+  amount          Decimal         @db.Decimal(12, 2)
+  status          PaymentStatus   @default(PENDING)
   providerTransId String? // id транзакции у провайдера
-  paymentUrl     String? // ссылка на оплату (checkout)
-  meta           Json? // состояние провайдера (Payme state/times, Click prepare id)
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
+  paymentUrl      String? // ссылка на оплату (checkout)
+  meta            Json? // состояние провайдера (Payme state/times, Click prepare id)
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
 
   order Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
@@ -919,16 +918,16 @@ model Review {
 // ─────────────────────────────── Promotions ───────────────────────────────
 
 model Promotion {
-  id              String   @id @default(uuid())
+  id              String    @id @default(uuid())
   sellerId        String
   productId       String?
   title           String
   description     String?
-  discountPercent Int      @default(0)
-  startsAt        DateTime @default(now())
+  discountPercent Int       @default(0)
+  startsAt        DateTime  @default(now())
   endsAt          DateTime?
-  isActive        Boolean  @default(true)
-  createdAt       DateTime @default(now())
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
 
   seller  User     @relation(fields: [sellerId], references: [id], onDelete: Cascade)
   // Cascade, а не SetNull: акция без товара — это скидка на весь ассортимент
