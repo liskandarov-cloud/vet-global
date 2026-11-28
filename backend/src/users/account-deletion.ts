@@ -36,6 +36,7 @@ export function anonymizedProfile(userId: string) {
     company: null,
     inn: null,
     description: null,
+    descriptionUz: null,
     logoUrl: null,
     bankName: null,
     bankAccount: null,

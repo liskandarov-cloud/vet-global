@@ -7,6 +7,7 @@ import { Product } from '@/lib/types';
 import { useCart, useFavorites, useAuth } from '@/lib/store';
 import { useI18n } from '@/lib/i18n';
 import { formatMoney } from '@/lib/utils';
+import { latin } from '@/lib/product-facts';
 import { applyPromotion } from '@/lib/pricing';
 
 const PLACEHOLDER = '/products/vaccine.jpg';
@@ -84,7 +85,8 @@ export function ProductCard({ product }: { product: Product }) {
           </h3>
         </Link>
         <div className="mt-1 text-xs text-ink-subtle">
-          {product.manufacturer ?? product.activeSubstance ?? ''}
+          {/* На узбекской странице — латиницей (вещество есть только по-русски — не показываем). */}
+          {lang === 'uz' ? (product.manufacturer ? latin(product.manufacturer) : '') : (product.manufacturer ?? product.activeSubstance ?? '')}
         </div>
 
         <div className="mt-2 flex items-center gap-1 text-xs text-ink-muted">

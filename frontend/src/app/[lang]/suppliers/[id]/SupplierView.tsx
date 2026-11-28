@@ -13,6 +13,7 @@ export interface Seller {
   id: string;
   company?: string;
   description?: string;
+  descriptionUz?: string | null;
   isVerified: boolean;
   rating: number;
   reviewsCount: number;
@@ -23,7 +24,7 @@ export interface Seller {
 // Страница поставщика: первый рендер — с данными сервера (initial), чтобы
 // описание компании и её товары были в HTML для поисковиков.
 export default function SupplierView({ initialSeller, initialProducts }: { initialSeller?: Seller | null; initialProducts?: Product[] }) {
-  const { tt } = useI18n();
+  const { tt, lang } = useI18n();
   const { id } = useParams<{ id: string }>();
   const [seller, setSeller] = useState<Seller | null>(initialSeller ?? null);
   const [notFound, setNotFound] = useState(false);
@@ -61,7 +62,10 @@ export default function SupplierView({ initialSeller, initialProducts }: { initi
           </div>
         </div>
         <div className="p-6">
-        {seller.description && <p className="text-ink-muted">{seller.description}</p>}
+        {/* Узбекская страница без узбекского описания — без описания, а не по-русски. */}
+        {(lang === 'uz' ? seller.descriptionUz : seller.description) && (
+          <p className="whitespace-pre-line text-ink-muted">{lang === 'uz' ? seller.descriptionUz : seller.description}</p>
+        )}
         <div className="mt-4 flex gap-6 text-sm text-ink-muted">
           <span className="flex items-center gap-1"><Star size={15} className="fill-amber-400 text-amber-400" />{seller.rating.toFixed(1)} ({seller.reviewsCount})</span>
           <span>{seller.productsCount} {tt('товаров', 'mahsulot')}</span>
